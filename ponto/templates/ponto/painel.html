@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Painel - Registro de Ponto</title>
+    </head>
+    <body>
+        Usuário: {{ request.user.username }}
+        <p>Bem-vindo, {{ request.user.first_name }}!</p>
+        Papel: {{ perfil.get_papel_display }}
+        <form method="post" action="{%url 'bater_ponto' %}">
+            {% csrf_token %}
+            <button type="submit">Registrar Ponto</button>
+        </form>
+
+        {%for registro in registro_hoje%}
+            <ul>
+                <li>
+            Registros: {{ registro.get_tipo_display }}
+            {{ registro.data_hora|time:"H:i" }}    
+                </li>
+            </ul>
+        {%endfor%}
+
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit">Sair</button>
+        </form>
+    </body>
+
+</html>
