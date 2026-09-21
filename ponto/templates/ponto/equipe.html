@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Painel - Registro de Ponto</title>
+    </head>
+
+<body>
+
+    <h1>
+        Minha Equipe
+    </h1>
+
+    {% for usuario in equipe %}
+        {{usuario.get_full_name}}
+        {{ usuario.username }}
+        <ul>
+            <li>
+        {{usuario.perfil.get_papel_display}}
+            </li>
+        </ul>
+    {%endfor%}
+
+    <a href="{% url 'painel' %}">Voltar</a>        
+
+</body>
+</html>
