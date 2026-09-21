@@ -3,7 +3,7 @@ from ponto.models import RegistroPonto
 
 def proximo_tipo_ponto(funcionario):
     hoje = timezone.localdate()
-    registros = RegistroPonto.objects.filter(funcionario=funcionario, data_hora__date=hoje)
+    registros = RegistroPonto.objects.filter(funcionario=funcionario, data_hora__date=hoje, ativo = True)
     batidas_registradas = registros.values_list('tipo', flat=True)
 
     for tipo in RegistroPonto.ORDEM_TIPOS:

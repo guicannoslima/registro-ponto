@@ -77,8 +77,44 @@ class RegistroPonto(models.Model):
     registrado_manualmente = models.BooleanField(default=False)
     observacao = models.TextField(blank=True)
 
+    ativo = models.BooleanField(
+        default=True
+    )
+
     class Meta:
         ordering = ["data_hora"]
 
     def __str__(self):
         return f"{self.funcionario} - {self.get_tipo_display()} em {self.data_hora:%d/%m/%Y %H:%M}"
+
+class HistoricoAlteracaoPonto(models.Model):
+    registro = models.ForeignKey(
+        RegistroPonto,
+        on_delete=models.CASCADE,
+        related_name='historico',
+    )
+
+    CRIACAO_MANUAL = 'criacao_manual'
+    EDICAO = 'edicao'
+    EXCLUSAO = 'exclusao'
+
+    ACAO_CHOICES = [
+        (CRIACAO_MANUAL, 'Criação manual'),
+        (EDICAO, 'Edição'),
+        (EXCLUSAO, 'Exclusão'),
+    ]
+
+    tipo_acao = models.CharField(max_length= 20, choices=ACAO_CHOICES)
+
+    realizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+
+    motivo = models.TextField(
+    )
+
+    criado_em = models.DateTimeField(
+        auto_now_add = True
+    )

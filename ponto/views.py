@@ -10,7 +10,7 @@ from django.utils import timezone
 def painel(request):
     perfil = request.user.perfil
     hoje = timezone.localdate()
-    registro_hoje = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=hoje)
+    registro_hoje = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=hoje, ativo = True)
     return render(request, 'ponto/painel.html', {'perfil': perfil, 'registro_hoje': registro_hoje})
 
 @login_required
