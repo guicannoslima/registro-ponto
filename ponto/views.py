@@ -32,5 +32,11 @@ def equipe(request):
         return redirect('painel')
 
     equipe = funcionarios_visiveis(request.user)
-    return render(request, 'ponto/equipe.html', {'equipe': equipe})
+    hoje = timezone.localdate()
+    equipe_com_registros = []
+
+    for usuario in equipe:
+        registro_do_usuario = RegistroPonto.objects.filter(funcionario=usuario, data_hora__date=hoje, ativo=True)
+        equipe_com_registros.append((usuario, registro_do_usuario))
     
+    return render(request, 'ponto/equipe.html', {'equipe':  equipe_com_registros})

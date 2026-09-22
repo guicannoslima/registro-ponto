@@ -11,9 +11,20 @@
         Minha Equipe
     </h1>
 
-    {% for usuario in equipe %}
+    {% for usuario, registros in equipe %}
         {{usuario.get_full_name}}
-        {{ usuario.username }}
+
+        {% for registro in registros %}
+            <ul>
+                <li>
+                    {{ registro.get_tipo_display }} - {{ registro.data_hora|time:"H:i" }}
+                </li>
+            </ul>
+        {% empty %}
+            <p>
+                Nenhum ponto registrado hoje.
+            </p>
+        {% endfor %}
         <ul>
             <li>
         {{usuario.perfil.get_papel_display}}
