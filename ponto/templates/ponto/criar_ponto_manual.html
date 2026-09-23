@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Ajuste de Ponto</title>
+    </head>
+
+    <body>
+        <form method="post" action = "{% url 'criar_ponto_manual' %}">
+            {%csrf_token%}
+            {{form.as_p}}
+            <button  type="submit">Enviar</button>
+            <a href="{% url 'equipe' %}">Ver Equipe</a>
+        </form>
+    </body>
+</html> 

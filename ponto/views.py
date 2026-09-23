@@ -7,7 +7,9 @@ from django.shortcuts import redirect
 from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
-from .models import Perfil
+from .models import Perfil, HistoricoAlteracaoPonto
+from django import forms
+from .forms import RegistroManualForm
 
 @login_required
 def painel(request):
@@ -40,3 +42,28 @@ def equipe(request):
         equipe_com_registros.append((usuario, registro_do_usuario))
     
     return render(request, 'ponto/equipe.html', {'equipe':  equipe_com_registros})
+
+@login_required
+def criar_ponto_manual(request):
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        messages.error(request, 'Somente gestores podem lançar pontos manuais.')
+        return redirect('painel')
+
+    if request.method == 'POST':
+        form = RegistroManualForm(request.POST)
+        if form.is_valid():
+            registros_pontos = RegistroPonto.objects.create(
+            funcionario=form.cleaned_data['funcionario'],
+            tipo = form.cleaned_data['tipo'],
+            data_hora = form.cleaned_data['data_hora'],
+            registrado_manualmente = True
+            )
+            HistoricoAlteracaoPonto.objects.create(
+            registro = registros_pontos,
+            tipo_acao = HistoricoAlteracaoPonto.CRIACAO_MANUAL,
+            realizado_por=request.user,
+            motivo=form.cleaned_data['motivo'])
+            return redirect('equipe')
+    else:
+        form = RegistroManualForm()
+    return render(request, 'ponto/criar_ponto_manual.html', {'form': form})
