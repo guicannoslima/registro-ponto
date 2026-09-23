@@ -8,8 +8,7 @@ from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto
-from django import forms
-from .forms import RegistroManualForm
+from .forms import RegistroManualForm, MotivoExclusaoForm
 
 @login_required
 def painel(request):
@@ -67,3 +66,24 @@ def criar_ponto_manual(request):
     else:
         form = RegistroManualForm()
     return render(request, 'ponto/criar_ponto_manual.html', {'form': form})
+
+@login_required
+def excluir_ponto(request, registro_id):
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        messages.error(request, 'Somente os gestores podem excluir pontos.')
+        return redirect('painel')
+
+    registro = RegistroPonto.objects.get(id=registro_id)
+
+    if request.method == 'POST':
+        motivo_exclusao = MotivoExclusaoForm(request.POST)
+        if motivo_exclusao.is_valid():
+            registro.ativo = False
+            registro.save()
+            HistoricoAlteracaoPonto.objects.create(
+                tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO, registro=registro, realizado_por=request.user, motivo=motivo_exclusao.cleaned_data['motivo']
+             )
+            return redirect('painel')
+    else:
+        motivo_exclusao = MotivoExclusaoForm()
+    return render (request, 'ponto/excluir_ponto.html', {'form': motivo_exclusao, 'registro': registro})

@@ -18,6 +18,7 @@
             <ul>
                 <li>
                     {{ registro.get_tipo_display }} - {{ registro.data_hora|time:"H:i" }}
+                    <a href="{% url 'excluir_ponto' registro.id %}">Excluir</a>
                 </li>
             </ul>
         {% empty %}
@@ -30,6 +31,7 @@
         {{usuario.perfil.get_papel_display}}
             </li>
         </ul>
+        
     {%endfor%}
 
     <a href="{% url 'painel' %}">Voltar</a>        

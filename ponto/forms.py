@@ -9,3 +9,6 @@ class RegistroManualForm(forms.ModelForm):
         'data_hora': forms.DateTimeInput(attrs={'type': 'datetime-local'})
         }
     motivo = forms.CharField(max_length=150)
+
+class MotivoExclusaoForm(forms.Form):
+    motivo = forms.CharField(max_length=150)
