@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Rejeitar solicitação</title>
+    </head>
+
+    <body>
+        {{ solicitacao.funcionario.get_full_name }} - {{ solicitacao.get_tipo_acao_display }}
+        Motivo do funcionário: {{ solicitacao.motivo_funcionario }}
+
+        <form method="post" action="">
+            {% csrf_token %}
+            {{ motivo_rejeicao.as_p }}
+            <button type="submit">Confirmar Rejeição</button>
+            <a href="{% url 'solicitacoes_pendentes' %}">Cancelar</a>
+        </form>
+    </body>
+</html>

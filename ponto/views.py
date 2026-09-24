@@ -8,7 +8,8 @@ from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
-from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm
+from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm
+from django import forms
 
 @login_required
 def painel(request):
@@ -124,3 +125,74 @@ def solicitar_exclusao(request, registro_id):
     else:
         form = SolicitarExclusaoForm()
     return render (request, 'ponto/solicitar_exclusao.html', {'form': form, 'registro': registro})
+
+@login_required
+def solicitacoes_pendentes(request):
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        messages.error(request, 'Somente gestores podem ver as solicitações pendentes.')
+        return redirect ('painel')
+
+    funcionarios = funcionarios_visiveis(request.user)
+
+    solicitacoes = SolicitacaoAjustePonto.objects.filter(
+        funcionario__in=funcionarios, status = SolicitacaoAjustePonto.PENDENTE
+    )
+    return render(request, 'ponto/solicitacoes_pendentes.html', {'solicitacoes': solicitacoes})
+
+@login_required
+def rejeitar_solicitacao(request, solicitacao_id):
+    solicitacao = SolicitacaoAjustePonto.objects.get(id=solicitacao_id)
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        messages.error(request, 'Somente gestores tem acesso a essa página.')
+        return redirect ('painel')
+
+    if request.method == 'POST':
+        motivo_rejeicao = MotivoRejeicaoForm(request.POST)
+        if motivo_rejeicao.is_valid():
+            solicitacao.status = SolicitacaoAjustePonto.REJEITADO
+            solicitacao.motivo_rejeicao = motivo_rejeicao.cleaned_data['motivo_rejeicao']
+            solicitacao.gestor_revisor = request.user
+            solicitacao.save()
+            return redirect ('solicitacoes_pendentes')
+    else:
+        motivo_rejeicao = MotivoRejeicaoForm()
+    return render (request, 'ponto/rejeitar_solicitacao.html', {'solicitacao': solicitacao, 'motivo_rejeicao': motivo_rejeicao})
+
+@login_required
+@require_POST
+def aprovar_solicitacao(request, solicitacao_id):
+    solicitacao = SolicitacaoAjustePonto.objects.get(id=solicitacao_id)
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        messages.error(request, 'Somente gestores podem aprovar.')
+        return redirect ('painel')
+    if solicitacao.tipo_acao == SolicitacaoAjustePonto.CRIACAO:
+        registro = RegistroPonto.objects.create(
+            tipo = solicitacao.tipo,
+            data_hora = solicitacao.data_hora,
+            funcionario = solicitacao.funcionario
+            )
+        HistoricoAlteracaoPonto.objects.create(
+            registro = registro,
+            tipo_acao = HistoricoAlteracaoPonto.CRIACAO_MANUAL,
+            realizado_por=request.user,
+            motivo = solicitacao.motivo_funcionario
+        )
+        solicitacao.status = SolicitacaoAjustePonto.APROVADO
+        solicitacao.gestor_revisor = request.user
+        solicitacao.save()
+        return redirect('solicitacoes_pendentes')
+    else:
+        registro = solicitacao.registro
+        registro.ativo = False
+        registro.save()
+        HistoricoAlteracaoPonto.objects.create(  
+            tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO,
+            registro= solicitacao.registro,
+            realizado_por=request.user,
+            motivo = solicitacao.motivo_funcionario
+        )
+
+        solicitacao.status = SolicitacaoAjustePonto.APROVADO
+        solicitacao.gestor_revisor = request.user
+        solicitacao.save()
+        return redirect('solicitacoes_pendentes')

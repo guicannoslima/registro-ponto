@@ -23,3 +23,6 @@ class SolicitarCriacaoForm(forms.ModelForm):
 
 class SolicitarExclusaoForm(forms.Form):
     motivo_funcionario = forms.CharField(max_length=150)
+
+class MotivoRejeicaoForm(forms.Form):
+    motivo_rejeicao = forms.CharField(max_length=150)

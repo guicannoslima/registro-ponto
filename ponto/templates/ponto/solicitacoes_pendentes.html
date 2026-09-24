@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Solicitações Pendentes</title>
+    </head>
+
+    <body>
+        <h1>Solicitações Pendentes</h1>
+
+        {% for solicitacao in solicitacoes %}
+            <ul>
+                <li>
+                    {{ solicitacao.funcionario.get_full_name }} - {{ solicitacao.get_tipo_acao_display }}
+
+                    {% if solicitacao.tipo_acao == 'criacao' %}
+                        {{ solicitacao.get_tipo_display }} - {{ solicitacao.data_hora }}
+                    {% else %}
+                        {{ solicitacao.registro.get_tipo_display }} - {{ solicitacao.registro.data_hora }}
+                    {% endif %}
+                    Motivo: {{ solicitacao.motivo_funcionario }}
+                    <a href="{% url 'rejeitar_solicitacao' solicitacao.id %}">Rejeitar</a>
+
+                    <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.id %}">
+                        {% csrf_token %}
+                    <button type="submit">Aprovar</button>
+                    </form>
+
+                </li>
+            </ul>
+        {% empty %}
+            <p>Nenhuma solicitação pendente</p>
+        {% endfor %}    
+        
+        <a href="{% url 'painel'%}">Voltar ao Painel</a>
+        <a href="{% url 'equipe'%}">Ver equipe</a>
+
+    </body>
+</html>

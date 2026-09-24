@@ -11,5 +11,8 @@ urlpatterns = [
     path('ponto/criar/', views.criar_ponto_manual, name = 'criar_ponto_manual'),
     path('ponto/excluir/<int:registro_id>/', views.excluir_ponto, name = 'excluir_ponto'),
     path('ponto/solicitar/criacao/', views.solicitar_criacao, name='solicitar_criacao'),
-    path('ponto/solicitar/exclusao/<int:registro_id>/', views.solicitar_exclusao, name='solicitar_exclusao')
+    path('ponto/solicitar/exclusao/<int:registro_id>/', views.solicitar_exclusao, name='solicitar_exclusao'),
+    path('ponto/solicitacoes_pendentes/', views.solicitacoes_pendentes, name='solicitacoes_pendentes'),
+    path('ponto/rejeitar/<int:solicitacao_id>/', views.rejeitar_solicitacao, name='rejeitar_solicitacao'), 
+    path('ponto/aprovar/<int:solicitacao_id>/', views.aprovar_solicitacao, name='aprovar_solicitacao'),
 ]
