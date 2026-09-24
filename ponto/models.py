@@ -118,3 +118,60 @@ class HistoricoAlteracaoPonto(models.Model):
     criado_em = models.DateTimeField(
         auto_now_add = True
     )
+
+class SolicitacaoAjustePonto(models.Model):
+    funcionario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name = 'solicitacoes',
+    )
+
+    CRIACAO = "criacao"
+    EXCLUSAO = "exclusao"
+
+    TIPO_ACAO = [
+        (CRIACAO,"Criação"),
+        (EXCLUSAO, "Exclusão"),
+    ] 
+
+    tipo_acao = models.CharField(max_length=20, choices=TIPO_ACAO)
+
+    registro = models.ForeignKey(
+        RegistroPonto,
+        on_delete=models.SET_NULL,
+        null = True,
+        blank = True,
+    )
+
+    tipo = models.CharField(max_length=20, choices=RegistroPonto.TIPO_CHOICES, null=True, blank=True)
+
+    data_hora = models.DateTimeField(null=True, blank=True)
+
+    motivo_funcionario = models.TextField()
+
+    PENDENTE = "pendente"
+    APROVADO = "aprovado"
+    REJEITADO = "rejeitado"
+
+    STATUS_CHOICE = [
+        (PENDENTE, 'Pendente'),
+        (APROVADO, 'Aprovado'),
+        (REJEITADO, 'Rejeitado'),
+    ]
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICE, default=PENDENTE)
+
+    gestor_revisor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='solicitacoes_revisadas',
+    )
+
+    motivo_rejeicao = models.TextField(
+        blank=True
+    )
+
+    criado_em = models.DateTimeField(auto_now_add=True)

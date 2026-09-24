@@ -30,6 +30,11 @@
                 </li>
             </ul>
         {%endfor%}
+        
+        {% if perfil.papel == 'gestor' or perfil.papel == 'admin' %}
+            <a href="{%url 'equipe' %}">Ver equipe</a>
+        {% endif %}
+            <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
 
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}

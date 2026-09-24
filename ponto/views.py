@@ -7,8 +7,8 @@ from django.shortcuts import redirect
 from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
-from .models import Perfil, HistoricoAlteracaoPonto
-from .forms import RegistroManualForm, MotivoExclusaoForm
+from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
+from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm
 
 @login_required
 def painel(request):
@@ -87,3 +87,20 @@ def excluir_ponto(request, registro_id):
     else:
         motivo_exclusao = MotivoExclusaoForm()
     return render (request, 'ponto/excluir_ponto.html', {'form': motivo_exclusao, 'registro': registro})
+
+@login_required
+def solicitar_criacao(request):
+    if request.method == 'POST':
+        form = SolicitarCriacaoForm(request.POST)
+        if form.is_valid():
+            SolicitacaoAjustePonto.objects.create(
+                funcionario = request.user,
+                tipo_acao = SolicitacaoAjustePonto.CRIACAO,
+                tipo = form.cleaned_data['tipo'],
+                motivo_funcionario = form.cleaned_data['motivo_funcionario'],
+                data_hora = form.cleaned_data['data_hora']
+                )
+            return redirect('painel')
+    else:
+        form = SolicitarCriacaoForm()
+    return render (request, 'ponto/solicitar_criacao.html', {'form': form})

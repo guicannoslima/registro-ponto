@@ -1,5 +1,5 @@
 from django import forms
-from .models import RegistroPonto
+from .models import RegistroPonto, SolicitacaoAjustePonto
 
 class RegistroManualForm(forms.ModelForm):
     class Meta:
@@ -12,3 +12,11 @@ class RegistroManualForm(forms.ModelForm):
 
 class MotivoExclusaoForm(forms.Form):
     motivo = forms.CharField(max_length=150)
+
+class SolicitarCriacaoForm(forms.ModelForm):
+    class Meta:
+        model = SolicitacaoAjustePonto
+        fields = ['tipo', 'data_hora', 'motivo_funcionario']
+        widgets = {
+            'data_hora': forms.DateTimeInput(attrs={'type': 'datetime-local'})
+        }
