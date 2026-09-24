@@ -8,7 +8,7 @@ from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
-from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm
+from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm
 
 @login_required
 def painel(request):
@@ -104,3 +104,23 @@ def solicitar_criacao(request):
     else:
         form = SolicitarCriacaoForm()
     return render (request, 'ponto/solicitar_criacao.html', {'form': form})
+
+@login_required
+def solicitar_exclusao(request, registro_id):
+    registro = RegistroPonto.objects.get(id=registro_id)
+    if registro.funcionario != request.user:
+        messages.error(request, 'Somente o usuário pode solicitar o ajuste de ponto.')
+        return redirect ('painel')
+    if request.method == 'POST':
+        form = SolicitarExclusaoForm(request.POST)
+        if form.is_valid():
+            SolicitacaoAjustePonto.objects.create(
+                funcionario=request.user,
+                tipo_acao = SolicitacaoAjustePonto.EXCLUSAO,
+                registro = registro,
+                motivo_funcionario=form.cleaned_data['motivo_funcionario'],
+            )
+            return redirect ('painel')
+    else:
+        form = SolicitarExclusaoForm()
+    return render (request, 'ponto/solicitar_exclusao.html', {'form': form, 'registro': registro})

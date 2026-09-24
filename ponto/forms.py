@@ -20,3 +20,6 @@ class SolicitarCriacaoForm(forms.ModelForm):
         widgets = {
             'data_hora': forms.DateTimeInput(attrs={'type': 'datetime-local'})
         }
+
+class SolicitarExclusaoForm(forms.Form):
+    motivo_funcionario = forms.CharField(max_length=150)

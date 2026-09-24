@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Solicitação de Ajuste de Ponto</title>
+    </head>
+
+    <body>
+        {{ registro.get_tipo_display }}
+        {{ registro.data_hora }}
+
+    <form method = "post" action="">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Confirmar</button>
+        <a href="{%url 'painel'%}">Cancelar</a>
+    </form>
+
+    </body>
+
+</html>
