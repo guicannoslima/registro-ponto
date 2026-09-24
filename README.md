@@ -201,6 +201,8 @@ registro-ponto/
 - [x] Solicitação de inclusão de batida pelo funcionário
 - [x] Solicitação de exclusão de batida pelo funcionário
 - [x] Aprovação / rejeição das solicitações pelo gestor
+- [ ] Tela de histórico de alterações
+- [ ] Relatórios de banco de horas
 
 ---
 
