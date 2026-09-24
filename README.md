@@ -2,7 +2,7 @@
 
 # Registro de Ponto
 
-**Sistema web de controle de jornada para pequenas empresas**
+**Sistema web de controle de jornada para a Prime Tecnologia**
 
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-6.1-092E20?style=for-the-badge&logo=django&logoColor=white)
@@ -41,7 +41,7 @@ flowchart LR
 | Papel | O que pode fazer |
 |---|---|
 | **Funcionário** | Bater ponto, consultar as próprias batidas do dia e solicitar ajustes |
-| **Gestor** | Tudo do funcionário + ver a própria equipe, lançar e excluir pontos |
+| **Gestor** | Tudo do funcionário + ver a própria equipe, lançar e excluir pontos, aprovar ou rejeitar solicitações |
 | **Administrador** | Tudo do gestor + ver todos os funcionários cadastrados |
 
 ### Gestão de registros
@@ -49,6 +49,9 @@ flowchart LR
 - **Solicitações de ajuste pelo funcionário**, que ficam com status **Pendente** até serem revisadas:
   - **Inclusão**: para uma batida esquecida, informando tipo, data/hora e motivo.
   - **Exclusão**: para uma batida registrada por engano, direto do painel e com o motivo. O funcionário só pode pedir a exclusão das próprias batidas.
+- **Aprovação de solicitações**: gestores e administradores veem as solicitações pendentes da sua equipe e decidem:
+  - **Aprovar**: a batida é incluída ou excluída automaticamente, e a alteração fica registrada no histórico.
+  - **Rejeitar**: o gestor informa o motivo da rejeição.
 - **Lançamento manual**: gestores registram uma batida esquecida, informando o motivo.
 - **Exclusão com histórico (soft delete)**: o registro não some do banco, só é marcado como inativo.
 - **Auditoria**: toda criação manual e exclusão guarda quem fez, quando e por quê.
@@ -163,6 +166,9 @@ Pronto! Acesse `http://127.0.0.1:8000/` e faça login.
 | `/` | Painel do usuário | Todos |
 | `/ponto/solicitar/criacao/` | Solicitar inclusão de batida | Todos |
 | `/ponto/solicitar/exclusao/<id>/` | Solicitar exclusão de batida | Dono da batida |
+| `/ponto/solicitacoes_pendentes/` | Solicitações pendentes da equipe | Gestor / Admin |
+| `/ponto/aprovar/<id>/` | Aprovar solicitação | Gestor / Admin |
+| `/ponto/rejeitar/<id>/` | Rejeitar solicitação com motivo | Gestor / Admin |
 | `/equipe/` | Batidas do dia da equipe | Gestor / Admin |
 | `/ponto/criar/` | Lançamento manual de ponto | Gestor / Admin |
 | `/ponto/excluir/<id>/` | Exclusão de ponto com motivo | Gestor / Admin |
@@ -194,12 +200,12 @@ registro-ponto/
 
 - [x] Solicitação de inclusão de batida pelo funcionário
 - [x] Solicitação de exclusão de batida pelo funcionário
-- [ ] Aprovação / rejeição das solicitações pelo gestor
+- [x] Aprovação / rejeição das solicitações pelo gestor
 
 ---
 
 <div align="center">
 
-Desenvolvido por **[Guilherme](https://github.com/guicannoslima)**
+Desenvolvido por **[Guilherme Cannos](https://github.com/guicannoslima)**
 
 </div>
