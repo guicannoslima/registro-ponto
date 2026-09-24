@@ -46,7 +46,9 @@ flowchart LR
 
 ### Gestão de registros
 
-- **Solicitação de ajuste**: o funcionário que esqueceu de bater o ponto pede a inclusão da batida, informando tipo, data/hora e motivo. A solicitação fica com status **Pendente** até ser revisada.
+- **Solicitações de ajuste pelo funcionário**, que ficam com status **Pendente** até serem revisadas:
+  - **Inclusão**: para uma batida esquecida, informando tipo, data/hora e motivo.
+  - **Exclusão**: para uma batida registrada por engano, direto do painel e com o motivo. O funcionário só pode pedir a exclusão das próprias batidas.
 - **Lançamento manual**: gestores registram uma batida esquecida, informando o motivo.
 - **Exclusão com histórico (soft delete)**: o registro não some do banco, só é marcado como inativo.
 - **Auditoria**: toda criação manual e exclusão guarda quem fez, quando e por quê.
@@ -160,6 +162,7 @@ Pronto! Acesse `http://127.0.0.1:8000/` e faça login.
 | `/login/` | Login | Todos |
 | `/` | Painel do usuário | Todos |
 | `/ponto/solicitar/criacao/` | Solicitar inclusão de batida | Todos |
+| `/ponto/solicitar/exclusao/<id>/` | Solicitar exclusão de batida | Dono da batida |
 | `/equipe/` | Batidas do dia da equipe | Gestor / Admin |
 | `/ponto/criar/` | Lançamento manual de ponto | Gestor / Admin |
 | `/ponto/excluir/<id>/` | Exclusão de ponto com motivo | Gestor / Admin |
@@ -190,8 +193,8 @@ registro-ponto/
 ## Em desenvolvimento
 
 - [x] Solicitação de inclusão de batida pelo funcionário
+- [x] Solicitação de exclusão de batida pelo funcionário
 - [ ] Aprovação / rejeição das solicitações pelo gestor
-- [ ] Solicitação de exclusão de batida pelo funcionário
 
 ---
 
