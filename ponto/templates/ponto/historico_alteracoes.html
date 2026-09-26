@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Historico de ponto</title>
+    </head>
+
+    <body>
+        <h1>
+            Histórico de ponto
+        </h1>
+
+        {%for historico in historico %}
+            <ul>
+                <li>
+                    {{ historico.registro.funcionario.get_full_name}}
+                    {{ historico.get_tipo_acao_display }}
+                    {{ historico.realizado_por }}
+                    {{ historico.motivo }}
+                    {{ historico.criado_em }}
+                </li>
+            </ul>
+
+            {% empty %}
+                <p>Nenhuma alteração registrada.</p>
+        {% endfor %}
+
+        <a href="{% url 'painel' %}">Voltar ao Painel</a>
+    </body>
+
+</html>

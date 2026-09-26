@@ -35,6 +35,7 @@
         {% if perfil.papel == 'gestor' or perfil.papel == 'admin' %}
             <a href="{%url 'equipe' %}">Ver equipe</a>
             <a href="{% url 'solicitacoes_pendentes' %}">Solicitações Pendentes</a>
+            <a href="{% url 'historico_alteracoes' %}">Histórico de Alterações</a>
         {% endif %}
             <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
 

@@ -15,4 +15,5 @@ urlpatterns = [
     path('ponto/solicitacoes_pendentes/', views.solicitacoes_pendentes, name='solicitacoes_pendentes'),
     path('ponto/rejeitar/<int:solicitacao_id>/', views.rejeitar_solicitacao, name='rejeitar_solicitacao'), 
     path('ponto/aprovar/<int:solicitacao_id>/', views.aprovar_solicitacao, name='aprovar_solicitacao'),
+    path('ponto/historico/', views.historico_alteracoes, name='historico_alteracoes'),
 ]

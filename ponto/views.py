@@ -196,3 +196,17 @@ def aprovar_solicitacao(request, solicitacao_id):
         solicitacao.gestor_revisor = request.user
         solicitacao.save()
         return redirect('solicitacoes_pendentes')
+
+@login_required
+def historico_alteracoes(request):
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        messages.error(request, 'Somente gestores tem acesso a essa página.')
+        return redirect ('painel')
+    
+    funcionarios = funcionarios_visiveis(request.user)
+
+    historico =  HistoricoAlteracaoPonto.objects.filter(
+        registro__funcionario__in=funcionarios
+    )
+
+    return render (request, 'ponto/historico_alteracoes.html', {'historico': historico})
