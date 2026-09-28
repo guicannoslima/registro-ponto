@@ -8,8 +8,9 @@ from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
-from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm
-from django import forms
+from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm, RelatorioForm
+from .relatorios import calcular_relatorio_periodo
+from django.contrib.auth.models import User
 
 @login_required
 def painel(request):
@@ -202,7 +203,6 @@ def historico_alteracoes(request):
     if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
         messages.error(request, 'Somente gestores tem acesso a essa página.')
         return redirect ('painel')
-    
     funcionarios = funcionarios_visiveis(request.user)
 
     historico =  HistoricoAlteracaoPonto.objects.filter(
@@ -210,3 +210,45 @@ def historico_alteracoes(request):
     )
 
     return render (request, 'ponto/historico_alteracoes.html', {'historico': historico})
+
+@login_required
+def relatorio_ponto(request):
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        funcionarios = User.objects.filter(pk=request.user.pk)
+    else:
+        funcionarios = funcionarios_visiveis(request.user)
+
+    relatorio = None
+
+    if request.method == 'POST':
+        form = RelatorioForm(request.POST, funcionarios= funcionarios)
+        if form.is_valid():
+
+            data_inicio = form.cleaned_data['data_inicio']
+            data_fim = form.cleaned_data['data_fim']
+            gerar_todos = form.cleaned_data['gerar_todos']
+
+            relatorio = []
+
+            if gerar_todos is True:
+             for funcionario in funcionarios:
+                dias_calculados = calcular_relatorio_periodo(funcionario, data_inicio, data_fim)
+                relatorio_funcionario = {
+                    'funcionario': funcionario,
+                    'relatorio': dias_calculados,
+                }
+                relatorio.append(relatorio_funcionario)
+            else:
+
+                funcionario = form.cleaned_data['funcionario']
+                dias_calculados = calcular_relatorio_periodo(funcionario, data_inicio, data_fim)
+                relatorio_funcionario = {
+                    'funcionario': funcionario,
+                    'relatorio': dias_calculados                   
+                }
+
+                relatorio.append(relatorio_funcionario)  
+
+    else:
+        form = RelatorioForm(funcionarios = funcionarios)
+    return render(request, 'ponto/relatorio_ponto.html', {'form': form, 'relatorio': relatorio})

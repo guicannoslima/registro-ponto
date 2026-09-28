@@ -1,0 +1,41 @@
+{% load ponto_filters %}
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Relatório de ponto</title>
+    </head>
+
+    <body>
+        <h1>
+            Relatório de Ponto
+        </h1>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+    
+    <button type="submit">
+        Gerar relatório
+    </button>
+
+    </form>
+
+    {%if relatorio %}
+        {%for item in relatorio %}
+            {{ item.funcionario.get_full_name }}
+            {%for dia in item.relatorio %}
+                {{dia.data}}
+                {{dia.status}}
+                {%if dia.status == 'Completo'%}
+                    {{ dia.tempo_trabalhado|ponto_filter }}
+                    {{ dia.esperado|ponto_filter }}
+                    {{ dia.diferenca|ponto_filter }}
+                {% else %}
+                    <p>Incompleto</p>
+                    <a href="{% url 'solicitar_criacao' %}">Solicitar criação</a>
+                {% endif %}
+            {%endfor%}
+        {%endfor%}
+    {% endif %}            
+    </body>
+</html>

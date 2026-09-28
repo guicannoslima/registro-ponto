@@ -38,6 +38,7 @@
             <a href="{% url 'historico_alteracoes' %}">Histórico de Alterações</a>
         {% endif %}
             <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
+            <a href="{% url 'relatorio_ponto' %}">Relatório de Ponto</a>
 
         <form method="post" action="{% url 'logout' %}">
             {% csrf_token %}
