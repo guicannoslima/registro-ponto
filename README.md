@@ -40,8 +40,8 @@ flowchart LR
 
 | Papel | O que pode fazer |
 |---|---|
-| **Funcionário** | Bater ponto, consultar as próprias batidas do dia e solicitar ajustes |
-| **Gestor** | Tudo do funcionário + ver a própria equipe, lançar e excluir pontos, aprovar ou rejeitar solicitações |
+| **Funcionário** | Bater ponto, consultar as próprias batidas do dia, solicitar ajustes e gerar o próprio relatório de horas |
+| **Gestor** | Tudo do funcionário + ver a própria equipe, lançar e excluir pontos, aprovar ou rejeitar solicitações, consultar o histórico e gerar relatórios da equipe |
 | **Administrador** | Tudo do gestor + ver todos os funcionários cadastrados |
 
 ### Gestão de registros
@@ -54,7 +54,17 @@ flowchart LR
   - **Rejeitar**: o gestor informa o motivo da rejeição.
 - **Lançamento manual**: gestores registram uma batida esquecida, informando o motivo.
 - **Exclusão com histórico (soft delete)**: o registro não some do banco, só é marcado como inativo.
-- **Auditoria**: toda criação manual e exclusão guarda quem fez, quando e por quê.
+- **Histórico de alterações**: tela onde gestores e administradores consultam todas as inclusões e exclusões da equipe, com quem fez, quando e por quê.
+
+### Relatório de banco de horas
+
+- Escolha o **período** (data inicial e final) e o **funcionário**, ou marque **Gerar todos** para a equipe inteira.
+- Para cada dia, o relatório mostra:
+  - **Status**: *Completo* (tem entrada e saída) ou *Incompleto*, com atalho para solicitar o ajuste.
+  - **Horas trabalhadas**: da entrada até a saída, descontando o intervalo de almoço.
+  - **Jornada esperada**: 7h45min por dia.
+  - **Saldo**: diferença entre o trabalhado e o esperado (positivo = hora extra, negativo = hora devida).
+- O funcionário gera apenas o próprio relatório; gestores e administradores geram o da equipe.
 - **Painel administrativo** do Django para gerenciar usuários, perfis e registros.
 
 ---
@@ -169,10 +179,14 @@ Pronto! Acesse `http://127.0.0.1:8000/` e faça login.
 | `/ponto/solicitacoes_pendentes/` | Solicitações pendentes da equipe | Gestor / Admin |
 | `/ponto/aprovar/<id>/` | Aprovar solicitação | Gestor / Admin |
 | `/ponto/rejeitar/<id>/` | Rejeitar solicitação com motivo | Gestor / Admin |
+| `/ponto/historico/` | Histórico de alterações da equipe | Gestor / Admin |
+| `/ponto/relatorios/` | Relatório de banco de horas | Todos* |
 | `/equipe/` | Batidas do dia da equipe | Gestor / Admin |
 | `/ponto/criar/` | Lançamento manual de ponto | Gestor / Admin |
 | `/ponto/excluir/<id>/` | Exclusão de ponto com motivo | Gestor / Admin |
 | `/admin/` | Painel administrativo | Superusuário |
+
+<sub>* O funcionário vê apenas os próprios dados.</sub>
 
 ---
 
@@ -188,6 +202,8 @@ registro-ponto/
     ├── views.py           # painel, bater ponto, equipe, criação/exclusão, solicitações
     ├── permissoes.py      # quem cada papel pode ver
     ├── calculos.py        # lógica da próxima batida do dia
+    ├── relatorios.py      # cálculo de horas trabalhadas e saldo do banco de horas
+    ├── templatetags/      # filtro para exibir horas no formato 7h45min
     ├── forms.py
     ├── admin.py
     ├── urls.py
@@ -201,8 +217,9 @@ registro-ponto/
 - [x] Solicitação de inclusão de batida pelo funcionário
 - [x] Solicitação de exclusão de batida pelo funcionário
 - [x] Aprovação / rejeição das solicitações pelo gestor
-- [ ] Tela de histórico de alterações
-- [ ] Relatórios de banco de horas
+- [x] Tela de histórico de alterações
+- [x] Relatórios de banco de horas
+- [ ] Exportação do relatório em PDF
 
 ---
 
