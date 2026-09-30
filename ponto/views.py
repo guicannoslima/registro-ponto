@@ -9,8 +9,11 @@ from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
 from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm, RelatorioForm
-from .relatorios import calcular_relatorio_periodo
+from .relatorios import montar_relatorio
 from django.contrib.auth.models import User
+from xhtml2pdf import pisa
+from django.template.loader import get_template
+from django.http import HttpResponse
 
 @login_required
 def painel(request):
@@ -223,32 +226,41 @@ def relatorio_ponto(request):
     if request.method == 'POST':
         form = RelatorioForm(request.POST, funcionarios= funcionarios)
         if form.is_valid():
-
             data_inicio = form.cleaned_data['data_inicio']
             data_fim = form.cleaned_data['data_fim']
-            gerar_todos = form.cleaned_data['gerar_todos']
-
-            relatorio = []
-
-            if gerar_todos is True:
-             for funcionario in funcionarios:
-                dias_calculados = calcular_relatorio_periodo(funcionario, data_inicio, data_fim)
-                relatorio_funcionario = {
-                    'funcionario': funcionario,
-                    'relatorio': dias_calculados,
-                }
-                relatorio.append(relatorio_funcionario)
-            else:
-
-                funcionario = form.cleaned_data['funcionario']
-                dias_calculados = calcular_relatorio_periodo(funcionario, data_inicio, data_fim)
-                relatorio_funcionario = {
-                    'funcionario': funcionario,
-                    'relatorio': dias_calculados                   
-                }
-
-                relatorio.append(relatorio_funcionario)  
-
+            gerar_todos = form.cleaned_data['gerar_todos']     
+            funcionario_escolhido = form.cleaned_data['funcionario']
+            relatorio = montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
     else:
         form = RelatorioForm(funcionarios = funcionarios)
     return render(request, 'ponto/relatorio_ponto.html', {'form': form, 'relatorio': relatorio})
+
+@login_required
+@require_POST
+def exportar_relatorio_pdf(request):
+    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+        funcionarios = User.objects.filter(pk=request.user.pk)
+    else:
+        funcionarios = funcionarios_visiveis(request.user)
+
+    form = RelatorioForm(request.POST, funcionarios=funcionarios)
+    if form.is_valid():
+        data_inicio = form.cleaned_data['data_inicio']
+        data_fim = form.cleaned_data['data_fim']
+        gerar_todos = form.cleaned_data['gerar_todos']
+        funcionario_escolhido = form.cleaned_data['funcionario']
+        relatorio = montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
+
+        template = get_template('ponto/relatorio_pdf.html')
+        html = template.render({'relatorio': relatorio})
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = 'attachment; filename="relatorio.pdf"'
+        pisa_status = pisa.CreatePDF(html, dest=response)
+
+        if pisa_status.err:
+            return HttpResponse('Erro ao gerar PDF')
+        else:
+            return response
+    else:
+        messages.error(request, 'Formulário inválido, verifique os dados e tente novamente.')
+        return redirect('relatorio_ponto')

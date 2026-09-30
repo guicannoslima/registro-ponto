@@ -17,6 +17,9 @@
     <button type="submit">
         Gerar relatório
     </button>
+    <button type="submit"  formaction="{%url 'exportar_relatorio_pdf' %}">
+        Exportar PDF
+    </button>
 
     </form>
 
@@ -36,6 +39,10 @@
                 {% endif %}
             {%endfor%}
         {%endfor%}
-    {% endif %}            
+    {% endif %}  
+     <form method="post" action="{% url 'logout' %}">
+        {% csrf_token %}
+        <button type="submit">Sair</button>
+    </form>          
     </body>
 </html>

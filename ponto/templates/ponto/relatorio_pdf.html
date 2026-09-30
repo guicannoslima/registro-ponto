@@ -1,0 +1,58 @@
+{% load ponto_filters %}
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <title>Gerar PDF</title>
+    </head>
+
+    <body>
+        
+        {% for item in relatorio %}
+        <h2>Folha de Ponto Individual de Trabalho / {{ item.relatorio.0.data|date:"F Y" }}</h2>
+        <p>Nome Empresa: Núcleo Prime de Tecnologias LTDA</p>
+        <p>Endereço: Av. Belo Horizonte, 397</p>
+        <p>Empregado(a): {{ item.funcionario.get_full_name }}</p>
+        <p>Função: Auxiliar de Suporte</p>
+        <p>Horário de Trabalho de Seg a Sexta<br>
+            09:00 às 12:45<br>
+            14:00 às 16:15<br>
+            16:30 às 18:00</p>
+        <table>
+            <thead>
+            <tr>
+                <th>Dias</th>
+                <th>Entrada</th>
+                <th>Saída Almoço</th>
+                <th>Retorno Almoço</th>
+                <th>Saída Café</th>
+                <th>Retorno Café</th>
+                <th>Saída</th>
+                <th>Extras Entrada</th>
+                <th>Extras Saída</th>
+            </tr>
+            </thead>   
+                <tbody>
+                {% for dia in item.relatorio %}
+                    <tr>
+                       <td>{{ dia.data|date:"d" }} - {{ dia.data|date:"l" }}</td>
+                        <td>{{ dia.horarios.entrada|time:"H:i" }}</td>
+                        <td>{{ dia.horarios.saida_almoco|time:"H:i" }}</td>
+                        <td>{{ dia.horarios.volta_almoco|time:"H:i" }}</td>
+                        <td>{{ dia.horarios.saida_cafe|time:"H:i" }}</td>
+                        <td>{{ dia.horarios.volta_cafe|time:"H:i" }}</td>
+                        <td>{{ dia.horarios.saida|time:"H:i" }}</td>
+                        <td></td>
+                        <td></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+        </table>  
+        <h3>Resumo Geral</h3>
+            <p>Horas Normais: {{ item.horas_normais|ponto_filter }}</p>
+            <p>Horas Extras: {{ item.horas_extras|ponto_filter }}</p>
+            <p>_________________________<br>Assinatura Funcionário</p>
+            <p>_________________________<br>Assinatura Gestor</p>    
+        {% endfor %}
+    </body>
+</html>
