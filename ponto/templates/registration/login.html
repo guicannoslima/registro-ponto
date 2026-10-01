@@ -13,5 +13,7 @@
         {{ form.as_p }}
         <button type="submit">Entrar</button>
     </form>
+    <p>Não tem uma conta? <a href="{% url 'cadastro_usuario' %}">Cadastre-se aqui</a></p>
+    <a href="{% url 'password_reset' %}">Esqueceu sua senha?</a>
 </body>
 </html>

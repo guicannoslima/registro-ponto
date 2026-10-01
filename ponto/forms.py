@@ -1,5 +1,5 @@
 from django import forms
-from .models import RegistroPonto, SolicitacaoAjustePonto
+from .models import Perfil, RegistroPonto, SolicitacaoAjustePonto
 from django.contrib.auth.models import User
 
 class RegistroManualForm(forms.ModelForm):
@@ -44,4 +44,23 @@ class RelatorioForm(forms.Form):
         funcionario = self.cleaned_data.get('funcionario')
         if not gerar_todos and not funcionario:
             raise forms.ValidationError('Selecione um funcionário ou marque a opção "Gerar todos".')
+        return self.cleaned_data
+
+class CadastroForm(forms.Form):
+    username = forms.CharField(max_length=150)
+    password = forms.CharField(widget=forms.PasswordInput)
+    password2 = forms.CharField(widget=forms.PasswordInput)
+    first_name = forms.CharField(max_length=150)
+    last_name = forms.CharField(max_length=150)
+    cpf = forms.CharField(max_length=11)
+    email = forms.EmailField()
+
+    def clean(self):
+        if self.cleaned_data.get('password') != self.cleaned_data.get('password2'):
+            raise forms.ValidationError('As senhas não coincidem.')
+        username = self.cleaned_data.get('username')
+        if User.objects.filter(username=username).exists():
+            raise forms.ValidationError('Este nome de usuário já está em uso.')
+        if Perfil.objects.filter(cpf=self.cleaned_data.get('cpf')).exists():
+            raise forms.ValidationError('Este CPF já está em uso.') 
         return self.cleaned_data

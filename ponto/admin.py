@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Perfil, RegistroPonto, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
+from .models import Perfil, RegistroPonto, HistoricoAlteracaoPonto, SolicitacaoAjustePonto, Funcao
 
 @admin.register(Perfil)
 class PerfilAdmin(admin.ModelAdmin):
@@ -22,3 +22,7 @@ class HistoricoAlteracaoPontoAdmin(admin.ModelAdmin):
 @admin.register(SolicitacaoAjustePonto)
 class SolicitacaoAjustePontoAdmin(admin.ModelAdmin):
     list_display = ('funcionario', 'tipo_acao', 'status', 'criado_em')
+
+@admin.register(Funcao)
+class FuncaoAdmin(admin.ModelAdmin):
+    list_display = ('nome',)

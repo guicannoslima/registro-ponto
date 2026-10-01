@@ -8,7 +8,7 @@ from django.utils import timezone
 from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
-from .forms import RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm, RelatorioForm
+from .forms import CadastroForm, RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm, RelatorioForm
 from .relatorios import montar_relatorio
 from django.contrib.auth.models import User
 from xhtml2pdf import pisa
@@ -264,3 +264,25 @@ def exportar_relatorio_pdf(request):
     else:
         messages.error(request, 'Formulário inválido, verifique os dados e tente novamente.')
         return redirect('relatorio_ponto')
+
+def cadastro_usuario(request):
+    if request.method == 'POST':
+        form = CadastroForm(request.POST)
+        if form.is_valid():
+            user = User.objects.create_user(
+                username=form.cleaned_data['username'],
+                password=form.cleaned_data['password'],
+                first_name=form.cleaned_data['first_name'],
+                last_name=form.cleaned_data['last_name'],
+                email=form.cleaned_data['email']
+            )
+            Perfil.objects.create(
+                user=user,
+                cpf=form.cleaned_data['cpf'],
+                papel=Perfil.PAPEL_FUNCIONARIO
+            )
+            messages.success(request, 'Usuário cadastrado com sucesso.')
+            return redirect('login')
+    else:
+        form = CadastroForm()
+    return render(request, 'ponto/cadastro_usuario.html', {'form': form})

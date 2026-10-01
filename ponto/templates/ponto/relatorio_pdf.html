@@ -4,20 +4,80 @@
     <head>
         <meta charset="UTF-8">
         <title>Gerar PDF</title>
+
+        <style>
+            body {
+        font-family: Helvetica, Arial, sans-serif;
+            }
+
+            table {
+                border-collapse: collapse;
+                width: 100%;
+            }
+
+            th, td {
+                border: 1px solid black;
+                padding: 3px 6px;
+                white-space: nowrap;
+                text-align: center;
+                font-size: 8px;
+            }
+
+            th {
+                background-color: #eeeeee;
+                padding: 7px 6px 5px 6px;
+                font-size: 9px;
+            }
+
+            .dia {
+                font-weight: bold;
+            }
+
+            .quebra-pagina {
+                page-break-after: always;
+            }
+
+            p {
+                margin: 2px 0;
+            }
+
+            h2, h3 {
+                margin: 6px 0;
+            }
+
+            .cabecalho td {
+                padding: 1px 6px;
+            }
+        </style>
+
     </head>
 
     <body>
         
         {% for item in relatorio %}
         <h2>Folha de Ponto Individual de Trabalho / {{ item.relatorio.0.data|date:"F Y" }}</h2>
-        <p>Nome Empresa: Núcleo Prime de Tecnologias LTDA</p>
-        <p>Endereço: Av. Belo Horizonte, 397</p>
-        <p>Empregado(a): {{ item.funcionario.get_full_name }}</p>
-        <p>Função: Auxiliar de Suporte</p>
-        <p>Horário de Trabalho de Seg a Sexta<br>
-            09:00 às 12:45<br>
-            14:00 às 16:15<br>
-            16:30 às 18:00</p>
+        <table class="cabecalho">
+            <tr>
+                <td>Nome Empresa</td>
+                <td>Núcleo Prime de Tecnologias LTDA</td>
+            </tr>
+            <tr>
+                <td>Endereço</td>
+                <td>Av. Belo Horizonte, 397</td>
+            </tr>
+            <tr>
+                <td>Empregado(a)</td>
+                <td>{{ item.funcionario.get_full_name }}</td>
+            </tr>
+            <tr>
+                <td>Função</td>
+                <td>{{ item.funcionario.perfil.funcao.nome }} </td>
+            </tr>
+            <tr>
+                <td>Horário de Trabalho de Seg a Sexta</td>
+                <td>09:00 às 12:45<br>14:00 às 16:15<br>16:30 às 18:00</td>
+            </tr>
+        </table>
         <table>
             <thead>
             <tr>
@@ -35,7 +95,7 @@
                 <tbody>
                 {% for dia in item.relatorio %}
                     <tr>
-                       <td>{{ dia.data|date:"d" }} - {{ dia.data|date:"l" }}</td>
+                        <td class="dia">{{ dia.data|date:"d" }} - {{ dia.data|date:"l" }}</td>
                         <td>{{ dia.horarios.entrada|time:"H:i" }}</td>
                         <td>{{ dia.horarios.saida_almoco|time:"H:i" }}</td>
                         <td>{{ dia.horarios.volta_almoco|time:"H:i" }}</td>
@@ -52,7 +112,10 @@
             <p>Horas Normais: {{ item.horas_normais|ponto_filter }}</p>
             <p>Horas Extras: {{ item.horas_extras|ponto_filter }}</p>
             <p>_________________________<br>Assinatura Funcionário</p>
-            <p>_________________________<br>Assinatura Gestor</p>    
+            <p>_________________________<br>Assinatura Gestor</p>  
+            {% if not forloop.last %}
+                <div class="quebra-pagina"></div>
+            {% endif %}
         {% endfor %}
     </body>
 </html>

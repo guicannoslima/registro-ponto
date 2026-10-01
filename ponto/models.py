@@ -2,6 +2,12 @@ from django.conf import settings
 from django.db import models
 
 
+class Funcao(models.Model):
+    
+    nome = models.CharField(max_length=50, unique=True)
+    def __str__(self):
+        return self.nome
+
 class Perfil(models.Model):
 
     PAPEL_FUNCIONARIO = "funcionario"
@@ -33,9 +39,17 @@ class Perfil(models.Model):
         limit_choices_to={"papel": PAPEL_GESTOR},
     )
 
+    funcao = models.ForeignKey(
+        'Funcao',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True
+    )
+
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_papel_display()})"
 
+    cpf = models.CharField(max_length=11, unique=True, null=True, blank=True)
 
 class RegistroPonto(models.Model):
 
