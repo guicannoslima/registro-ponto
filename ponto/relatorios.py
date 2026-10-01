@@ -18,6 +18,7 @@ def calcular_horas_dia(funcionario,data):
     tempo_trabalhado = None
     esperado = None
     diferenca = None
+    tolerancia = timedelta(minutes=10)
     if completo:
         tempo_total = horarios[RegistroPonto.SAIDA] - horarios[RegistroPonto.ENTRADA]
         
@@ -29,6 +30,8 @@ def calcular_horas_dia(funcionario,data):
         tempo_trabalhado = tempo_total - tempo_almoco
         esperado = timedelta (hours=7, minutes=45)
         diferenca = tempo_trabalhado - esperado
+        if abs(diferenca) <= tolerancia:
+            diferenca = timedelta()
         
     return {
         'tempo_trabalhado': tempo_trabalhado,
@@ -118,9 +121,13 @@ def calcular_resumo(dias_calculados):
 
     for dia in dias_calculados:
         if dia['status'] == 'Completo':
-            horas_normais += dia['tempo_trabalhado']
             if dia['diferenca'] > timedelta():
                 horas_extras += dia['diferenca']
+            if dia['diferenca'] >= timedelta():
+                horas_normais += dia['esperado']
+            else:
+                horas_normais += dia['tempo_trabalhado']
+                
     return {
         'horas_normais': horas_normais,
         'horas_extras': horas_extras,
