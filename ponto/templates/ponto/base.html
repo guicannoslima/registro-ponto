@@ -1,0 +1,21 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="{% static 'ponto/estilo.css' %}">
+        {% block title %}
+        <title>Registro de Ponto</title>
+        {% endblock %}
+    </head>
+
+    <body>
+        <main>
+            {% block conteudo %}
+
+            {% endblock %}
+        </main>
+    </body>
+
+</html>

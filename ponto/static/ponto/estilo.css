@@ -1,0 +1,158 @@
+:root {
+    --cor-menu: #3a465e;
+    --cor-menu-texto: #b3bfd7;
+    --cor-menu-ativo: #36bbdf;
+
+    --cor-primaria: #03a9f5;
+    --cor-primaria-escura: #0486c3;
+    --cor-primaria-clara: #5ec7f9;
+
+    --cor-fundo: #f3f7fa;
+    --cor-card: #ffffff;
+    --cor-destaque: #fff9df;
+    --cor-borda: #d5dde6;
+
+    --cor-titulo: #09243f;
+    --cor-texto: #2c3a4f;
+    --cor-texto-suave: #6b7a90;
+
+    --cor-sucesso: #288f4b;
+    --cor-erro: #dc3545;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background-color: var(--cor-fundo);
+    color: var(--cor-texto);
+    font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+main {
+    padding: 16px;
+}
+
+h1, h2, h3 {
+    color: var(--cor-titulo);
+}
+
+a {
+    color: var(--cor-primaria-escura);
+}
+
+a:hover {
+    color: var(--cor-primaria);
+}
+
+label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    background-color: #ffffff;
+    font-family: inherit;
+    font-size: 16px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--cor-primaria);
+    box-shadow: 0 0 0 3px rgba(3, 169, 245, 0.2);
+}
+
+.errorlist {
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
+    color: var(--cor-erro);
+    font-size: 14px;
+}
+
+.helptext {
+    display: block;
+    margin-top: 4px;
+    color: var(--cor-texto-suave);
+    font-size: 13px;
+}
+
+button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    background-color: var(--cor-primaria);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: var(--cor-primaria-escura);
+}
+
+.cartao-login {
+    max-width: 400px;
+    margin: 6vh auto 24px; /* "auto" nas laterais centraliza o cartão */
+    padding: 32px 28px;
+    background-color: var(--cor-card);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(9, 36, 63, 0.10);
+}
+
+.logo-login {
+    display: block;
+    width: 100%;
+    max-width: 260px;
+    height: auto;
+    margin: 0 auto 20px;
+}
+
+.cartao-login h1,
+.cartao-login h2 {
+    margin: 0 0 20px;
+    font-size: 22px;
+    text-align: center;
+}
+
+.cartao-login button {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.links-login {
+    margin-top: 20px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.links-login a {
+    display: block;
+    margin-top: 8px;
+}
+
+@media (max-width: 480px) {
+    .cartao-login {
+        margin-top: 3vh;
+        padding: 24px 18px;
+    }
+}
