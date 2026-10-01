@@ -1,19 +1,21 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <title>Login - Registro de Ponto</title>
-</head>
-<body>
-    <h1>Registro de Ponto</h1>
-    <h2>Entrar</h2>
+{% extends 'ponto/base.html' %}
+{% load static %}
+        {% block title %}Login - Registro de Ponto{% endblock %}
+    {% block conteudo %}
+    <div  class="cartao-login">
 
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Entrar</button>
-    </form>
-    <p>Não tem uma conta? <a href="{% url 'cadastro_usuario' %}">Cadastre-se aqui</a></p>
-    <a href="{% url 'password_reset' %}">Esqueceu sua senha?</a>
-</body>
-</html>
+        <img src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia" class="logo-login">
+        
+        <h2>Entrar</h2>
+
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">Entrar</button>
+        </form>
+        <p class="links-login">
+            <a href="{% url 'cadastro_usuario' %}">Não tem uma conta? Cadastre-se aqui</a>
+            <a href="{% url 'password_reset' %}">Esqueceu sua senha?</a>
+        </p>
+    </div>
+    {% endblock %}

@@ -125,6 +125,7 @@ button:hover {
     max-width: 260px;
     height: auto;
     margin: 0 auto 20px;
+    mix-blend-mode: multiply;
 }
 
 .cartao-login h1,
