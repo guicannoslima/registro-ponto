@@ -47,13 +47,24 @@ class RelatorioForm(forms.Form):
         return self.cleaned_data
 
 class CadastroForm(forms.Form):
-    username = forms.CharField(max_length=150)
-    password = forms.CharField(widget=forms.PasswordInput)
-    password2 = forms.CharField(widget=forms.PasswordInput)
-    first_name = forms.CharField(max_length=150)
-    last_name = forms.CharField(max_length=150)
-    cpf = forms.CharField(max_length=11)
-    email = forms.EmailField()
+    username = forms.CharField(label = 'Usuário', max_length=150)
+    password = forms.CharField(label = 'Senha', widget=forms.PasswordInput)
+    password2 = forms.CharField(label = 'Confirmar Senha', widget=forms.PasswordInput)
+    first_name = forms.CharField(label = 'Nome', max_length=150)
+    last_name = forms.CharField(label = 'Sobrenome', max_length=150)
+    cpf = forms.CharField(label = 'CPF', max_length=14)
+    email = forms.EmailField(label = 'E-mail')
+
+    def clean_cpf(self):
+        cpf = self.cleaned_data.get('cpf')
+        resultado = ''
+        
+        for caractere in cpf:
+            if caractere.isdigit():
+                resultado += caractere
+        if len(resultado) != 11:
+            raise forms.ValidationError('CPF inválido. Deve ter 11 dígitos.')      
+        return resultado
 
     def clean(self):
         if self.cleaned_data.get('password') != self.cleaned_data.get('password2'):
