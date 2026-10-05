@@ -1,3 +1,4 @@
+from datetime import timedelta
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
@@ -15,6 +16,8 @@ from xhtml2pdf import pisa
 from django.template.loader import get_template
 from django.http import HttpResponse
 
+INTERVALO_MINIMO = 1
+
 @login_required
 def painel(request):
     perfil = request.user.perfil
@@ -25,9 +28,16 @@ def painel(request):
 @login_required
 @require_POST
 def bater_ponto(request):
+    agora = timezone.now()
+    limite = agora - timedelta(minutes=INTERVALO_MINIMO)
+    if RegistroPonto.objects.filter(funcionario=request.user, data_hora__gte=limite).exists():
+        messages.error(request, f"Você só pode bater ponto a cada {INTERVALO_MINIMO} minutos.")
+        return redirect('painel')
     proximo_tipo = proximo_tipo_ponto(request.user)
     if proximo_tipo:
-        RegistroPonto.objects.create(funcionario=request.user, tipo=proximo_tipo, data_hora=timezone.now())
+        RegistroPonto.objects.create(funcionario=request.user, tipo=proximo_tipo, data_hora=agora)
+    else:
+        messages.error(request, "Todos os pontos do dia foram batidos.")
     return redirect('painel')
 
 @login_required
