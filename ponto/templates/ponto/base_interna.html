@@ -1,0 +1,33 @@
+{%extends "ponto/base.html"%}
+{% load static %}
+
+{% block classe_main %}principal-interno{% endblock %}
+
+{% block cabecalho %}
+    <header class="topo">
+        <div class="topo-interno">
+            <a href="{% url 'painel' %}" class="logo-topo">
+                <img src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia">
+            </a>
+            <nav class="menu-topo">
+                <ul>
+                    <li><a href="{% url 'painel' %}">Painel</a></li>
+                    {% if user.perfil.papel == 'gestor' or user.perfil.papel == 'admin' %}
+                        <li><a href="{% url 'equipe' %}">Equipe</a></li>
+                        <li><a href="{% url 'solicitacoes_pendentes' %}">Solicitações Pendentes</a></li>
+                        <li><a href="{% url 'historico_alteracoes' %}">Histórico de Alterações</a></li>
+                    {% endif %}
+                    <li><a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a></li>
+                    <li><a href="{% url 'relatorio_ponto' %}">Relatório de Ponto</a></li>
+                </ul>
+            </nav>
+            <div class="topo-usuario">
+                <span>Bem-vindo, {{ request.user.first_name }}!</span>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit">Sair</button>
+                </form>
+        </div>
+        </div>
+    </header>
+{% endblock %}

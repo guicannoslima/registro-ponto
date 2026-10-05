@@ -16,7 +16,7 @@ from xhtml2pdf import pisa
 from django.template.loader import get_template
 from django.http import HttpResponse
 
-INTERVALO_MINIMO = 1
+INTERVALO_MINIMO = 10
 
 @login_required
 def painel(request):

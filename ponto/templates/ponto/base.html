@@ -13,7 +13,10 @@
     </head>
 
     <body>
-        <main>
+        {% block cabecalho %}
+        
+        {% endblock %}
+        <main class="{%block classe_main%} {% endblock %}">
             {% if messages %}
                 <ul class="messages">
                     {% for message in messages %}

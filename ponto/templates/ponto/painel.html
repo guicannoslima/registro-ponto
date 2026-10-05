@@ -1,49 +1,24 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Painel - Registro de Ponto</title>
-    </head>
+{%extends 'ponto/base_interna.html' %}
+{% load static %}
 
-    <body>
-        {% if messages %}
-            {% for message in messages %}
-                <p>
-                    {{ message }}
-                </p>
-            {% endfor %}
-        {% endif %}   
+{% block title %}
+    Painel - Registro de Ponto
+{% endblock %}
 
-        Usuario: {{ request.user.username }}
-        <p>Bem-vindo, {{ request.user.first_name }}!</p>
-        Papel: {{ perfil.get_papel_display }}
-        <form method="post" action="{%url 'bater_ponto' %}">
-            {% csrf_token %}
-            <button type="submit">Registrar Ponto</button>
-        </form>
+{% block conteudo %}
+    Papel: {{ perfil.get_papel_display }}
+    <form method="post" action="{% url 'bater_ponto' %}">
+        {% csrf_token %}
+        <button type="submit">Registrar Ponto</button>
+    </form>
 
-        {%for registro in registro_hoje%}
-            <ul>
-                <li>
-            Registros: {{ registro.get_tipo_display }}
-            {{ registro.data_hora|time:"H:i" }}  
-            <a href="{%url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>  
-                </li>
-            </ul>
-        {%endfor%}
-        
-        {% if perfil.papel == 'gestor' or perfil.papel == 'admin' %}
-            <a href="{%url 'equipe' %}">Ver equipe</a>
-            <a href="{% url 'solicitacoes_pendentes' %}">Solicitações Pendentes</a>
-            <a href="{% url 'historico_alteracoes' %}">Histórico de Alterações</a>
-        {% endif %}
-            <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
-            <a href="{% url 'relatorio_ponto' %}">Relatório de Ponto</a>
-
-        <form method="post" action="{% url 'logout' %}">
-            {% csrf_token %}
-            <button type="submit">Sair</button>
-        </form>
-    </body>
-
-</html>
+    {% for registro in registro_hoje %}
+        <ul>
+            <li>
+                Registros: {{ registro.get_tipo_display }}
+                {{ registro.data_hora|time:"H:i" }}
+                <a href="{% url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>
+            </li>
+        </ul>
+    {% endfor %}
+{% endblock %}
