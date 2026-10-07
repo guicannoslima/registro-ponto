@@ -10,7 +10,7 @@ from .permissoes import funcionarios_visiveis
 from django.contrib import messages
 from .models import Perfil, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
 from .forms import CadastroForm, RegistroManualForm, MotivoExclusaoForm, SolicitarCriacaoForm, SolicitarExclusaoForm, MotivoRejeicaoForm, RelatorioForm
-from .relatorios import montar_relatorio
+from .relatorios import calcular_horas_dia, montar_relatorio, calcular_progresso, formatar_timedelta
 from django.contrib.auth.models import User
 from xhtml2pdf import pisa
 from django.template.loader import get_template
@@ -22,8 +22,14 @@ INTERVALO_MINIMO = 10
 def painel(request):
     perfil = request.user.perfil
     hoje = timezone.localdate()
-    registro_hoje = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=hoje, ativo = True)
-    return render(request, 'ponto/painel.html', {'perfil': perfil, 'registro_hoje': registro_hoje})
+    resultado_hoje = calcular_horas_dia(request.user, hoje)
+    progresso = calcular_progresso(resultado_hoje['horarios'], timezone.now())
+    tempo_texto = formatar_timedelta(progresso['tempo_trabalhado'])
+    restante_texto = formatar_timedelta(progresso['tempo_restante'])
+    registro_hoje = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=hoje, ativo = True).order_by('data_hora')
+    ontem = hoje - timedelta(days=1)
+    registro_ontem = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=ontem, ativo = True).order_by('data_hora')
+    return render(request, 'ponto/painel.html', {'perfil': perfil, 'progresso': progresso, 'tempo_texto': tempo_texto, 'registro_hoje': registro_hoje, 'registro_ontem': registro_ontem, 'ontem': ontem, 'restante_texto': restante_texto})
 
 @login_required
 @require_POST
@@ -284,7 +290,8 @@ def cadastro_usuario(request):
                 password=form.cleaned_data['password'],
                 first_name=form.cleaned_data['first_name'],
                 last_name=form.cleaned_data['last_name'],
-                email=form.cleaned_data['email']
+                email=form.cleaned_data['email'],
+                funcao=form.cleaned_data['funcao']
             )
             Perfil.objects.create(
                 user=user,

@@ -243,6 +243,18 @@ button:hover {
     font-size: 14px;
 }
 
+.topo-usuario-texto {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    line-height: 1.2;
+}
+
+.topo-usuario-texto small {
+    color: var(--cor-texto-suave);
+    font-size: 12px;
+}
+
 .topo-usuario button{
     background: transparent;
     border: 1px solid var(--cor-borda);
@@ -260,9 +272,108 @@ button:hover {
     margin: 0 auto;
 }
 
+.painel-grade{
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+}
+
+.painel-pontos, .painel-relogio{
+    background-color: var(--cor-card);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(9, 36, 63, 0.10);
+}
+
+.painel-relogio{
+    text-align: center;
+}
+
+.lista-pontos{
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.lista-pontos li{
+    padding: 12px 0;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.circulo{
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background-color: var(--cor-borda);
+    margin: 0 auto 20px;
+}
+
+.painel-ontem{
+    margin-top: 20px;
+}
+
+.painel-ontem summary{
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--cor-primaria-escura);
+}
+
+.anel {
+    --cor-anel: var(--cor-borda);
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 16px;
+}
+
+.anel svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.anel circle {
+    fill: none;
+    stroke-width: 14;
+}
+
+.anel-trilho {
+    stroke: var(--cor-borda);
+}
+
+.anel-preenchido {
+    stroke: var(--cor-anel);
+}
+
+.anel-texto {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.anel-andamento { --cor-anel: #7ed6a4; }
+.anel-completo  { --cor-anel: #1f8a4c; }
+.anel-extra     { --cor-anel: #d93a3a; }
+
 @media (max-width: 480px) {
     .cartao-login {
         margin-top: 3vh;
         padding: 24px 18px;
+    }
+}
+
+@media (max-width: 800px) {
+    .painel-grade {
+        grid-template-columns: 1fr;
+    }
+    .painel-relogio {
+        order: -1;
     }
 }

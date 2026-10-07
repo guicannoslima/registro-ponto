@@ -1,24 +1,56 @@
 {%extends 'ponto/base_interna.html' %}
-{% load static %}
 
 {% block title %}
     Painel - Registro de Ponto
 {% endblock %}
 
 {% block conteudo %}
-    Papel: {{ perfil.get_papel_display }}
-    <form method="post" action="{% url 'bater_ponto' %}">
-        {% csrf_token %}
-        <button type="submit">Registrar Ponto</button>
-    </form>
-
-    {% for registro in registro_hoje %}
-        <ul>
-            <li>
-                Registros: {{ registro.get_tipo_display }}
-                {{ registro.data_hora|time:"H:i" }}
-                <a href="{% url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>
-            </li>
-        </ul>
-    {% endfor %}
+    <h2> Pontos de hoje, {% now "d/m/Y" %}</h2>
+    <div class="painel-grade">
+        <section class="painel-pontos">
+            <ul class="lista-pontos">
+                {% for registro in registro_hoje %}
+                    <li>
+                        {{ registro.get_tipo_display }}
+                        {{ registro.data_hora|time:"H:i" }}
+                        <a href="{% url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>
+                    </li>
+                {% empty %}
+                    <li>Nenhum ponto registrado hoje.</li>
+                {% endfor %}
+            </ul>
+            <details class="painel-ontem">
+                <summary>Pontos de ontem, {{ ontem|date:"d/m/Y" }}</summary>
+                <ul class="lista-pontos">
+                    {% for registro in registro_ontem %}
+                        <li>
+                            {{ registro.get_tipo_display }}
+                            {{ registro.data_hora|time:"H:i" }}
+                            <a href="{% url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>
+                        </li>
+                    {% empty %}
+                        <li>Nenhum ponto registrado ontem.</li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </section>
+        <aside class="painel-relogio">
+            <div class="anel anel-{{ progresso.estado }}">
+                <svg viewBox="0 0 100 100">
+                    <circle class="anel-trilho" cx="50" cy="50" r="42" pathLength="100">
+                        <title>Falta: {{ restante_texto }}</title>
+                    </circle>
+                    <circle class="anel-preenchido" cx="50" cy="50" r="42" pathLength="100"
+                        stroke-dasharray="{{ progresso.percentual }} 100">
+                    <title>Trabalhado: {{ tempo_texto }}</title>
+                    </circle>
+                </svg>
+                <div class="anel-texto">{{ tempo_texto }}</div>
+            </div>
+            <form method="post" action="{% url 'bater_ponto' %}">
+                {% csrf_token %}
+                <button type="submit">Registrar Ponto</button>
+            </form>
+        </aside>
+    </div>
 {% endblock %}

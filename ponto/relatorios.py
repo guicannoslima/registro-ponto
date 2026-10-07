@@ -132,3 +132,50 @@ def calcular_resumo(dias_calculados):
         'horas_normais': horas_normais,
         'horas_extras': horas_extras,
     }
+
+def calcular_progresso(horarios, agora):
+    jornada = timedelta(hours=7, minutes=45)
+    tolerancia = timedelta(minutes=10)
+
+    if RegistroPonto.ENTRADA not in horarios:
+        return {
+            'tempo_trabalhado': timedelta(),
+            'tempo_restante': jornada,
+            'percentual': 0,
+            'estado': 'aguardando',
+        }
+
+    entrada = horarios[RegistroPonto.ENTRADA]
+
+    if RegistroPonto.SAIDA in horarios:
+        fim = horarios[RegistroPonto.SAIDA]
+    else:
+        fim = agora
+
+    if RegistroPonto.SAIDA_ALMOCO in horarios:
+        volta = horarios.get(RegistroPonto.VOLTA_ALMOCO, fim)
+        almoco = volta - horarios[RegistroPonto.SAIDA_ALMOCO]
+
+    else:
+        almoco = timedelta()
+
+    tempo_trabalhado = fim - entrada - almoco
+
+    percentual = (tempo_trabalhado.total_seconds()) / (jornada.total_seconds()) * 100
+    percentual = int(min(100, max(0, percentual)))
+
+    if RegistroPonto.SAIDA in horarios:
+        estado = 'completo'
+    elif tempo_trabalhado < jornada:
+        estado = 'andamento'
+    elif tempo_trabalhado <= jornada + tolerancia:
+        estado = 'completo'
+    else:
+        estado = 'extra'
+
+    return {
+        'tempo_trabalhado': tempo_trabalhado,
+        'tempo_restante': max(jornada - tempo_trabalhado, timedelta()),
+        'percentual': percentual,
+        'estado': estado
+    }

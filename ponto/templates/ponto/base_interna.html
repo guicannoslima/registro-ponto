@@ -11,7 +11,6 @@
             </a>
             <nav class="menu-topo">
                 <ul>
-                    <li><a href="{% url 'painel' %}">Painel</a></li>
                     {% if user.perfil.papel == 'gestor' or user.perfil.papel == 'admin' %}
                         <li><a href="{% url 'equipe' %}">Equipe</a></li>
                         <li><a href="{% url 'solicitacoes_pendentes' %}">Solicitações Pendentes</a></li>
@@ -22,12 +21,17 @@
                 </ul>
             </nav>
             <div class="topo-usuario">
-                <span>Bem-vindo, {{ request.user.first_name }}!</span>
+                <div class="topo-usuario-texto">
+                    <span>Bem-vindo, {{ request.user.first_name }}!</span>
+                    {% if user.perfil.funcao %}
+                        <small> {{ user.perfil.funcao.nome }}</small>
+                    {% endif %}
+                </div>
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
                     <button type="submit">Sair</button>
                 </form>
-        </div>
+            </div>
         </div>
     </header>
 {% endblock %}
