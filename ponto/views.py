@@ -292,12 +292,12 @@ def cadastro_usuario(request):
                 first_name=form.cleaned_data['first_name'],
                 last_name=form.cleaned_data['last_name'],
                 email=form.cleaned_data['email'],
-                funcao=form.cleaned_data['funcao']
             )
             Perfil.objects.create(
                 user=user,
                 cpf=form.cleaned_data['cpf'],
-                papel=Perfil.PAPEL_FUNCIONARIO
+                papel=Perfil.PAPEL_FUNCIONARIO,
+                funcao=form.cleaned_data['funcao']
             )
             messages.success(request, 'Usuário cadastrado com sucesso.')
             return redirect('login')
