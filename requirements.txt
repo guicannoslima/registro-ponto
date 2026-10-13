@@ -5,3 +5,4 @@ psycopg2-binary==2.9.13
 python-decouple==3.8
 sqlparse==0.6.0
 tzdata==2026.4
+xhtml2pdf==0.2.23
