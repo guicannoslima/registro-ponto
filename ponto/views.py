@@ -26,17 +26,18 @@ def painel(request):
     progresso = calcular_progresso(resultado_hoje['horarios'], timezone.now())
     tempo_texto = formatar_timedelta(progresso['tempo_trabalhado'])
     restante_texto = formatar_timedelta(progresso['tempo_restante'])
+    extra_texto = formatar_timedelta(progresso['tempo_extra'])
     registro_hoje = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=hoje, ativo = True).order_by('data_hora')
     ontem = hoje - timedelta(days=1)
     registro_ontem = RegistroPonto.objects.filter(funcionario=request.user, data_hora__date=ontem, ativo = True).order_by('data_hora')
-    return render(request, 'ponto/painel.html', {'perfil': perfil, 'progresso': progresso, 'tempo_texto': tempo_texto, 'registro_hoje': registro_hoje, 'registro_ontem': registro_ontem, 'ontem': ontem, 'restante_texto': restante_texto})
+    return render(request, 'ponto/painel.html', {'perfil': perfil, 'progresso': progresso, 'tempo_texto': tempo_texto, 'registro_hoje': registro_hoje, 'registro_ontem': registro_ontem, 'ontem': ontem, 'restante_texto': restante_texto, 'extra_texto': extra_texto })
 
 @login_required
 @require_POST
 def bater_ponto(request):
     agora = timezone.now()
     limite = agora - timedelta(minutes=INTERVALO_MINIMO)
-    if RegistroPonto.objects.filter(funcionario=request.user, data_hora__gte=limite).exists():
+    if RegistroPonto.objects.filter(funcionario=request.user, data_hora__gte=limite, ativo = True, data_hora__lte = agora).exists():
         messages.error(request, f"Você só pode bater ponto a cada {INTERVALO_MINIMO} minutos.")
         return redirect('painel')
     proximo_tipo = proximo_tipo_ponto(request.user)

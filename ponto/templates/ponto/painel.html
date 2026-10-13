@@ -44,6 +44,11 @@
                         stroke-dasharray="{{ progresso.percentual }} 100">
                     <title>Trabalhado: {{ tempo_texto }}</title>
                     </circle>
+                    {% if progresso.percentual_extra %}
+                        <circle class="anel-excedente" cx="50" cy="50" r="42" pathLength="100" stroke-dasharray="{{ progresso.percentual_extra }} 100">
+                        <title>Hora extra: {{ extra_texto }}</title>
+                        </circle> 
+                    {% endif %}
                 </svg>
                 <div class="anel-texto">{{ tempo_texto }}</div>
             </div>

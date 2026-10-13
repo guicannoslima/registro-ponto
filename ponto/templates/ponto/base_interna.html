@@ -29,7 +29,13 @@
                 </div>
                 <form method="post" action="{% url 'logout' %}">
                     {% csrf_token %}
-                    <button type="submit">Sair</button>
+                    <button type="submit" title="Sair" aria-label="Sair">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/>
+                            <path d="M16 8l4 4-4 4"/>
+                            <path d="M20 12H9"/>
+                        </svg>
+                    </button>
                 </form>
             </div>
         </div>

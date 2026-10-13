@@ -143,6 +143,8 @@ def calcular_progresso(horarios, agora):
             'tempo_restante': jornada,
             'percentual': 0,
             'estado': 'aguardando',
+            'tempo_extra': timedelta(),
+            'percentual_extra': 0
         }
 
     entrada = horarios[RegistroPonto.ENTRADA]
@@ -173,9 +175,21 @@ def calcular_progresso(horarios, agora):
     else:
         estado = 'extra'
 
+    excesso_bruto = tempo_trabalhado - (jornada + tolerancia)
+
+    if RegistroPonto.SAIDA in horarios:
+        tempo_extra = timedelta()
+    else:
+        tempo_extra = max(excesso_bruto, timedelta())
+    
+    percentual_extra = (tempo_extra.total_seconds()) / (jornada.total_seconds()) * 100
+    percentual_extra = int(min(100, max(0, percentual_extra)))
+
     return {
         'tempo_trabalhado': tempo_trabalhado,
         'tempo_restante': max(jornada - tempo_trabalhado, timedelta()),
         'percentual': percentual,
-        'estado': estado
+        'estado': estado,
+        'tempo_extra': tempo_extra,
+        'percentual_extra': percentual_extra
     }

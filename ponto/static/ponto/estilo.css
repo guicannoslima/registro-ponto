@@ -255,16 +255,18 @@ button:hover {
     font-size: 12px;
 }
 
-.topo-usuario button{
-    background: transparent;
-    border: 1px solid var(--cor-borda);
-    color: var(--cor-texto-suave);
-    padding: 6px 12px;
-    font-size: 14px;
+.topo-usuario button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
 }
 
-.topo-usuario button:hover{
-    background-color: var(--cor-fundo);
+.topo-usuario button svg {
+    width: 20px;
+    height: 20px;
 }
 
 .principal-interno{
@@ -299,14 +301,6 @@ button:hover {
 .lista-pontos li{
     padding: 12px 0;
     border-bottom: 1px solid var(--cor-borda);
-}
-
-.circulo{
-    width: 180px;
-    height: 180px;
-    border-radius: 50%;
-    background-color: var(--cor-borda);
-    margin: 0 auto 20px;
 }
 
 .painel-ontem{
@@ -347,6 +341,10 @@ button:hover {
     stroke: var(--cor-anel);
 }
 
+.anel-excedente {
+    stroke: #d93a3a;
+}
+
 .anel-texto {
     position: absolute;
     inset: 0;
@@ -360,7 +358,7 @@ button:hover {
 
 .anel-andamento { --cor-anel: #7ed6a4; }
 .anel-completo  { --cor-anel: #1f8a4c; }
-.anel-extra     { --cor-anel: #d93a3a; }
+.anel-extra     { --cor-anel: #1f8a4c; }
 
 @media (max-width: 480px) {
     .cartao-login {
