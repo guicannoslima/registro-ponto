@@ -1,17 +1,33 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Solicitação de Ajuste de Ponto</title>
-    </head>
-
-    <body>
-        <form method="post" action="">
-            {% csrf_token %}
-            {{form.as_p}}
-            <button type="submit">Enviar</button>
-            <a href="{% url 'painel' %}">Painel</a>
-        </form>
-    </body>
-
-</html>
+{% extends 'ponto/base_interna.html' %}
+    {%block title%}Solicitação de Ajuste de Ponto{%endblock%}
+    {%block conteudo%}
+        <div class="cartao-login">
+            <h2>Esqueci de bater um ponto</h2>
+            <form method="post" action="">
+                {% csrf_token %}
+                {{form.as_p}}
+                <button type="submit">Enviar</button>
+            </form>    
+        </div>
+        <div>
+            <h2>Bati um ponto errado</h2>
+            <ul class="lista-pontos">
+                {% for registro in pontos_recentes %}
+                <li>
+                    {{ registro.data_hora|date:"d/m/Y" }}
+                    {{ registro.get_tipo_display }}
+                    {{ registro.data_hora|time:"H:i" }}
+                    {%if registro.id in ids_pendentes%}
+                        Solicitação Pendente
+                    {%else%}
+                        <a href="{%url 'solicitar_exclusao' registro.id%}" class="botao">Solicitar exclusão</a>
+                    {%endif%}
+                </li>
+                {%empty%}                
+                <li>
+                    Nenhum ponto recente.
+                </li>  
+                {% endfor %}          
+            </ul>
+        </div>
+    {% endblock %}

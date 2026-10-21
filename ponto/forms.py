@@ -29,10 +29,10 @@ class MotivoRejeicaoForm(forms.Form):
     motivo_rejeicao = forms.CharField(max_length=150)
 
 class RelatorioForm(forms.Form):
-    funcionario = forms.ModelChoiceField(queryset= User.objects.none(), required= False)
-    data_inicio = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    data_fim = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
-    gerar_todos = forms.BooleanField(required=False)
+    funcionario = forms.ModelChoiceField(label= 'Funcionário', empty_label= 'Selecione um funcionário', queryset= User.objects.none(), required= False)
+    data_inicio = forms.DateField(label = 'Data inicial',widget=forms.DateInput(attrs={'type': 'date'}))
+    data_fim = forms.DateField(label = 'Data final', widget=forms.DateInput(attrs={'type': 'date'}))
+    gerar_todos = forms.BooleanField(label = 'Gerar relatórios de todos os funcionários', required=False)
 
     def __init__(self, *args, funcionarios=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,8 +42,12 @@ class RelatorioForm(forms.Form):
     def clean(self):
         gerar_todos = self.cleaned_data.get('gerar_todos')
         funcionario = self.cleaned_data.get('funcionario')
+        data_inicio = self.cleaned_data.get('data_inicio')
+        data_fim = self.cleaned_data.get('data_fim')
         if not gerar_todos and not funcionario:
-            raise forms.ValidationError('Selecione um funcionário ou marque a opção "Gerar todos".')
+            raise forms.ValidationError('Selecione um funcionário ou marque a opção "Gerar relatórios de todos os funcionários".')
+        if data_inicio and data_fim and data_fim < data_inicio:
+            raise forms.ValidationError('A data final não pode ser anterior à data inicial.')
         return self.cleaned_data
 
 class CadastroForm(forms.Form):

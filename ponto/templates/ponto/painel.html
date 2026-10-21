@@ -13,7 +13,6 @@
                     <li>
                         {{ registro.get_tipo_display }}
                         {{ registro.data_hora|time:"H:i" }}
-                        <a href="{% url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>
                     </li>
                 {% empty %}
                     <li>Nenhum ponto registrado hoje.</li>
@@ -26,7 +25,6 @@
                         <li>
                             {{ registro.get_tipo_display }}
                             {{ registro.data_hora|time:"H:i" }}
-                            <a href="{% url 'solicitar_exclusao' registro.id %}">Solicitar Exclusão de ponto</a>
                         </li>
                     {% empty %}
                         <li>Nenhum ponto registrado ontem.</li>

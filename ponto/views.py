@@ -112,20 +112,39 @@ def excluir_ponto(request, registro_id):
 
 @login_required
 def solicitar_criacao(request):
+    pontos_recentes = RegistroPonto.objects.filter(
+        funcionario = request.user,
+        ativo = True,
+        data_hora__date__gte=timezone.localdate() - timedelta(days=7),
+    ).order_by('-data_hora')
+    ids_pendentes = SolicitacaoAjustePonto.objects.filter(
+        funcionario = request.user,
+        tipo_acao=SolicitacaoAjustePonto.EXCLUSAO,
+        status = SolicitacaoAjustePonto.PENDENTE
+    ).values_list('registro_id', flat=True)
     if request.method == 'POST':
         form = SolicitarCriacaoForm(request.POST)
         if form.is_valid():
-            SolicitacaoAjustePonto.objects.create(
+            if SolicitacaoAjustePonto.objects.filter(
                 funcionario = request.user,
-                tipo_acao = SolicitacaoAjustePonto.CRIACAO,
                 tipo = form.cleaned_data['tipo'],
-                motivo_funcionario = form.cleaned_data['motivo_funcionario'],
-                data_hora = form.cleaned_data['data_hora']
-                )
-            return redirect('painel')
+                data_hora__date = form.cleaned_data['data_hora'].date(),
+                tipo_acao = SolicitacaoAjustePonto.CRIACAO,
+                status = SolicitacaoAjustePonto.PENDENTE
+            ).exists():
+                messages.error(request, "Não foi possível solicitar o ajuste, você já solicitou esse ponto.")
+            else:
+                SolicitacaoAjustePonto.objects.create(
+                    funcionario = request.user,
+                    tipo_acao = SolicitacaoAjustePonto.CRIACAO,
+                    tipo = form.cleaned_data['tipo'],
+                    motivo_funcionario = form.cleaned_data['motivo_funcionario'],
+                    data_hora = form.cleaned_data['data_hora']
+                    )
+                return redirect('painel')
     else:
         form = SolicitarCriacaoForm()
-    return render (request, 'ponto/solicitar_criacao.html', {'form': form})
+    return render (request, 'ponto/solicitar_criacao.html', {'form': form, 'pontos_recentes': pontos_recentes, 'ids_pendentes': ids_pendentes})
 
 @login_required
 def solicitar_exclusao(request, registro_id):
@@ -133,6 +152,13 @@ def solicitar_exclusao(request, registro_id):
     if registro.funcionario != request.user:
         messages.error(request, 'Somente o usuário pode solicitar o ajuste de ponto.')
         return redirect ('painel')
+    if SolicitacaoAjustePonto.objects.filter(
+        registro = registro,
+        tipo_acao = SolicitacaoAjustePonto.EXCLUSAO,
+        status = SolicitacaoAjustePonto.PENDENTE,
+    ).exists():
+        messages.error(request, "Já existe uma solicitação de exclusão pendente para este ponto.")
+        return redirect ('solicitar_criacao')
     if request.method == 'POST':
         form = SolicitarExclusaoForm(request.POST)
         if form.is_valid():
