@@ -360,6 +360,44 @@ button:hover {
 .anel-completo  { --cor-anel: #1f8a4c; }
 .anel-extra     { --cor-anel: #1f8a4c; }
 
+.cartao {
+    background-color: var(--cor-card);
+    border-radius: 10px;
+    padding: 24px;
+    box-shadow: 0 4px 20px rgba(9, 36, 63, 0.10);
+    margin-bottom: 24px;
+}
+
+.tabela{
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabela th, .tabela td{
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela th{
+    background-color: var(--cor-fundo);
+    color: var(--cor-titulo);
+    font-weight: 600;
+}
+
+.cartao button + button {
+    margin-left: 8px;
+}
+
+label:has(+ input[type="checkbox"]){
+    display: inline-block;
+    margin-right: 2px;
+}
+
+input[type="checkbox"]{
+    vertical-align: middle;
+}
+
 @media (max-width: 480px) {
     .cartao-login {
         margin-top: 3vh;

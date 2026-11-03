@@ -1,48 +1,58 @@
+{% extends 'ponto/base_interna.html' %}
 {% load ponto_filters %}
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Relatório de ponto</title>
-    </head>
 
-    <body>
-        <h1>
-            Relatório de Ponto
-        </h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-    
-    <button type="submit">
-        Gerar relatório
-    </button>
-    <button type="submit"  formaction="{%url 'exportar_relatorio_pdf' %}">
+{% block title %}Relatório de Ponto{% endblock %}
+
+{% block conteudo %}
+
+    <h1>
+        Relatório de Ponto
+    </h1>
+    <div class="cartao">
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+        <button type="submit">
+            Gerar relatório
+        </button>
+        <button type="submit"  formaction="{%url 'exportar_relatorio_pdf' %}">
         Exportar PDF
-    </button>
-
+        </button>
     </form>
+    </div>
 
-    {%if relatorio %}
-        {%for item in relatorio %}
-            {{ item.funcionario.get_full_name }}
-            {%for dia in item.relatorio %}
-                {{dia.data}}
-                {{dia.status}}
-                {%if dia.status == 'Completo'%}
-                    {{ dia.tempo_trabalhado|ponto_filter }}
-                    {{ dia.esperado|ponto_filter }}
-                    {{ dia.diferenca|ponto_filter }}
-                {% else %}
-                    <p>Incompleto</p>
-                    <a href="{% url 'solicitar_criacao' %}">Solicitar criação</a>
-                {% endif %}
-            {%endfor%}
-        {%endfor%}
-    {% endif %}  
-     <form method="post" action="{% url 'logout' %}">
-        {% csrf_token %}
-        <button type="submit">Sair</button>
-    </form>          
-    </body>
-</html>
+    {% if relatorio %}
+    {% for item in relatorio %}
+        <div class="cartao">
+            <h2>{{ item.funcionario.get_full_name }}</h2>
+            <p>Horas normais: {{ item.horas_normais|ponto_filter }} | Horas extras: {{ item.horas_extras|ponto_filter }}</p>
+            <table class="tabela">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Status</th>
+                        <th>Trabalhado</th>
+                        <th>Esperado</th>
+                        <th>Diferença</th>
+                        <th>Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dia in item.relatorio %}
+                        <tr>
+                            <td> {{ dia.data|date:"d/m/Y" }}</td>
+                            <td> {{ dia.status }} </td>  
+                            {% if dia.status == 'Completo' %}
+                                <td> {{ dia.tempo_trabalhado|ponto_filter }}</td> <td>{{ dia.esperado|ponto_filter }}</td> <td>{{ dia.diferenca|ponto_filter }}</td> <td></td>
+                            {% else %}
+                                <td>—</td> <td>—</td> <td>—</td>
+                                <td><a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a></td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endfor %}
+{% endif %}
+{% endblock %}

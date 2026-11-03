@@ -34,10 +34,12 @@ class RelatorioForm(forms.Form):
     data_fim = forms.DateField(label = 'Data final', widget=forms.DateInput(attrs={'type': 'date'}))
     gerar_todos = forms.BooleanField(label = 'Gerar relatórios de todos os funcionários', required=False)
 
-    def __init__(self, *args, funcionarios=None, **kwargs):
+    def __init__(self, *args, funcionarios=None, permite_todos=True, **kwargs):
         super().__init__(*args, **kwargs)
         if funcionarios is not None:
             self.fields['funcionario'].queryset = funcionarios
+        if not permite_todos:
+            del self.fields['gerar_todos']
 
     def clean(self):
         gerar_todos = self.cleaned_data.get('gerar_todos')

@@ -259,7 +259,8 @@ def historico_alteracoes(request):
 
 @login_required
 def relatorio_ponto(request):
-    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+    eh_funcionario =  request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO
+    if eh_funcionario:
         funcionarios = User.objects.filter(pk=request.user.pk)
     else:
         funcionarios = funcionarios_visiveis(request.user)
@@ -267,15 +268,15 @@ def relatorio_ponto(request):
     relatorio = None
 
     if request.method == 'POST':
-        form = RelatorioForm(request.POST, funcionarios= funcionarios)
+        form = RelatorioForm(request.POST, funcionarios= funcionarios, permite_todos= not eh_funcionario)
         if form.is_valid():
             data_inicio = form.cleaned_data['data_inicio']
             data_fim = form.cleaned_data['data_fim']
-            gerar_todos = form.cleaned_data['gerar_todos']     
+            gerar_todos = form.cleaned_data.get('gerar_todos')    
             funcionario_escolhido = form.cleaned_data['funcionario']
             relatorio = montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
     else:
-        form = RelatorioForm(funcionarios = funcionarios)
+        form = RelatorioForm(funcionarios = funcionarios, permite_todos= not eh_funcionario)
     return render(request, 'ponto/relatorio_ponto.html', {'form': form, 'relatorio': relatorio})
 
 @login_required
