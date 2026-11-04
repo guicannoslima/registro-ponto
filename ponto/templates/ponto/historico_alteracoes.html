@@ -1,31 +1,40 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Historico de ponto</title>
-    </head>
+{%extends "ponto/base_interna.html"%}
+     
+    {% block title %}
+        Histórico de Alterações
+    {% endblock %}
 
-    <body>
+    {% block conteudo %}
         <h1>
             Histórico de ponto
         </h1>
-
-        {%for historico in historico %}
-            <ul>
-                <li>
-                    {{ historico.registro.funcionario.get_full_name}}
-                    {{ historico.get_tipo_acao_display }}
-                    {{ historico.realizado_por }}
-                    {{ historico.motivo }}
-                    {{ historico.criado_em }}
-                </li>
-            </ul>
-
-            {% empty %}
-                <p>Nenhuma alteração registrada.</p>
-        {% endfor %}
-
+        {% if historico %}
+            <div class="cartao">
+                <table class="tabela">
+                    <thead>
+                        <tr>
+                            <th>Funcionário</th>
+                            <th>Tipo de Ação</th>
+                            <th>Realizado Por</th>
+                            <th>Motivo</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alteracao in historico %}
+                            <tr>
+                                <td>{{ alteracao.registro.funcionario.get_full_name }}</td>
+                                <td>{{ alteracao.get_tipo_acao_display }}</td>
+                                <td>{{ alteracao.realizado_por.get_full_name }}</td>
+                                <td>{{ alteracao.motivo }}</td>
+                                <td>{{ alteracao.criado_em|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p>Não há alterações registradas.</p>
+        {% endif %}
         <a href="{% url 'painel' %}">Voltar ao Painel</a>
-    </body>
-
-</html>
+    {% endblock %}

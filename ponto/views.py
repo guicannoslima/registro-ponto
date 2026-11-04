@@ -282,16 +282,17 @@ def relatorio_ponto(request):
 @login_required
 @require_POST
 def exportar_relatorio_pdf(request):
-    if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+    eh_funcionario = request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO
+    if eh_funcionario:
         funcionarios = User.objects.filter(pk=request.user.pk)
     else:
         funcionarios = funcionarios_visiveis(request.user)
 
-    form = RelatorioForm(request.POST, funcionarios=funcionarios)
+    form = RelatorioForm(request.POST, funcionarios=funcionarios, permite_todos=not eh_funcionario)
     if form.is_valid():
         data_inicio = form.cleaned_data['data_inicio']
         data_fim = form.cleaned_data['data_fim']
-        gerar_todos = form.cleaned_data['gerar_todos']
+        gerar_todos = form.cleaned_data.get('gerar_todos')
         funcionario_escolhido = form.cleaned_data['funcionario']
         relatorio = montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
 

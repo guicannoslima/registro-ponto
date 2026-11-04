@@ -398,6 +398,10 @@ input[type="checkbox"]{
     vertical-align: middle;
 }
 
+.lista-pontos a{
+    margin-left: 12px;
+}
+
 @media (max-width: 480px) {
     .cartao-login {
         margin-top: 3vh;

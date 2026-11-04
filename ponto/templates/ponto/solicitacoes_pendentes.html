@@ -1,39 +1,53 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Solicitações Pendentes</title>
-    </head>
+{%extends "ponto/base_interna.html"%}
 
-    <body>
+    {% block title %}
+        Solicitações Pendentes
+    {% endblock %}
+
+    {% block conteudo %}
+
         <h1>Solicitações Pendentes</h1>
 
-        {% for solicitacao in solicitacoes %}
-            <ul>
-                <li>
-                    {{ solicitacao.funcionario.get_full_name }} - {{ solicitacao.get_tipo_acao_display }}
-
-                    {% if solicitacao.tipo_acao == 'criacao' %}
-                        {{ solicitacao.get_tipo_display }} - {{ solicitacao.data_hora }}
-                    {% else %}
-                        {{ solicitacao.registro.get_tipo_display }} - {{ solicitacao.registro.data_hora }}
-                    {% endif %}
-                    Motivo: {{ solicitacao.motivo_funcionario }}
-                    <a href="{% url 'rejeitar_solicitacao' solicitacao.id %}">Rejeitar</a>
-
-                    <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.id %}">
-                        {% csrf_token %}
-                    <button type="submit">Aprovar</button>
-                    </form>
-
-                </li>
-            </ul>
-        {% empty %}
-            <p>Nenhuma solicitação pendente</p>
-        {% endfor %}    
-        
-        <a href="{% url 'painel'%}">Voltar ao Painel</a>
-        <a href="{% url 'equipe'%}">Ver equipe</a>
-
-    </body>
-</html>
+        {% if solicitacoes %}
+            <div class="cartao">
+                <table class="tabela">
+                    <thead>
+                        <tr>
+                            <th>Funcionário</th>
+                            <th>Tipo</th>
+                            <th>Registro</th>
+                            <th>Motivo</th>
+                            <th>Decisão</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for solicitacao in solicitacoes %}
+                            <tr>
+                                <td>{{ solicitacao.funcionario.get_full_name }}</td>
+                                <td>{{ solicitacao.get_tipo_acao_display }}</td>
+                                <td>
+                                     {% if solicitacao.tipo_acao == 'criacao' %}
+                                        {{ solicitacao.get_tipo_display }} - {{ solicitacao.data_hora|date:"d/m/Y H:i" }}
+                                    {% else %}
+                                        {{ solicitacao.registro.get_tipo_display }} - {{ solicitacao.registro.data_hora|date:"d/m/Y H:i" }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ solicitacao.motivo_funcionario }}</td>
+                                <td>
+                                    <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.id %}">
+                                        {% csrf_token %}
+                                    <button type="submit">Aprovar</button>
+                                    </form>
+                                    <a href="{% url 'rejeitar_solicitacao' solicitacao.id %}">Rejeitar</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {%else%}
+            <p>Não há solicitações pendentes.</p>
+        {%endif%}
+            <a href="{% url 'painel'%}">Voltar ao Painel</a>
+            <a href="{% url 'equipe'%}">Ver equipe</a>
+    {%endblock%}           
