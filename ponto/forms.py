@@ -3,13 +3,22 @@ from .models import Funcao, Perfil, RegistroPonto, SolicitacaoAjustePonto
 from django.contrib.auth.models import User
 
 class RegistroManualForm(forms.ModelForm):
+    def __init__(self, *args, funcionarios=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if funcionarios is not None:
+            self.fields['funcionario'].queryset = funcionarios
     class Meta:
         model = RegistroPonto
         fields = ['funcionario', 'tipo', 'data_hora']
         widgets = {
         'data_hora': forms.DateTimeInput(attrs={'type': 'datetime-local'})
         }
-    motivo = forms.CharField(max_length=150)
+        labels = {
+            'funcionario': 'Funcionário',
+            'tipo': 'Tipo de ponto',
+            'data_hora': 'Data e hora'
+        }
+    motivo = forms.CharField(max_length=150, label='Motivo', widget=forms.Textarea(attrs={'rows': 4}))
 
 class MotivoExclusaoForm(forms.Form):
     motivo = forms.CharField(max_length=150)
@@ -17,11 +26,12 @@ class MotivoExclusaoForm(forms.Form):
 class SolicitarCriacaoForm(forms.ModelForm):
     class Meta:
         model = SolicitacaoAjustePonto
-        fields = ['tipo', 'data_hora', 'motivo_funcionario']
+        fields = [
+            'tipo', 'data_hora', 'motivo_funcionario'
+            ]
         widgets = {
             'data_hora': forms.DateTimeInput(attrs={'type': 'datetime-local'})
         }
-
 class SolicitarExclusaoForm(forms.Form):
     motivo_funcionario = forms.CharField(max_length=150)
 

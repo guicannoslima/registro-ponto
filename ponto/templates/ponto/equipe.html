@@ -9,7 +9,9 @@
         <h1>
             Minha Equipe
         </h1>
-        
+        <p>
+            <a href="{% url 'criar_ponto_manual' %}" class="botao botao-auto">Lançar ponto manual</a>
+        </p>
         {% for usuario, registros in equipe %}
             <div class="cartao">
                 <h2>

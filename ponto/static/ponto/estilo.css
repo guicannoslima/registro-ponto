@@ -190,6 +190,11 @@ button:hover {
     color: #ffffff;
 }
 
+.botao-auto {
+    display: inline-block;
+    margin-top: 0;
+}
+
 .topo{
     background-color: var(--cor-card);
     border-bottom: 1px solid var(--cor-borda);

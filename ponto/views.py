@@ -71,7 +71,7 @@ def criar_ponto_manual(request):
         return redirect('painel')
 
     if request.method == 'POST':
-        form = RegistroManualForm(request.POST)
+        form = RegistroManualForm(request.POST, funcionarios=funcionarios_visiveis(request.user))
         if form.is_valid():
             registros_pontos = RegistroPonto.objects.create(
             funcionario=form.cleaned_data['funcionario'],
@@ -86,7 +86,7 @@ def criar_ponto_manual(request):
             motivo=form.cleaned_data['motivo'])
             return redirect('equipe')
     else:
-        form = RegistroManualForm()
+        form = RegistroManualForm(funcionarios=funcionarios_visiveis(request.user))
     return render(request, 'ponto/criar_ponto_manual.html', {'form': form})
 
 @login_required
