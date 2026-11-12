@@ -4,3 +4,7 @@ __pycache__/
 .env
 media/
 db.sqlite3
+staticfiles/
+
+# Exportações do banco (contêm dados pessoais e hashes de senha)
+dados.json

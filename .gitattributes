@@ -1,0 +1,2 @@
+# Scripts shell precisam de quebra de linha Unix (LF) para rodar no Linux do container
+*.sh text eol=lf

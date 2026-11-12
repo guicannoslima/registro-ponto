@@ -1,0 +1,40 @@
+services:
+  # Banco de dados PostgreSQL
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      # Usa as mesmas variáveis do .env do Django
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      # Volume nomeado: os dados do banco sobrevivem quando o container é recriado
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # Só considera o banco "pronto" quando ele aceita conexões
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Aplicação Django
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Dentro do Docker, o banco é acessado pelo nome do serviço ("db"),
+      # não por localhost. Isso sobrescreve o DB_HOST/DB_PORT do .env.
+      DB_HOST: db
+      DB_PORT: 5432
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

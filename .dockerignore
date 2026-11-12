@@ -1,0 +1,16 @@
+# Arquivos que NÃO devem ir para dentro da imagem
+venv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.env
+db.sqlite3
+media/
+staticfiles/
+Claude outputs/
+.vscode/
+.idea/
+Dockerfile
+docker-compose.yml
+.dockerignore
