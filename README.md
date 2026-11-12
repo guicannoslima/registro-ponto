@@ -7,11 +7,13 @@
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-6.1-092E20?style=for-the-badge&logo=django&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange?style=for-the-badge)
 
 [Funcionalidades](#funcionalidades) •
 [Tecnologias](#tecnologias) •
 [Como rodar](#como-rodar-localmente) •
+[Docker](#como-rodar-com-docker) •
 [Rotas](#rotas-principais) •
 [Estrutura](#estrutura-do-projeto)
 
@@ -114,6 +116,9 @@ flowchart LR
 | [python-decouple](https://pypi.org/project/python-decouple/) | Variáveis de ambiente (`.env`) |
 | [Pillow](https://pypi.org/project/pillow/) | Suporte a imagens |
 | [xhtml2pdf](https://pypi.org/project/xhtml2pdf/) | Geração do relatório em PDF |
+| [Gunicorn](https://gunicorn.org/) | Servidor da aplicação no Docker |
+| [WhiteNoise](https://whitenoise.readthedocs.io/) | Arquivos estáticos no Docker |
+| [Docker](https://www.docker.com/) e Docker Compose | Ambiente em containers (aplicação + PostgreSQL) |
 | SMTP (Gmail) | Envio de e-mails de redefinição de senha |
 | HTML, CSS e SVG | Interface e relógio de jornada |
 
@@ -213,6 +218,99 @@ Pronto! Acesse `http://127.0.0.1:8000/` e faça login.
 
 ---
 
+## Como rodar com Docker
+
+Com o Docker, a aplicação e o PostgreSQL sobem juntos em containers, sem precisar instalar Python nem PostgreSQL na máquina.
+
+<details>
+<summary><b>Pré-requisitos</b></summary>
+
+<br>
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado e aberto
+- Git
+
+</details>
+
+**1. Clone o repositório**
+
+```bash
+git clone https://github.com/guicannoslima/registro-ponto.git
+cd registro-ponto
+```
+
+**2. Crie o arquivo `.env`** a partir do modelo
+
+```bash
+# Windows (PowerShell)
+Copy-Item .env.example .env
+
+# Linux / macOS
+cp .env.example .env
+```
+
+Abra o `.env` e preencha a `SECRET_KEY`, a `DB_PASSWORD` (senha do PostgreSQL do container) e os dados de e-mail.
+
+> [!NOTE]
+> Não precisa mudar `DB_HOST` e `DB_PORT`: dentro do Docker, o `docker-compose.yml` aponta a aplicação para o container do banco (`db:5432`).
+>
+> Para acessar por outro endereço (IP da rede ou domínio), inclua o endereço em `ALLOWED_HOSTS` e em `CSRF_TRUSTED_ORIGINS` (este com `http://` ou `https://`).
+
+**3. Suba os containers**
+
+```bash
+docker compose up -d --build
+```
+
+A cada subida, o container aplica as migrações e coleta os arquivos estáticos automaticamente.
+
+**4. Crie o administrador e o perfil dele**
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
+
+> [!IMPORTANT]
+> Assim como no modo local, o superusuário criado no terminal **não tem perfil**, e sem ele o login dá **Server Error (500)**. Crie o perfil com:
+>
+> ```bash
+> docker compose exec web python manage.py shell -c "from django.contrib.auth.models import User; from ponto.models import Perfil; [Perfil.objects.create(user=u, papel=Perfil.PAPEL_ADMIN) for u in User.objects.filter(is_superuser=True, perfil__isnull=True)]"
+> ```
+
+Pronto! Acesse `http://localhost:8000/` e faça login.
+
+### Comandos do dia a dia
+
+| Ação | Comando |
+|---|---|
+| Parar | `docker compose down` |
+| Subir novamente | `docker compose up -d` |
+| Subir após alterar o código | `docker compose up -d --build` |
+| Ver os logs | `docker compose logs -f web` |
+| Ver o status | `docker compose ps` |
+| Abrir o shell do Django | `docker compose exec web python manage.py shell` |
+
+> [!WARNING]
+> Os dados do banco ficam no volume `postgres_data` e continuam salvos quando os containers são parados ou recriados. **`docker compose down -v` apaga esse volume e todo o banco.**
+
+### Levar os dados do banco local para o Docker
+
+O banco do Docker é separado do PostgreSQL instalado na máquina e começa vazio. Para copiar os dados:
+
+```bash
+# 1. Exporte do banco local (com o venv ativado). O -X utf8 evita erro de acentuação no Windows.
+python -X utf8 manage.py dumpdata --exclude contenttypes --exclude auth.permission --exclude admin.logentry --exclude sessions -o dados.json
+
+# 2. Copie o arquivo para o container e importe
+docker compose cp dados.json web:/app/
+docker compose exec web python manage.py loaddata dados.json
+```
+
+> [!CAUTION]
+> O `dados.json` contém dados pessoais e hashes de senha. Ele já está no `.gitignore`. Apague o arquivo depois da importação.
+
+---
+
 ## Rotas principais
 
 | Rota | Descrição | Acesso |
@@ -244,6 +342,10 @@ Pronto! Acesse `http://127.0.0.1:8000/` e faça login.
 registro-ponto/
 ├── manage.py
 ├── requirements.txt
+├── Dockerfile             # imagem da aplicação (gunicorn)
+├── docker-compose.yml     # aplicação + PostgreSQL
+├── docker-entrypoint.sh   # migrações e collectstatic na subida
+├── .env.example           # modelo de variáveis de ambiente
 ├── registro_ponto/        # configurações (settings, urls, wsgi)
 └── ponto/                 # app principal
     ├── models.py          # Perfil, Funcao, RegistroPonto, HistoricoAlteracaoPonto, SolicitacaoAjustePonto
@@ -274,6 +376,7 @@ registro-ponto/
 - [x] Tolerância de 10 minutos e limite de horas normais à jornada
 - [x] Novo visual (login, cadastro, painel com relógio de jornada e menu por papel)
 - [x] Intervalo mínimo de 10 minutos entre batidas
+- [x] Ambiente com Docker (aplicação + PostgreSQL)
 - [ ] Ajuste do botão de exclusão de ponto na tela de ajuste de ponto
 
 ---
