@@ -341,6 +341,7 @@ docker compose exec web python manage.py loaddata dados.json
 ```
 registro-ponto/
 ├── manage.py
+├── pyproject.toml         # configuração do Ruff (lint e formatação, 120 colunas)
 ├── requirements/          # base, development, production
 ├── Dockerfile             # imagem da aplicação (gunicorn)
 ├── compose.yaml           # aplicação + PostgreSQL
