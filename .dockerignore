@@ -1,16 +1,42 @@
 # Arquivos que NÃO devem ir para dentro da imagem
-venv/
+
+# Git e configuração do repositório
 .git/
 .gitignore
+.gitattributes
+
+# Docker (não são usados dentro da imagem)
+Dockerfile
+compose.yaml
+.dockerignore
+
+# Ambientes virtuais e cache do Python
+venv/
+.venv/
 __pycache__/
-*.pyc
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Segredos: as variáveis chegam ao container pelo env_file do compose
 .env
+.env.*
+
+# Dados locais e arquivos gerados
 db.sqlite3
 media/
 staticfiles/
-Claude outputs/
-.vscode/
+*.log
+
+# Documentação e ferramentas de desenvolvimento
+README.md
+pyproject.toml
+requirements/development.txt
+
+# IDEs, editores e ferramentas locais
 .idea/
-Dockerfile
-docker-compose.yml
-.dockerignore
+.vscode/
+.remember/
+.claude/
+Claude outputs/

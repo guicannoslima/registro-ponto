@@ -1,2 +1,15 @@
-# Scripts shell precisam de quebra de linha Unix (LF) para rodar no Linux do container
+# Normaliza quebras de linha: o repositório guarda tudo em LF, independente do sistema de quem commita
+* text=auto eol=lf
+
+# Scripts shell precisam de LF para rodar no Linux do container
 *.sh text eol=lf
+
+# Arquivos binários: sem conversão de quebra de linha nem diff textual
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

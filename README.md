@@ -252,7 +252,7 @@ cp .env.example .env
 Abra o `.env` e preencha a `SECRET_KEY`, a `DB_PASSWORD` (senha do PostgreSQL do container) e os dados de e-mail.
 
 > [!NOTE]
-> Não precisa mudar `DB_HOST` e `DB_PORT`: dentro do Docker, o `docker-compose.yml` aponta a aplicação para o container do banco (`db:5432`).
+> Não precisa mudar `DB_HOST` e `DB_PORT`: dentro do Docker, o `compose.yaml` aponta a aplicação para o container do banco (`db:5432`).
 >
 > Para acessar por outro endereço (IP da rede ou domínio), inclua o endereço em `ALLOWED_HOSTS` e em `CSRF_TRUSTED_ORIGINS` (este com `http://` ou `https://`).
 
@@ -343,7 +343,7 @@ registro-ponto/
 ├── manage.py
 ├── requirements.txt
 ├── Dockerfile             # imagem da aplicação (gunicorn)
-├── docker-compose.yml     # aplicação + PostgreSQL
+├── compose.yaml           # aplicação + PostgreSQL
 ├── docker-entrypoint.sh   # migrações e collectstatic na subida
 ├── .env.example           # modelo de variáveis de ambiente
 ├── registro_ponto/        # configurações (settings, urls, wsgi)
