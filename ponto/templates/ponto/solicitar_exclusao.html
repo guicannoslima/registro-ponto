@@ -1,21 +1,31 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Solicitação de Ajuste de Ponto</title>
-    </head>
+{% extends 'ponto/base_interna.html' %}
 
-    <body>
-        {{ registro.get_tipo_display }}
-        {{ registro.data_hora }}
+{% block title %}Pedir exclusão de batida - Registro de Ponto{% endblock %}
 
-    <form method = "post" action="">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Confirmar</button>
-        <a href="{%url 'painel'%}">Cancelar</a>
-    </form>
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina titulo-pagina--voltar">
+        {% url 'solicitar_criacao' as url_ajustes %}
+        {% include 'ponto/_voltar.html' with url=url_ajustes destino='Ajustes de ponto' %}
+        <div class="titulo-pagina__texto">
+            <h1>Pedir exclusão de batida</h1>
+        </div>
+    </header>
 
-    </body>
-
-</html>
+    <section class="cartao-interno cartao-interno--estreito" aria-label="Confirmar pedido">
+        <dl class="resumo">
+            <dt>Batida</dt><dd>{{ registro.get_tipo_display }}</dd>
+            <dt>Data e hora</dt><dd class="numero">{{ registro.data_hora|date:"d/m/Y" }} às {{ registro.data_hora|time:"H:i" }}</dd>
+        </dl>
+        <form method="post" class="campos" novalidate>
+            {% csrf_token %}
+            {% include 'ponto/_campo.html' with campo=form.motivo_funcionario %}
+            <p class="aviso aviso--info">A batida continua valendo até o seu gestor aprovar o pedido.</p>
+            <div class="acoes">
+                <button type="submit" class="btn">Enviar pedido</button>
+                <a href="{% url 'solicitar_criacao' %}" class="btn btn--secundario">Cancelar</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -3,6 +3,14 @@
 
 {% block classe_main %}principal-interno{% endblock %}
 
+{% block estilos %}
+    <link rel="stylesheet" href="{% static 'ponto/interno.css' %}">
+{% endblock %}
+
+{% block scripts %}
+    <script src="{% static 'ponto/interno.js' %}" defer></script>
+{% endblock %}
+
 {% block cabecalho %}
     <header class="topo">
         <div class="topo-interno">

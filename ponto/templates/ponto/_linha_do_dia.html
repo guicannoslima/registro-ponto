@@ -1,0 +1,17 @@
+<ol class="linha-dia" aria-label="Batidas do dia, em ordem">
+    {% for passo in linha %}
+        <li class="linha-dia__passo{% if passo.registro %} linha-dia__passo--feito{% elif passo.proxima %} linha-dia__passo--proxima{% endif %}">
+            <span class="linha-dia__marco" aria-hidden="true">
+                {% if passo.registro %}<svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7.5 5.5 11 12 3"/></svg>{% endif %}
+            </span>
+            <span class="linha-dia__rotulo">{{ passo.rotulo }}</span>
+            {% if passo.registro %}
+                <span class="linha-dia__hora">{{ passo.registro.data_hora|time:"H:i" }}</span>
+            {% elif passo.proxima %}
+                <span class="linha-dia__hora">agora<span class="sr-only"> (próxima batida)</span></span>
+            {% else %}
+                <span class="linha-dia__hora" aria-label="sem batida">—</span>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ol>

@@ -1,5 +1,8 @@
 from datetime import timedelta
+
+from .constants import JORNADA_DIARIA, TOLERANCIA_SALDO
 from .models import RegistroPonto
+
 
 def calcular_horas_dia(funcionario,data):
     registros = RegistroPonto.objects.filter(
@@ -18,7 +21,6 @@ def calcular_horas_dia(funcionario,data):
     tempo_trabalhado = None
     esperado = None
     diferenca = None
-    tolerancia = timedelta(minutes=10)
     if completo:
         tempo_total = horarios[RegistroPonto.SAIDA] - horarios[RegistroPonto.ENTRADA]
         
@@ -28,9 +30,9 @@ def calcular_horas_dia(funcionario,data):
             tempo_almoco = timedelta()
         
         tempo_trabalhado = tempo_total - tempo_almoco
-        esperado = timedelta (hours=7, minutes=45)
+        esperado = JORNADA_DIARIA
         diferenca = tempo_trabalhado - esperado
-        if abs(diferenca) <= tolerancia:
+        if abs(diferenca) <= TOLERANCIA_SALDO:
             diferenca = timedelta()
         
     return {
@@ -83,9 +85,9 @@ def formatar_timedelta(delta):
 
     sinal = '-'
     if negativo == True:
-        return f'{sinal}{horas}h{minutos}min'
+        return f'{sinal}{horas}h{minutos:02d}min'
     else:
-        return f'{horas}h{minutos}min'
+        return f'{horas}h{minutos:02d}min'
 
 def montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos):
     relatorio = []
@@ -134,8 +136,8 @@ def calcular_resumo(dias_calculados):
     }
 
 def calcular_progresso(horarios, agora):
-    jornada = timedelta(hours=7, minutes=45)
-    tolerancia = timedelta(minutes=10)
+    jornada = JORNADA_DIARIA
+    tolerancia = TOLERANCIA_SALDO
 
     if RegistroPonto.ENTRADA not in horarios:
         return {

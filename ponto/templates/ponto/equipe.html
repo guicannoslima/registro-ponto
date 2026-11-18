@@ -1,40 +1,74 @@
-{%extends "ponto/base_interna.html"%}
+{% extends 'ponto/base_interna.html' %}
 
-    {% block title %}
-        Painel - Registro de Ponto
-    {% endblock %}
+{% block title %}Equipe - Registro de Ponto{% endblock %}
 
-    {% block conteudo %}
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>Equipe</h1>
+            <p class="apoio">Batidas de hoje, {{ hoje|date:"d/m/Y" }}. Atualizado às {{ agora|time:"H:i" }}.</p>
+        </div>
+        <div class="titulo-pagina__acoes">
+            <a href="{% url 'criar_ponto_manual' %}" class="btn">Lançar ponto manual</a>
+        </div>
+    </header>
 
-        <h1>
-            Minha Equipe
-        </h1>
-        <p>
-            <a href="{% url 'criar_ponto_manual' %}" class="botao botao-auto">Lançar ponto manual</a>
-        </p>
-        {% for usuario, registros in equipe %}
-            <div class="cartao">
-                <h2>
-                    {{usuario.get_full_name}}
-                </h2>
-                <p>
-                    {{usuario.perfil.get_papel_display}}
-                </p>
-            {% if registros %}
-                <ul class="lista-pontos">
-                {% for registro in registros %}
-                    <li>
-                        {{ registro.get_tipo_display }} - {{ registro.data_hora|time:"H:i" }}
-                        <a href="{% url 'excluir_ponto' registro.id %}">Excluir</a>
-                    </li>
-                {% endfor %}
-                </ul>
-            {% else %}
-                <p>
-                    Nenhum ponto registrado hoje.
-                </p>
-            {% endif %}
+    {% if linhas %}
+        <section class="cartao-interno" aria-label="Batidas da equipe hoje">
+            <div class="tabela-rolagem">
+                <table class="tabela-interna">
+                    <thead>
+                        <tr>
+                            <th scope="col">Pessoa</th>
+                            <th scope="col">Situação</th>
+                            <th scope="col">Batidas do dia</th>
+                            <th scope="col">Trabalhado</th>
+                            <th scope="col"><span class="sr-only">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in linhas %}
+                            <tr>
+                                <td>
+                                    <span class="pessoa">
+                                        <strong>{{ item.usuario.get_full_name|default:item.usuario.username }}</strong>
+                                        <span class="apoio pequeno">{{ item.usuario.perfil.funcao.nome|default:item.usuario.perfil.get_papel_display }}</span>
+                                    </span>
+                                </td>
+                                <td><span class="selo selo--{{ item.situacao.1 }}">{{ item.situacao.0 }}</span></td>
+                                <td>
+                                    <ul class="batidas-celulas">
+                                        {% for passo in item.linha %}
+                                            <li>
+                                                {% if passo.registro %}
+                                                    <a href="{% url 'excluir_ponto' passo.registro.id %}" class="batida-celula"
+                                                       title="Excluir {{ passo.nome|lower }} das {{ passo.registro.data_hora|time:'H:i' }}"
+                                                       aria-label="{{ passo.nome }} às {{ passo.registro.data_hora|time:'H:i' }}. Excluir batida">{{ passo.registro.data_hora|time:"H:i" }}</a>
+                                                {% else %}
+                                                    <span class="batida-celula" aria-label="{{ passo.nome }}: sem batida">—</span>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                </td>
+                                <td><strong>{{ item.trabalhado|default:"—" }}</strong></td>
+                                <td class="direita">
+                                    <a href="{% url 'criar_ponto_manual' %}?funcionario={{ item.usuario.id }}" class="btn btn--secundario btn--pequeno"
+                                       aria-label="Lançar ponto para {{ item.usuario.get_full_name }}">Lançar ponto</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-        {%endfor%}
-            <a href="{% url 'painel' %}">Voltar</a>        
-    {% endblock %}
+            <p class="apoio pequeno">Entrada, saída e volta do almoço, saída e volta do café, saída. Clique num horário para excluir a batida.</p>
+        </section>
+    {% else %}
+        <section class="cartao-interno vazio">
+            <h2>Nenhuma pessoa na sua equipe</h2>
+            <p class="apoio">Defina o gestor de cada funcionário na seção Perfis do painel administrativo.</p>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

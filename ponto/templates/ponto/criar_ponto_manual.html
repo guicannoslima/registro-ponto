@@ -1,17 +1,39 @@
-{% extends "ponto/base_interna.html" %}
-    {% block title %}
-        Ajuste de Ponto
-    {% endblock %}
-    {% block conteudo %}
-        <h1>
-            Lançar ponto Manual
-        </h1>
-        <div class="cartao">
-        <form method="post" action = "{% url 'criar_ponto_manual' %}">
-            {%csrf_token%}
-            {{form.as_p}}
-            <button  type="submit">Enviar</button>
-            <a href="{% url 'equipe' %}">Ver Equipe</a>
-        </form>
+{% extends 'ponto/base_interna.html' %}
+
+{% block title %}Lançar ponto manual - Registro de Ponto{% endblock %}
+
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina titulo-pagina--voltar">
+        {% url 'equipe' as url_equipe %}
+        {% include 'ponto/_voltar.html' with url=url_equipe destino='Equipe' %}
+        <div class="titulo-pagina__texto">
+            <h1>Lançar ponto manual</h1>
         </div>
-    {% endblock %}
+    </header>
+
+    <div class="grade">
+        <section class="cartao-interno" aria-label="Dados do lançamento">
+            <form method="post" action="{% url 'criar_ponto_manual' %}" class="campos" novalidate>
+                {% csrf_token %}
+                {% include 'ponto/_erros_formulario.html' %}
+                {% include 'ponto/_campo.html' with campo=form.funcionario %}
+                <div class="campos-linha">
+                    {% include 'ponto/_campo.html' with campo=form.tipo %}
+                    {% include 'ponto/_campo.html' with campo=form.data_hora %}
+                </div>
+                {% include 'ponto/_campo.html' with campo=form.motivo %}
+                <div class="acoes">
+                    <button type="submit" class="btn">Lançar ponto</button>
+                    <a href="{% url 'equipe' %}" class="btn btn--secundario">Cancelar</a>
+                </div>
+            </form>
+        </section>
+
+        <aside class="cartao-interno" id="batidas-do-dia" aria-live="polite"
+               data-url="{% url 'criar_ponto_manual' %}" data-hoje="{% now 'Y-m-d' %}">
+            {% include 'ponto/_batidas_do_dia.html' %}
+        </aside>
+    </div>
+</div>
+{% endblock %}

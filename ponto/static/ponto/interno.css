@@ -1,0 +1,1097 @@
+/*
+ * Conteúdo interno do Registro de Ponto (proposta aprovada em design/registro-ponto-telas.figcraft).
+ * Todas as regras ficam sob .principal-interno: o header (estilo.css) e o login não mudam.
+ */
+
+@font-face {
+    font-family: Figtree;
+    src: url('fonts/Figtree.ttf') format('truetype');
+    font-weight: 300 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+.principal-interno {
+    --fundo: #f2f5f9;
+    --superficie: #ffffff;
+    --superficie-suave: #f5f8fb;
+    --texto: #18324b;
+    --texto-apoio: #52677c;
+    --linha: #d5dde6;
+    --borda-campo: #8da0b3;
+    --trilho: #e3e9f0;
+    --acao: #0a6ea3;
+    --acao-escura: #085a86;
+    --acao-fundo: #e5f3fb;
+    --sucesso: #17623f;
+    --sucesso-fundo: #e6f4ec;
+    --atencao: #805100;
+    --atencao-fundo: #fff2d8;
+    --perigo: #a62c35;
+    --perigo-escuro: #8a232b;
+    --perigo-fundo: #fdecef;
+    --extra: #c98a12;
+    --raio: 12px;
+
+    padding: 40px 16px 72px;
+    color: var(--texto);
+    font-family: Figtree, "Segoe UI", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.principal-interno *:focus-visible {
+    outline: 3px solid var(--acao);
+    outline-offset: 2px;
+}
+
+.principal-interno h1,
+.principal-interno h2,
+.principal-interno h3 {
+    margin: 0;
+    color: var(--texto);
+}
+
+.principal-interno p {
+    margin: 0;
+}
+
+.principal-interno .numero {
+    font-variant-numeric: tabular-nums;
+}
+
+.principal-interno .apoio {
+    color: var(--texto-apoio);
+}
+
+.principal-interno .pequeno {
+    font-size: 14px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- estrutura ---------- */
+
+.pagina {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.titulo-pagina {
+    display: flex;
+    align-items: flex-end;
+    gap: 24px;
+}
+
+.titulo-pagina--voltar {
+    align-items: center;
+    gap: 16px;
+}
+
+.titulo-pagina__texto {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.titulo-pagina h1 {
+    font-size: 30px;
+    line-height: 38px;
+    font-weight: 700;
+}
+
+.titulo-pagina__acoes {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.voltar {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--linha);
+    border-radius: 8px;
+    background: var(--superficie);
+    color: var(--acao);
+}
+
+.voltar:hover {
+    border-color: var(--acao);
+    color: var(--acao-escura);
+}
+
+.voltar svg {
+    width: 16px;
+    height: 16px;
+}
+
+.grade {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 24px;
+    align-items: start;
+}
+
+.grade--formulario-largo {
+    grid-template-columns: 440px minmax(0, 1fr);
+}
+
+.coluna {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+}
+
+.cartao-interno {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+    background: var(--superficie);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    min-width: 0;
+}
+
+.cartao-interno--estreito {
+    max-width: 640px;
+    padding: 28px;
+}
+
+.cartao-interno__topo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.cartao-interno__topo > :first-child {
+    flex: 1;
+}
+
+.cartao-interno h2 {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 700;
+}
+
+.divisoria {
+    height: 1px;
+    margin: 0;
+    border: 0;
+    background: var(--linha);
+}
+
+/* ---------- mensagens ---------- */
+
+.principal-interno .messages {
+    margin: 0 0 24px;
+}
+
+.principal-interno .messages li {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.principal-interno .messages .success {
+    background: var(--sucesso-fundo);
+    color: var(--sucesso);
+}
+
+.principal-interno .messages .error {
+    background: var(--perigo-fundo);
+    color: var(--perigo);
+}
+
+.aviso {
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+.aviso--info {
+    background: var(--acao-fundo);
+}
+
+.aviso--atencao {
+    background: var(--atencao-fundo);
+}
+
+.chamada {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    background: var(--acao-fundo);
+    border: 1px solid #b7ddf1;
+    border-radius: var(--raio);
+}
+
+.chamada__numero {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: var(--acao);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.chamada__texto {
+    flex: 1;
+}
+
+/* ---------- botões e links ---------- */
+
+.principal-interno .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: var(--acao);
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.principal-interno .btn:hover {
+    background: var(--acao-escura);
+    color: #ffffff;
+}
+
+.principal-interno .btn--secundario {
+    background: var(--superficie);
+    border-color: var(--linha);
+    color: var(--acao);
+}
+
+.principal-interno .btn--secundario:hover {
+    background: var(--acao-fundo);
+    border-color: var(--acao);
+    color: var(--acao-escura);
+}
+
+.principal-interno .btn--perigo {
+    background: var(--perigo);
+}
+
+.principal-interno .btn--perigo:hover {
+    background: var(--perigo-escuro);
+}
+
+.principal-interno .btn--pequeno {
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 15px;
+}
+
+.principal-interno .btn--largo {
+    width: 100%;
+}
+
+.principal-interno .btn:disabled {
+    background: var(--trilho);
+    color: var(--texto-apoio);
+    cursor: not-allowed;
+}
+
+.principal-interno .link {
+    color: var(--acao);
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.principal-interno .link:hover {
+    color: var(--acao-escura);
+}
+
+.acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.principal-interno form {
+    margin: 0;
+}
+
+/* ---------- selos de situação ---------- */
+
+.selo {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    white-space: nowrap;
+}
+
+.selo--info { background: var(--acao-fundo); color: var(--acao); }
+.selo--sucesso { background: var(--sucesso-fundo); color: var(--sucesso); }
+.selo--atencao { background: var(--atencao-fundo); color: var(--atencao); }
+.selo--perigo { background: var(--perigo-fundo); color: var(--perigo); }
+.selo--neutro { background: #eef2f6; color: var(--texto-apoio); }
+
+/* ---------- campos ---------- */
+
+.campos {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.campos-linha {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    align-items: start; /* rótulos e campos na mesma linha; mensagens de erro crescem para baixo */
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.principal-interno .campo label {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.principal-interno .campo input:not([type="checkbox"]),
+.principal-interno .campo select,
+.principal-interno .campo textarea {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid var(--borda-campo);
+    border-radius: 8px;
+    background: var(--superficie);
+    color: var(--texto);
+    font-family: inherit;
+    font-size: 16px;
+}
+
+.principal-interno .campo textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.principal-interno .campo input:focus,
+.principal-interno .campo select:focus,
+.principal-interno .campo textarea:focus {
+    outline: none;
+    border-color: var(--acao);
+    box-shadow: 0 0 0 3px rgba(10, 110, 163, 0.2);
+}
+
+.campo--erro input,
+.campo--erro select,
+.campo--erro textarea {
+    border-color: var(--perigo) !important;
+}
+
+.campo__ajuda {
+    color: var(--texto-apoio);
+    font-size: 14px;
+}
+
+.principal-interno .campo .errorlist,
+.principal-interno .erros-formulario {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--perigo);
+    font-size: 14px;
+}
+
+.opcao {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    cursor: pointer;
+}
+
+.principal-interno .opcao label {
+    display: inline;
+    margin: 0;
+    font-weight: 400;
+    cursor: pointer;
+}
+
+.principal-interno .opcao input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    accent-color: var(--acao);
+}
+
+/* ---------- resumo de uma batida ---------- */
+
+.resumo {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 10px 16px;
+    margin: 0;
+    padding: 20px;
+    background: var(--superficie-suave);
+    border-radius: 10px;
+}
+
+.resumo dt {
+    color: var(--texto-apoio);
+    font-size: 15px;
+}
+
+.resumo dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+/* ---------- linha do dia ---------- */
+
+.linha-dia {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.linha-dia__passo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-align: center;
+}
+
+/* trilho entre os marcos: metade à esquerda e metade à direita de cada um */
+.linha-dia__passo::before,
+.linha-dia__passo::after {
+    content: "";
+    position: absolute;
+    top: 13px;
+    width: 50%;
+    height: 3px;
+    background: var(--trilho);
+}
+
+.linha-dia__passo::before { left: 0; }
+.linha-dia__passo::after { right: 0; }
+.linha-dia__passo:first-child::before,
+.linha-dia__passo:last-child::after { display: none; }
+
+.linha-dia__passo--feito::before,
+.linha-dia__passo--feito::after,
+.linha-dia__passo--proxima::before {
+    background: var(--acao);
+}
+
+.linha-dia__marco {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 2px solid #b9c6d3;
+    border-radius: 999px;
+    background: var(--superficie);
+}
+
+.linha-dia__passo--feito .linha-dia__marco {
+    border-color: var(--acao);
+    background: var(--acao);
+    color: #ffffff;
+}
+
+.linha-dia__passo--feito .linha-dia__marco svg {
+    width: 14px;
+    height: 14px;
+}
+
+.linha-dia__passo--proxima .linha-dia__marco {
+    border: 3px solid var(--acao);
+}
+
+.linha-dia__passo--proxima .linha-dia__marco::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--acao);
+}
+
+.linha-dia__rotulo {
+    color: var(--texto-apoio);
+    font-size: 14px;
+}
+
+.linha-dia__passo--feito .linha-dia__rotulo {
+    color: var(--texto);
+}
+
+.linha-dia__passo--proxima .linha-dia__rotulo {
+    color: var(--texto);
+    font-weight: 600;
+}
+
+.linha-dia__hora {
+    color: var(--texto-apoio);
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+.linha-dia__passo--feito .linha-dia__hora {
+    color: var(--texto);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.linha-dia__passo--proxima .linha-dia__hora {
+    color: var(--acao);
+}
+
+/* ---------- listas de batidas ---------- */
+
+.lista-batidas {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lista-batidas li {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 44px;
+    padding: 4px 0;
+}
+
+.lista-batidas__nome {
+    flex: 1;
+}
+
+.lista-batidas__hora {
+    width: 56px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.lista-batidas__hora--vazia {
+    color: var(--texto-apoio);
+    font-weight: 400;
+}
+
+.dia-batidas {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dia-batidas h3 {
+    color: var(--texto-apoio);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* ---------- abas da página inicial ---------- */
+
+.cartao-abas {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.abas {
+    display: flex;
+    gap: 28px;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--linha);
+    overflow-x: auto;
+}
+
+.principal-interno .aba {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 52px;
+    padding: 0 4px;
+    border-bottom: 3px solid transparent;
+    color: var(--texto-apoio);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.principal-interno .aba:hover {
+    color: var(--texto);
+}
+
+.principal-interno .aba[aria-selected="true"] {
+    border-bottom-color: var(--acao);
+    color: var(--acao);
+    font-weight: 600;
+}
+
+.aba__contagem {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #eef2f6;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.aba[aria-selected="true"] .aba__contagem {
+    background: var(--acao-fundo);
+}
+
+.aba-painel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+}
+
+.aba-painel[hidden] {
+    display: none;
+}
+
+.aba-painel h2 {
+    font-size: 18px;
+    line-height: 26px;
+}
+
+/* aba "Sua equipe": uma linha por pessoa */
+.lista-equipe {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.lista-equipe li {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+}
+
+.lista-equipe li + li {
+    border-top: 1px solid var(--linha);
+}
+
+.lista-equipe__quem {
+    flex: none;
+    width: 190px;
+}
+
+.lista-equipe__situacao {
+    flex: none;
+    width: 140px;
+}
+
+.lista-equipe__ultima {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 15px;
+}
+
+.lista-equipe__trabalhado {
+    flex: none;
+    min-width: 72px;
+    text-align: right;
+}
+
+/* ---------- anel da jornada ---------- */
+
+.jornada {
+    align-items: center;
+}
+
+.anel-jornada {
+    position: relative;
+    width: 200px;
+    height: 200px;
+}
+
+.anel-jornada svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.anel-jornada circle {
+    fill: none;
+    stroke-width: 7; /* 14 px no anel de 200 px (viewBox de 100) */
+}
+
+.anel-jornada__trilho { stroke: var(--trilho); }
+.anel-jornada__tempo { stroke: var(--acao); stroke-linecap: round; }
+.anel-jornada--completo .anel-jornada__tempo,
+.anel-jornada--extra .anel-jornada__tempo { stroke: var(--sucesso); }
+.anel-jornada__extra { stroke: var(--extra); stroke-linecap: round; }
+
+.anel-jornada__centro {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.anel-jornada__valor {
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 32px;
+    font-variant-numeric: tabular-nums;
+}
+
+.resumo-jornada {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+}
+
+.resumo-jornada div {
+    display: flex;
+    justify-content: space-between;
+}
+
+.resumo-jornada dt {
+    color: var(--texto-apoio);
+    font-size: 15px;
+}
+
+.resumo-jornada dd {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.jornada form {
+    width: 100%;
+}
+
+/* ---------- tabelas ---------- */
+
+.tabela-rolagem {
+    overflow-x: auto;
+    border: 1px solid var(--linha);
+    border-radius: 10px;
+}
+
+.tabela-interna {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+}
+
+.tabela-interna th {
+    height: 44px;
+    padding: 0 12px;
+    background: var(--superficie-suave);
+    color: var(--texto-apoio);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tabela-interna td {
+    padding: 14px 12px;
+    border-top: 1px solid var(--linha);
+    vertical-align: middle;
+    font-variant-numeric: tabular-nums;
+}
+
+.tabela-interna .direita {
+    text-align: right;
+}
+
+.pessoa {
+    display: flex;
+    flex-direction: column;
+}
+
+.pessoa strong {
+    font-weight: 600;
+}
+
+.saldo--positivo { color: var(--sucesso); font-weight: 600; }
+.saldo--negativo { color: var(--perigo); font-weight: 600; }
+
+/* batidas da equipe em células */
+.batidas-celulas {
+    display: flex;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.batidas-celulas li {
+    display: flex;
+}
+
+.batida-celula {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 58px;
+    height: 34px;
+    border-radius: 6px;
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+}
+
+a.batida-celula {
+    border: 1px solid var(--linha);
+    background: var(--superficie-suave);
+    color: var(--texto);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+a.batida-celula:hover {
+    border-color: var(--perigo);
+    background: var(--perigo-fundo);
+    color: var(--perigo);
+}
+
+span.batida-celula {
+    color: #9aaaba;
+}
+
+/* ---------- solicitações ---------- */
+
+.lista-solicitacoes {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: var(--superficie);
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    overflow: hidden;
+}
+
+.solicitacao {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px 24px;
+}
+
+.solicitacao + .solicitacao {
+    border-top: 1px solid var(--linha);
+}
+
+.solicitacao__quem {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    width: 200px;
+}
+
+.solicitacao__quem strong {
+    font-weight: 600;
+}
+
+.solicitacao__oque {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.solicitacao__batida {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+}
+
+.vazio {
+    align-items: center;
+    padding: 56px 24px;
+    text-align: center;
+}
+
+.vazio p {
+    max-width: 560px;
+}
+
+/* ---------- relatório ---------- */
+
+.filtro-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.filtro-rodape .opcao {
+    flex: 1;
+}
+
+.totais {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.total {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 14px 18px;
+    background: var(--superficie-suave);
+    border-radius: 10px;
+}
+
+.total__valor {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 30px;
+    font-variant-numeric: tabular-nums;
+}
+
+.total__valor--sucesso { color: var(--sucesso); }
+.total__valor--atencao { color: var(--atencao); }
+
+/* ---------- responsivo ---------- */
+
+@media (max-width: 900px) {
+    .grade,
+    .grade--formulario-largo {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .grade .jornada {
+        order: -1;
+    }
+
+    .solicitacao {
+        flex-wrap: wrap;
+    }
+
+    .solicitacao__quem {
+        width: 100%;
+    }
+
+    .lista-equipe li {
+        flex-wrap: wrap;
+    }
+
+    .lista-equipe__quem {
+        width: auto;
+        flex: 1;
+    }
+
+    .lista-equipe__situacao {
+        width: auto;
+    }
+
+    .lista-equipe__ultima {
+        flex-basis: 100%;
+        order: 3;
+    }
+}
+
+@media (max-width: 600px) {
+    .principal-interno {
+        padding: 24px 12px 48px;
+    }
+
+    .titulo-pagina {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    .titulo-pagina h1 {
+        font-size: 24px;
+        line-height: 32px;
+    }
+
+    .linha-dia__rotulo {
+        min-height: 36px; /* duas linhas: mantém os horários alinhados */
+        font-size: 12px;
+        line-height: 18px;
+    }
+
+
+    .linha-dia__passo--feito .linha-dia__hora {
+        font-size: 15px;
+    }
+
+    .totais {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .resumo {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 2px;
+    }
+
+    .resumo dd + dt {
+        margin-top: 8px;
+    }
+}
+
+/* filtros em linha: os botões descem a altura do rótulo e ficam alinhados aos campos */
+.campos-linha .acoes {
+    min-height: 48px;
+    padding-top: calc(15px * 1.5 + 6px);
+}
+
+.sem-quebra {
+    white-space: nowrap;
+}

@@ -1,19 +1,33 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Ajuste de Ponto</title>
-    </head>
+{% extends 'ponto/base_interna.html' %}
 
-    <body>
-        {{ registro.get_tipo_display }}
-        {{ registro.data_hora }}
+{% block title %}Excluir batida - Registro de Ponto{% endblock %}
 
-        <form method="post" action="{% url 'excluir_ponto' registro.id %}">
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina titulo-pagina--voltar">
+        {% url 'equipe' as url_equipe %}
+        {% include 'ponto/_voltar.html' with url=url_equipe destino='Equipe' %}
+        <div class="titulo-pagina__texto">
+            <h1>Excluir batida</h1>
+        </div>
+    </header>
+
+    <section class="cartao-interno cartao-interno--estreito" aria-label="Confirmar exclusão">
+        <dl class="resumo">
+            <dt>Funcionário</dt><dd>{{ registro.funcionario.get_full_name|default:registro.funcionario.username }}</dd>
+            <dt>Batida</dt><dd>{{ registro.get_tipo_display }}</dd>
+            <dt>Data e hora</dt><dd class="numero">{{ registro.data_hora|date:"d/m/Y" }} às {{ registro.data_hora|time:"H:i" }}</dd>
+            <dt>Registrada por</dt><dd>{% if registro.registrado_manualmente %}Lançamento manual{% else %}O próprio funcionário{% endif %}</dd>
+        </dl>
+        <form method="post" action="{% url 'excluir_ponto' registro.id %}" class="campos" novalidate>
             {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit">Confirmar</button>
-            <a href="{% url 'equipe' %}">Cancelar</a>
+            {% include 'ponto/_campo.html' with campo=form.motivo %}
+            <p class="aviso aviso--atencao">A batida deixa de contar nas horas, mas continua no histórico de alterações.</p>
+            <div class="acoes">
+                <button type="submit" class="btn btn--perigo">Excluir batida</button>
+                <a href="{% url 'equipe' %}" class="btn btn--secundario">Cancelar</a>
+            </div>
         </form>
-    </body>
-</html>
+    </section>
+</div>
+{% endblock %}

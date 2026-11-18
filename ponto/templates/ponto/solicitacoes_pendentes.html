@@ -1,53 +1,62 @@
-{%extends "ponto/base_interna.html"%}
+{% extends 'ponto/base_interna.html' %}
 
-    {% block title %}
-        Solicitações Pendentes
-    {% endblock %}
+{% block title %}Solicitações pendentes - Registro de Ponto{% endblock %}
 
-    {% block conteudo %}
-
-        <h1>Solicitações Pendentes</h1>
-
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>Solicitações pendentes</h1>
+            {% if solicitacoes %}
+                <p class="apoio">Ao aprovar, a batida é incluída ou excluída e a alteração vai para o histórico.</p>
+            {% endif %}
+        </div>
         {% if solicitacoes %}
-            <div class="cartao">
-                <table class="tabela">
-                    <thead>
-                        <tr>
-                            <th>Funcionário</th>
-                            <th>Tipo</th>
-                            <th>Registro</th>
-                            <th>Motivo</th>
-                            <th>Decisão</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for solicitacao in solicitacoes %}
-                            <tr>
-                                <td>{{ solicitacao.funcionario.get_full_name }}</td>
-                                <td>{{ solicitacao.get_tipo_acao_display }}</td>
-                                <td>
-                                     {% if solicitacao.tipo_acao == 'criacao' %}
-                                        {{ solicitacao.get_tipo_display }} - {{ solicitacao.data_hora|date:"d/m/Y H:i" }}
-                                    {% else %}
-                                        {{ solicitacao.registro.get_tipo_display }} - {{ solicitacao.registro.data_hora|date:"d/m/Y H:i" }}
-                                    {% endif %}
-                                </td>
-                                <td>{{ solicitacao.motivo_funcionario }}</td>
-                                <td>
-                                    <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.id %}">
-                                        {% csrf_token %}
-                                    <button type="submit">Aprovar</button>
-                                    </form>
-                                    <a href="{% url 'rejeitar_solicitacao' solicitacao.id %}">Rejeitar</a>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="titulo-pagina__acoes">
+                <span class="selo selo--info">{{ solicitacoes|length }} aguardando</span>
             </div>
-        {%else%}
-            <p>Não há solicitações pendentes.</p>
-        {%endif%}
-            <a href="{% url 'painel'%}">Voltar ao Painel</a>
-            <a href="{% url 'equipe'%}">Ver equipe</a>
-    {%endblock%}           
+        {% endif %}
+    </header>
+
+    {% if solicitacoes %}
+        <ul class="lista-solicitacoes">
+            {% for solicitacao in solicitacoes %}
+                {% with nome=solicitacao.funcionario.get_full_name %}
+                <li class="solicitacao">
+                    <div class="solicitacao__quem">
+                        <strong>{{ nome }}</strong>
+                        <span class="apoio pequeno">Pedido em {{ solicitacao.criado_em|date:"d/m" }} às {{ solicitacao.criado_em|time:"H:i" }}</span>
+                    </div>
+                    <div class="solicitacao__oque">
+                        <p class="solicitacao__batida">
+                            {% if solicitacao.tipo_acao == 'criacao' %}
+                                <span class="selo selo--info">Inclusão</span>
+                                <span class="numero">{{ solicitacao.get_tipo_display }}, {{ solicitacao.data_hora|date:"d/m/Y" }} às {{ solicitacao.data_hora|time:"H:i" }}</span>
+                            {% else %}
+                                <span class="selo selo--atencao">Exclusão</span>
+                                <span class="numero">{{ solicitacao.registro.get_tipo_display }}, {{ solicitacao.registro.data_hora|date:"d/m/Y" }} às {{ solicitacao.registro.data_hora|time:"H:i" }}</span>
+                            {% endif %}
+                        </p>
+                        <p class="apoio">“{{ solicitacao.motivo_funcionario }}”</p>
+                    </div>
+                    <div class="acoes">
+                        <a href="{% url 'rejeitar_solicitacao' solicitacao.id %}" class="btn btn--secundario"
+                           aria-label="Rejeitar solicitação de {{ nome }}">Rejeitar</a>
+                        <form method="post" action="{% url 'aprovar_solicitacao' solicitacao.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn" aria-label="Aprovar solicitação de {{ nome }}">Aprovar</button>
+                        </form>
+                    </div>
+                </li>
+                {% endwith %}
+            {% endfor %}
+        </ul>
+    {% else %}
+        <section class="cartao-interno vazio">
+            <h2>Nenhuma solicitação aguardando revisão</h2>
+            <p class="apoio">Quando alguém da equipe pedir a inclusão ou a exclusão de uma batida, o pedido aparece aqui.</p>
+            <a href="{% url 'historico_alteracoes' %}" class="btn btn--secundario">Ver histórico de alterações</a>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

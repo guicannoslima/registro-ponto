@@ -1,40 +1,70 @@
-{%extends "ponto/base_interna.html"%}
-     
-    {% block title %}
-        Histórico de Alterações
-    {% endblock %}
+{% extends 'ponto/base_interna.html' %}
 
-    {% block conteudo %}
-        <h1>
-            Histórico de ponto
-        </h1>
+{% block title %}Histórico de alterações - Registro de Ponto{% endblock %}
+
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>Histórico de alterações</h1>
+            <p class="apoio">Inclusões e exclusões de batidas da sua equipe.</p>
+        </div>
+    </header>
+
+    <section class="cartao-interno" aria-label="Filtros">
+        <form method="get" class="campos-linha">
+            {% include 'ponto/_campo.html' with campo=filtro.funcionario %}
+            {% include 'ponto/_campo.html' with campo=filtro.acao %}
+            {% include 'ponto/_campo.html' with campo=filtro.de %}
+            {% include 'ponto/_campo.html' with campo=filtro.ate %}
+            <div class="acoes">
+                <button type="submit" class="btn btn--secundario">Filtrar</button>
+                {% if filtrado %}<a href="{% url 'historico_alteracoes' %}" class="link">Limpar</a>{% endif %}
+            </div>
+        </form>
+    </section>
+
+    <section class="cartao-interno" aria-label="Alterações">
         {% if historico %}
-            <div class="cartao">
-                <table class="tabela">
+            <div class="tabela-rolagem">
+                <table class="tabela-interna">
                     <thead>
                         <tr>
-                            <th>Funcionário</th>
-                            <th>Tipo de Ação</th>
-                            <th>Realizado Por</th>
-                            <th>Motivo</th>
-                            <th>Data</th>
+                            <th scope="col">Quando</th>
+                            <th scope="col">Funcionário</th>
+                            <th scope="col">Batida alterada</th>
+                            <th scope="col">Ação</th>
+                            <th scope="col">Feita por</th>
+                            <th scope="col">Motivo</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for alteracao in historico %}
                             <tr>
-                                <td>{{ alteracao.registro.funcionario.get_full_name }}</td>
-                                <td>{{ alteracao.get_tipo_acao_display }}</td>
-                                <td>{{ alteracao.realizado_por.get_full_name }}</td>
+                                <td class="sem-quebra">{{ alteracao.criado_em|date:"d/m/Y H:i" }}</td>
+                                <td class="sem-quebra">{{ alteracao.registro.funcionario.get_full_name }}</td>
+                                <td>{{ alteracao.registro.get_tipo_display }}, {{ alteracao.registro.data_hora|date:"d/m H:i" }}</td>
+                                <td>
+                                    {% if alteracao.tipo_acao == 'criacao_manual' %}
+                                        <span class="selo selo--info">Inclusão manual</span>
+                                    {% elif alteracao.tipo_acao == 'exclusao' %}
+                                        <span class="selo selo--perigo">Exclusão</span>
+                                    {% else %}
+                                        <span class="selo selo--neutro">{{ alteracao.get_tipo_acao_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="sem-quebra">{{ alteracao.realizado_por.get_full_name|default:"—" }}</td>
                                 <td>{{ alteracao.motivo }}</td>
-                                <td>{{ alteracao.criado_em|date:"d/m/Y H:i" }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+        {% elif filtrado %}
+            <p class="apoio">Nenhuma alteração com esses filtros. Ajuste o período ou limpe os filtros.</p>
         {% else %}
-            <p>Não há alterações registradas.</p>
+            <p class="apoio">Nenhuma alteração registrada. Lançamentos manuais e exclusões aparecem aqui.</p>
         {% endif %}
-        <a href="{% url 'painel' %}">Voltar ao Painel</a>
-    {% endblock %}
+    </section>
+</div>
+{% endblock %}
