@@ -203,16 +203,12 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-**8. Crie o perfil do administrador**
+**8. Perfis e papéis dos usuários**
 
-> [!IMPORTANT]
-> Usuários criados pela tela de **cadastro** já ganham um perfil de Funcionário automaticamente. Mas o **superusuário** criado no terminal não tem perfil, e sem ele o painel dá erro.
+> [!NOTE]
+> Todo usuário ganha um **perfil** automaticamente, seja criado pela tela de cadastro, pelo terminal ou pelo admin: o **superusuário** vira **Administrador** e os demais, **Funcionário**.
 >
-> 1. Acesse `http://127.0.0.1:8000/admin/` com o superusuário
-> 2. Em **Perfis**, clique em **Adicionar**
-> 3. Escolha o usuário e o **papel** (Administrador)
->
-> Pelo mesmo caminho você promove funcionários a **Gestor**, define o **gestor** de cada funcionário e cadastra as **Funções**.
+> Para promover funcionários a **Gestor**, definir o **gestor** de cada funcionário e cadastrar as **Funções**, acesse `http://127.0.0.1:8000/admin/` com o superusuário e use a seção **Perfis**.
 
 Pronto! Acesse `http://127.0.0.1:8000/` e faça login.
 
@@ -264,18 +260,14 @@ docker compose up -d --build
 
 A cada subida, o container aplica as migrações e coleta os arquivos estáticos automaticamente.
 
-**4. Crie o administrador e o perfil dele**
+**4. Crie o administrador**
 
 ```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-> [!IMPORTANT]
-> Assim como no modo local, o superusuário criado no terminal **não tem perfil**, e sem ele o login dá **Server Error (500)**. Crie o perfil com:
->
-> ```bash
-> docker compose exec web python manage.py shell -c "from django.contrib.auth.models import User; from ponto.models import Perfil; [Perfil.objects.create(user=u, papel=Perfil.PAPEL_ADMIN) for u in User.objects.filter(is_superuser=True, perfil__isnull=True)]"
-> ```
+> [!NOTE]
+> Assim como no modo local, o superusuário já ganha o perfil de **Administrador** automaticamente.
 
 Pronto! Acesse `http://localhost:8000/` e faça login.
 

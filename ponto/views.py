@@ -321,12 +321,12 @@ def cadastro_usuario(request):
                 last_name=form.cleaned_data['last_name'],
                 email=form.cleaned_data['email'],
             )
-            Perfil.objects.create(
-                user=user,
-                cpf=form.cleaned_data['cpf'],
-                papel=Perfil.PAPEL_FUNCIONARIO,
-                funcao=form.cleaned_data['funcao']
-            )
+            # O Perfil já foi criado pelo signal post_save do User; aqui só completamos os dados do cadastro
+            perfil = user.perfil
+            perfil.cpf = form.cleaned_data['cpf']
+            perfil.papel = Perfil.PAPEL_FUNCIONARIO
+            perfil.funcao = form.cleaned_data['funcao']
+            perfil.save()
             messages.success(request, 'Usuário cadastrado com sucesso.')
             return redirect('login')
     else:
