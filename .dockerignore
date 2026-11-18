@@ -32,6 +32,8 @@ staticfiles/
 # Documentação e ferramentas de desenvolvimento
 README.md
 docs/
+design/
+.ai/
 pyproject.toml
 requirements/development.txt
 
