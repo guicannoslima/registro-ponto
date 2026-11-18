@@ -1,0 +1,10 @@
+# Dependências comuns a todos os ambientes
+Django==6.1.1
+asgiref==3.12.1
+sqlparse==0.6.0
+tzdata==2026.4
+psycopg2-binary==2.9.13
+python-decouple==3.8
+pillow==12.3.0
+xhtml2pdf==0.2.23  # exportação do relatório em PDF
+whitenoise==6.9.0  # arquivos estáticos (middleware e storage no settings)

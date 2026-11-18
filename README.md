@@ -159,7 +159,7 @@ source venv/bin/activate
 **3. Instale as dependências**
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements/development.txt
 ```
 
 **4. Crie o banco no PostgreSQL**
@@ -341,7 +341,7 @@ docker compose exec web python manage.py loaddata dados.json
 ```
 registro-ponto/
 ├── manage.py
-├── requirements.txt
+├── requirements/          # base, development, production
 ├── Dockerfile             # imagem da aplicação (gunicorn)
 ├── compose.yaml           # aplicação + PostgreSQL
 ├── docker-entrypoint.sh   # migrações e collectstatic na subida

@@ -10,8 +10,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
-COPY requirements.txt .
-RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+COPY requirements/ requirements/
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements/production.txt
 
 
 # ============================================================
