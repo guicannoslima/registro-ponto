@@ -5,7 +5,7 @@
 **Sistema web de controle de jornada para a Prime Tecnologia**
 
 ![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Django](https://img.shields.io/badge/Django-6.1-092E20?style=for-the-badge&logo=django&logoColor=white)
+![Django](https://img.shields.io/badge/Django-5.2_LTS-092E20?style=for-the-badge&logo=django&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange?style=for-the-badge)
@@ -111,7 +111,7 @@ flowchart LR
 | Tecnologia | Uso |
 |---|---|
 | [Python 3.12+](https://www.python.org/) | Linguagem |
-| [Django 6.1](https://www.djangoproject.com/) | Framework web |
+| [Django 5.2 LTS](https://www.djangoproject.com/) | Framework web (suporte até abr/2028) |
 | [PostgreSQL](https://www.postgresql.org/) | Banco de dados |
 | [python-decouple](https://pypi.org/project/python-decouple/) | Variáveis de ambiente (`.env`) |
 | [Pillow](https://pypi.org/project/pillow/) | Suporte a imagens |

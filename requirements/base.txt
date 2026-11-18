@@ -1,5 +1,5 @@
 # Dependências comuns a todos os ambientes
-Django==6.1.1
+Django~=5.2.19  # LTS (suporte até abr/2028); ~= aceita só patches 5.2.x
 asgiref==3.12.1
 sqlparse==0.6.0
 tzdata==2026.4
