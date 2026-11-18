@@ -32,11 +32,13 @@ flowchart LR
 | `ponto/permissoes.py` | `funcionarios_visiveis`: quais usuários cada papel enxerga |
 | `ponto/calculos.py` | `proximo_tipo_ponto`: a próxima batida do dia |
 | `ponto/relatorios.py` | Horas do dia, saldo, resumo do período e progresso do relógio |
+| `ponto/apresentacao.py` | Dados prontos para as telas: linha do dia, situação, saldo com sinal e datas por extenso |
+| `ponto/constants.py` | Regras de jornada, limites das telas e textos fixos, num só lugar |
 | `ponto/signals.py` | Cria o `Perfil` de todo usuário novo |
 | `ponto/forms.py` | Formulários de cadastro, lançamento, solicitações e relatório |
 | `ponto/templatetags/` | Filtro que exibe durações como `7h45min` |
 | `ponto/templates/` | `base.html`, `base_interna.html`, telas e a folha de ponto em PDF |
-| `ponto/static/ponto/` | `estilo.css` e a logo da Prime Tecnologia |
+| `ponto/static/ponto/` | `estilo.css` (header e login), `interno.css` e `interno.js` (telas internas), Figtree e a logo |
 
 ## Modelos
 
@@ -70,13 +72,22 @@ sem ele ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)).
 | Regra | Valor | Onde |
 | --- | --- | --- |
 | Ordem das batidas | Entrada, saída almoço, volta almoço, saída café, volta café, saída | `RegistroPonto.ORDEM_TIPOS` |
-| Intervalo mínimo entre batidas | 10 minutos | `INTERVALO_MINIMO` em `views.py` |
-| Jornada diária | `7h45min` | `relatorios.py` |
-| Tolerância do saldo | 10 minutos, para mais ou para menos | `relatorios.py` |
+| Intervalo mínimo entre batidas | 10 minutos | `INTERVALO_MINIMO_MINUTOS` em `constants.py` |
+| Jornada diária | `7h45min` | `JORNADA_DIARIA` em `constants.py` |
+| Tolerância do saldo | 10 minutos, para mais ou para menos | `TOLERANCIA_SALDO` em `constants.py` |
 | Desconto de intervalo | Só o almoço, quando as duas batidas existem | `calcular_horas_dia` |
 
 Um dia só entra no saldo quando tem entrada e saída. As horas normais de cada dia
 ficam limitadas à jornada; o excedente conta como hora extra.
+
+## Interface interna
+
+As telas internas estendem `base_interna.html`, que carrega `interno.css` e `interno.js`.
+Todas as regras de `interno.css` ficam sob `.principal-interno`, então o header e as telas de
+login, cadastro e redefinição de senha, que usam só `estilo.css`, não mudam. A Figtree é servida
+de `static/ponto/fonts/`, sem dependência externa. Os parciais `_campo.html`, `_voltar.html`,
+`_linha_do_dia.html` e `_erros_formulario.html` mantêm campos, botão de voltar e linha do dia iguais
+em todas as telas. O desenho de referência está em [design](../design/README.md).
 
 ## Arquivos estáticos e e-mail
 

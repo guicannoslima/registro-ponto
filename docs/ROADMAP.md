@@ -16,6 +16,7 @@ Esta página registra o estado de cada área e o que falta, na ordem de trabalho
 | Docker (aplicação e PostgreSQL) | Implementado e verificado em 18/11/2026 | — |
 | Lint com Ruff | Limitação conhecida: 31 avisos no código anterior | Rodar `ruff check --fix` e corrigir as linhas longas |
 | Botão de exclusão na tela de ajuste de ponto | Proposto | Ajustar o botão |
+| Redesenho do conteúdo interno | Implementado em 18/11/2026 ([design](../design/README.md)) | — |
 
 ## Ordem de trabalho
 
@@ -36,3 +37,4 @@ Esta página registra o estado de cada área e o que falta, na ordem de trabalho
 - Intervalo mínimo de 10 minutos entre batidas.
 - Ambiente com Docker (aplicação e PostgreSQL).
 - Perfil automático para todo usuário e Django 5.2 LTS.
+- Redesenho das telas internas, com linha do dia, tabela da equipe e telas de confirmação.

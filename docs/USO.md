@@ -26,21 +26,29 @@ flowchart LR
     A[Entrada] --> B[Saída almoço] --> C[Volta almoço] --> D[Saída café] --> E[Volta café] --> F[Saída]
 ```
 
+- O botão diz qual batida será gravada, como **Registrar saída para o café**.
 - Entre duas batidas é preciso esperar 10 minutos; antes disso a tela mostra
   "Você só pode bater ponto a cada 10 minutos.".
 - Depois da sexta batida, a tela mostra "Todos os pontos do dia foram batidos.".
 
 ## Painel
 
-**Implementado.** A página inicial mostra:
+**Implementado.** A página inicial tem o relógio de jornada à direita e, ao lado, as abas
+**Hoje**, **Ontem** e, para gestores e administradores, **Sua equipe**. Cada aba tem endereço
+próprio (`/?aba=ontem`, `/?aba=equipe`) e as setas do teclado trocam de aba.
 
+- **Linha do dia**, na aba **Hoje**: as 6 batidas em ordem, com os horários feitos e a próxima destacada.
 - **Relógio de jornada**: um anel que se preenche com o tempo trabalhado no dia,
-  descontando o almoço. A cor indica aguardando entrada, em andamento, jornada
-  completa ou hora extra. Passada a jornada de `7h45min` mais a tolerância de
-  10 minutos, um segundo anel mostra a hora extra. Ao passar o mouse, aparecem o
-  tempo trabalhado, o que falta e a hora extra.
-- **Batidas de hoje**, com a opção de solicitar a exclusão de cada uma.
-- **Batidas de ontem**, numa seção que abre e fecha.
+  descontando o almoço; azul em andamento e verde com a jornada completa. Passada a
+  jornada de `7h45min` mais a tolerância de 10 minutos, um trecho âmbar mostra a hora
+  extra. Abaixo, o que falta (ou a hora extra) e a jornada do dia.
+- **Batidas de hoje**, com **Pedir exclusão** em cada uma, ou o selo **Exclusão pendente**.
+- **Ontem**: a linha do dia anterior, o total trabalhado, a situação e as batidas.
+- **Sua equipe**: uma linha por pessoa, com a situação (**Em jornada**, **No almoço**,
+  **No café**, **Jornada encerrada** ou **Sem entrada**), a última batida e as horas trabalhadas.
+
+Para gestores e administradores, o painel também avisa no topo quantas solicitações
+aguardam revisão.
 
 O menu do topo se adapta ao papel: gestores e administradores veem também
 **Equipe**, **Solicitações Pendentes** e **Histórico de Alterações**.
@@ -58,10 +66,13 @@ Gestores e administradores revisam as solicitações da equipe em **Solicitaçõ
 1. **Aprovar** inclui ou exclui a batida e registra a alteração no histórico.
 2. **Rejeitar** pede o motivo da rejeição.
 
-Gestores também lançam batidas manualmente e excluem batidas, sempre com motivo.
+**Equipe** mostra uma linha por pessoa, com a situação, as 6 batidas do dia e as horas
+trabalhadas; clicar num horário abre a exclusão daquela batida. Gestores também lançam
+batidas manualmente, sempre com motivo; ao escolher a pessoa e a data, o lançamento mostra
+as batidas que ela já tem no dia.
 A exclusão marca o registro como inativo (soft delete) e não o remove do banco.
-**Histórico de Alterações** lista inclusões e exclusões da equipe, com quem fez,
-quando e por quê.
+**Histórico de Alterações** lista inclusões e exclusões da equipe, com a batida alterada,
+quem fez, quando e por quê, e filtra por funcionário, ação e período.
 
 ## Relatório de banco de horas
 
@@ -76,8 +87,10 @@ equipe inteira. Para cada dia, o relatório mostra:
 | **Saldo** | Trabalhado menos esperado: positivo é hora extra, negativo é hora devida |
 
 Diferenças de até 10 minutos, para mais ou para menos, não entram no saldo do dia.
-Os totais do período separam horas normais, limitadas à jornada de cada dia, e
-horas extras. O funcionário gera só o próprio relatório.
+Os totais do período separam horas normais, limitadas à jornada de cada dia, horas
+extras e dias incompletos. Sábados e domingos sem batidas ficam fora da tabela na tela,
+mas continuam no PDF. Num dia incompleto, o funcionário vê **Pedir ajuste** e o gestor,
+**Lançar ponto**. O funcionário gera só o próprio relatório.
 
 **Baixar PDF** gera a **Folha de Ponto Individual de Trabalho** com o mesmo período e
 funcionário: nome, função, todas as batidas de cada dia e um resumo com horas normais

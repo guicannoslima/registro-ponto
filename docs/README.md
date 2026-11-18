@@ -29,4 +29,5 @@ permissões estão descritas a partir do código, não de testes ([Testes](TESTE
 ## Planejamento
 
 - [Roadmap e pendências](ROADMAP.md)
+- [Proposta visual do conteúdo interno (Figcraft)](../design/README.md)
 - [Decisões de implementação](DECISOES.md)

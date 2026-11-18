@@ -51,6 +51,20 @@ As configurações do PyCharm guardam caminhos e o nome do interpretador de cada
 máquina, e nem todos usam o PyCharm. A pasta inteira é ignorada; a configuração
 recomendada está em [Desenvolvimento](DESENVOLVIMENTO.md#pycharm).
 
+## Conteúdo interno com CSS próprio — 18/11/2026
+
+**Problema:** o redesenho aprovado muda todo o conteúdo interno, mas o header e o login
+devem ficar como estão. **Escolha:** um `interno.css` separado, com todas as regras sob
+`.principal-interno` e carregado só por `base_interna.html`; o `estilo.css` não muda.
+A Figtree é servida localmente, como no Prime Central. **Consequência:** o azul da ação
+passa a `#0A6EA3` (5,57:1 com branco) só no conteúdo; o header mantém o `#03A9F5`.
+
+## Constantes em `constants.py` — 18/11/2026
+
+Jornada, tolerância, intervalo mínimo, períodos das telas e textos fixos estavam repetidos
+em `views.py`, `relatorios.py`, `forms.py` e `apresentacao.py`. Ficam agora em
+`ponto/constants.py`, e os módulos importam de lá.
+
 ## Como registrar uma nova decisão
 
 Crie uma seção de nível 2 com o título da decisão e a data. Descreva o problema, as
