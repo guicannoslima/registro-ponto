@@ -92,9 +92,21 @@ extras e dias incompletos. Sábados e domingos sem batidas ficam fora da tabela 
 mas continuam no PDF. Num dia incompleto, o funcionário vê **Pedir ajuste** e o gestor,
 **Lançar ponto**. O funcionário gera só o próprio relatório.
 
-**Baixar PDF** gera a **Folha de Ponto Individual de Trabalho** com o mesmo período e
-funcionário: nome, função, todas as batidas de cada dia e um resumo com horas normais
-e extras. Com **Gerar todos**, o arquivo traz uma folha por funcionário.
+**Baixar PDF** gera o **Cartão Ponto** do mesmo período e funcionário, uma página por pessoa
+com **Gerar todos**. O cartão traz:
+
+- cabeçalho com a logo, o período e a data de emissão; rodapé com **Página X de Y**;
+- dados da empresa e do funcionário (nome, CPF, função e gestor) e o horário de trabalho
+  de segunda a sexta;
+- uma linha por dia com as 6 batidas (`ENT. 1` a `SAÍ. 3`), **NORMAIS**, **FALTAS**,
+  **EXTRAS**, **CARGA** e **OBS.**, e a linha de **TOTAIS**;
+- legenda, declaração de conferência e assinaturas do funcionário e do gestor.
+
+**NORMAIS** e **EXTRAS** seguem a mesma regra do relatório na tela, então os totais batem.
+**FALTAS** soma o saldo devedor dos dias completos e a jornada inteira dos dias úteis sem
+nenhuma batida (**Falta**). Dias com batidas, mas sem entrada ou saída, saem como
+**Incompleto**, sem horas calculadas. Batidas lançadas manualmente recebem `*`. Os dados da
+empresa e o horário impresso ficam em `ponto/constants.py`.
 
 ## Conta e acesso
 

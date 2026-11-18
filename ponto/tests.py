@@ -5,7 +5,14 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .apresentacao import formatar_saldo, linha_do_dia, preparar_relatorio, situacao
+from .apresentacao import (
+    formatar_saldo,
+    hhmm,
+    linha_do_dia,
+    preparar_cartao_ponto,
+    preparar_relatorio,
+    situacao,
+)
 from .models import Funcao, HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
 from .relatorios import montar_relatorio
 
@@ -241,3 +248,67 @@ class TelasInternasTests(TestCase):
         resposta = self.client.get(reverse('relatorio_ponto'))
 
         self.assertContains(resposta, '>Diego Santos</option>')
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class CartaoPontoTests(TestCase):
+    def setUp(self):
+        self.usuario = User.objects.create_user('marina', password='senha-forte-123', first_name='Marina')
+        self.segunda, self.terca = date(2026, 11, 16), date(2026, 11, 17)
+        for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, (8, 12, 13, 15, 15, 18)):
+            _batida(self.usuario, tipo, _momento(self.segunda, hora, 45 if tipo == RegistroPonto.VOLTA_CAFE else 0))
+        _batida(
+            self.usuario,
+            RegistroPonto.ENTRADA,
+            _momento(self.segunda + timedelta(days=3), 8),
+            registrado_manualmente=True,
+        )
+
+    def _cartao(self):
+        item = montar_relatorio(None, self.usuario, self.segunda, self.segunda + timedelta(days=3), False)[0]
+        return preparar_cartao_ponto(item, self.segunda, self.segunda + timedelta(days=3))
+
+    def test_hhmm(self):
+        self.assertEqual(hhmm(timedelta(hours=7, minutes=45)), '07:45')
+        self.assertEqual(hhmm(timedelta(hours=115, minutes=5)), '115:05')
+        self.assertEqual(hhmm(None), '')
+
+    def test_dia_util_sem_batidas_conta_jornada_como_falta(self):
+        linha_terca = self._cartao()['cartao']['linhas'][1]
+
+        self.assertEqual(linha_terca['faltas'], '07:45')
+        self.assertEqual(linha_terca['observacao'], 'Falta')
+
+    def test_dia_util_futuro_nao_conta_como_falta(self):
+        futuro = timezone.localdate() + timedelta(days=30)  # longe das batidas criadas no setUp
+        while futuro.weekday() >= 5:
+            futuro += timedelta(days=1)
+        item = montar_relatorio(None, self.usuario, futuro, futuro, False)[0]
+
+        linha = preparar_cartao_ponto(item, futuro, futuro)['cartao']['linhas'][0]
+
+        self.assertEqual((linha['faltas'], linha['carga'], linha['observacao']), ('', '', ''))
+
+    def test_batida_manual_recebe_asterisco_e_dia_sem_saida_fica_incompleto(self):
+        linha_quinta = self._cartao()['cartao']['linhas'][3]
+
+        self.assertTrue(linha_quinta['batidas'][0]['manual'])
+        self.assertEqual(linha_quinta['observacao'], 'Incompleto')
+
+    def test_totais_de_normais_e_extras_batem_com_o_relatorio_da_tela(self):
+        item = self._cartao()
+
+        self.assertEqual(item['cartao']['totais']['normais'], hhmm(item['horas_normais']))
+        self.assertEqual(item['cartao']['totais']['extras'], hhmm(item['horas_extras']))
+
+    def test_exportar_gera_pdf_do_cartao(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(
+            reverse('exportar_relatorio_pdf'),
+            {'funcionario': self.usuario.id, 'data_inicio': '2026-11-16', 'data_fim': '2026-11-19'},
+        )
+
+        self.assertEqual(resposta['Content-Type'], 'application/pdf')
+        self.assertIn('cartao-ponto-20261116-20261119.pdf', resposta['Content-Disposition'])
+        self.assertTrue(resposta.content.startswith(b'%PDF'))

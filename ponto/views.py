@@ -3,6 +3,7 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.contrib.staticfiles import finders
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
@@ -13,6 +14,7 @@ from xhtml2pdf import pisa
 from .apresentacao import (
     data_por_extenso,
     linha_do_dia,
+    preparar_cartao_ponto,
     preparar_relatorio,
     proximo_tipo,
     rotulo_do_dia,
@@ -22,7 +24,12 @@ from .calculos import proximo_tipo_ponto
 from .constants import (
     ABAS_DO_PAINEL,
     ACAO_REGISTRAR,
+    DIAS_ABREVIADOS,
     DIAS_DE_AJUSTE,
+    DIAS_UTEIS,
+    EMPRESA_ENDERECO,
+    EMPRESA_NOME,
+    HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
     TOLERANCIA_SALDO,
@@ -481,11 +488,26 @@ def exportar_relatorio_pdf(request):
         gerar_todos = form.cleaned_data.get('gerar_todos')
         funcionario_escolhido = form.cleaned_data['funcionario']
         relatorio = montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
+        for item in relatorio:
+            preparar_cartao_ponto(item, data_inicio, data_fim)
 
-        template = get_template('ponto/relatorio_pdf.html')
-        html = template.render({'relatorio': relatorio})
+        html = get_template('ponto/relatorio_pdf.html').render({
+            'relatorio': relatorio,
+            'data_inicio': data_inicio,
+            'data_fim': data_fim,
+            'emitido_em': timezone.localtime(),
+            'logo': finders.find('ponto/logo.png'),
+            'empresa_nome': EMPRESA_NOME,
+            'empresa_endereco': EMPRESA_ENDERECO,
+            'horario': [
+                {'nome': nome.upper(), 'pares': HORARIO_DE_TRABALHO if indice in DIAS_UTEIS else ()}
+                for indice, nome in enumerate(DIAS_ABREVIADOS)
+            ],
+            'jornada': formatar_timedelta(JORNADA_DIARIA),
+            'tolerancia': int(TOLERANCIA_SALDO.total_seconds() // 60),
+        })
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = 'attachment; filename="relatorio.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="cartao-ponto-{data_inicio:%Y%m%d}-{data_fim:%Y%m%d}.pdf"'
         pisa_status = pisa.CreatePDF(html, dest=response)
 
         if pisa_status.err:

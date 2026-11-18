@@ -2,7 +2,9 @@
 
 from datetime import timedelta
 
-from .constants import DIAS_CURTOS, DIAS_SEMANA, MESES, ROTULOS_CURTOS
+from django.utils import timezone
+
+from .constants import DIAS_ABREVIADOS, DIAS_CURTOS, DIAS_SEMANA, DIAS_UTEIS, JORNADA_DIARIA, MESES, ROTULOS_CURTOS
 from .models import RegistroPonto
 from .relatorios import formatar_timedelta
 
@@ -114,3 +116,77 @@ def preparar_relatorio(relatorio):
             horas_extras_texto=formatar_timedelta(item['horas_extras']),
         )
     return relatorio
+
+
+def hhmm(delta):
+    """Duração no formato do cartão ponto: timedelta(hours=7, minutes=45) -> '07:45'; vazio quando não há valor."""
+    if not delta:
+        return ''
+    minutos = int(delta.total_seconds()) // 60
+    return f'{minutos // 60:02d}:{minutos % 60:02d}'
+
+
+def preparar_cartao_ponto(item, data_inicio, data_fim):
+    """Linhas e totais do cartão ponto em PDF para um item de montar_relatorio.
+
+    NORMAIS e EXTRAS seguem a mesma regra do relatório na tela. FALTAS soma o saldo devedor dos dias completos e a
+    jornada inteira dos dias úteis já passados sem nenhuma batida; dias futuros ficam em branco. Dias com batidas,
+    mas sem entrada ou saída, saem como incompletos, sem horas calculadas.
+    """
+    hoje = timezone.localdate()
+    registros = RegistroPonto.objects.filter(
+        funcionario=item['funcionario'], data_hora__date__range=(data_inicio, data_fim), ativo=True
+    )
+    manuais = {(timezone.localtime(r.data_hora).date(), r.tipo) for r in registros if r.registrado_manualmente}
+
+    totais = {'normais': timedelta(), 'faltas': timedelta(), 'extras': timedelta(), 'carga': timedelta()}
+    linhas = []
+    for dia in item['relatorio']:
+        data, horarios = dia['data'], dia['horarios']
+        util = data.weekday() in DIAS_UTEIS
+        normais = faltas = extras = carga = None
+        observacao = ''
+
+        if dia['status'] == 'Completo':
+            carga = dia['esperado']
+            diferenca = dia['diferenca']
+            if diferenca >= timedelta():
+                normais = dia['esperado']
+                extras = diferenca or None
+            else:
+                normais = dia['tempo_trabalhado']
+                faltas = -diferenca
+        elif horarios:
+            carga = JORNADA_DIARIA if util else None
+            observacao = 'Incompleto'
+        elif util and data < hoje:
+            carga = faltas = JORNADA_DIARIA
+            observacao = 'Falta'
+
+        for chave, valor in (('normais', normais), ('faltas', faltas), ('extras', extras), ('carga', carga)):
+            if valor:
+                totais[chave] += valor
+
+        linhas.append({
+            'dia': f'{data:%d/%m/%y} - {DIAS_ABREVIADOS[data.weekday()]}',
+            'fim_de_semana': not util,
+            'batidas': [
+                {
+                    'hora': timezone.localtime(horarios[tipo]).strftime('%H:%M') if tipo in horarios else '',
+                    'manual': (data, tipo) in manuais,
+                }
+                for tipo in RegistroPonto.ORDEM_TIPOS
+            ],
+            'normais': hhmm(normais),
+            'faltas': hhmm(faltas),
+            'extras': hhmm(extras),
+            'carga': hhmm(carga),
+            'observacao': observacao,
+        })
+
+    item['cartao'] = {
+        'linhas': linhas,
+        'totais': {chave: hhmm(valor) or '00:00' for chave, valor in totais.items()},
+        'tem_manual': bool(manuais),
+    }
+    return item

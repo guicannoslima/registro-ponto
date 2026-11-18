@@ -64,3 +64,14 @@ MESES = [
     'novembro',
     'dezembro',
 ]
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Cartão ponto (PDF)
+# ---------------------------------------------------------------------------------------------------------------------
+EMPRESA_NOME = 'Núcleo Prime de Tecnologias LTDA'
+EMPRESA_ENDERECO = 'Av. Belo Horizonte, 397'
+
+# Horário contratual impresso no cartão: pares de entrada e saída, de segunda a sexta
+HORARIO_DE_TRABALHO = (('09:00', '12:45'), ('14:00', '16:15'), ('16:30', '18:00'))
+DIAS_UTEIS = (0, 1, 2, 3, 4)
+DIAS_ABREVIADOS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']

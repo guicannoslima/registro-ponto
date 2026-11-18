@@ -1,121 +1,283 @@
-{% load ponto_filters %}
 <!DOCTYPE html>
 <html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Gerar PDF</title>
+<head>
+    <meta charset="UTF-8">
+    <title>Cartão ponto</title>
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 1.1cm 1.1cm 1.4cm 1.1cm;
 
-        <style>
-            body {
-        font-family: Helvetica, Arial, sans-serif;
+            /* rodapé fixo: o xhtml2pdf só numera páginas em quadros estáticos */
+            @frame rodape {
+                -pdf-frame-content: rodape;
+                bottom: 0.6cm;
+                margin-left: 1.1cm;
+                margin-right: 1.1cm;
+                height: 0.5cm;
             }
+        }
 
-            table {
-                border-collapse: collapse;
-                width: 100%;
-            }
+        #rodape {
+            color: #6b7782;
+            font-size: 6.5pt;
+            text-align: right;
+        }
 
-            th, td {
-                border: 1px solid black;
-                padding: 3px 6px;
-                white-space: nowrap;
-                text-align: center;
-                font-size: 8px;
-            }
+        body {
+            color: #1f2a33;
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 8pt;
+        }
 
-            th {
-                background-color: #eeeeee;
-                padding: 7px 6px 5px 6px;
-                font-size: 9px;
-            }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
 
-            .dia {
-                font-weight: bold;
-            }
+        td, th {
+            padding: 0;
+            vertical-align: top;
+        }
 
-            .quebra-pagina {
-                page-break-after: always;
-            }
+        /*
+         * O xhtml2pdf não centraliza células com vertical-align nem valign: ele reserva a entrelinha abaixo do
+         * texto. Com line-height 1 e 2px a mais em cima que embaixo, o texto fica no meio da linha da grade.
+         */
+        .bloco td,
+        .dias td,
+        .dias th {
+            line-height: 1;
+        }
 
-            p {
-                margin: 2px 0;
-            }
+        /* cabeçalho */
+        .titulo {
+            color: #18324b;
+            font-family: Times-Roman, "Times New Roman", serif;
+            font-size: 15pt;
+            font-weight: bold;
+        }
 
-            h2, h3 {
-                margin: 6px 0;
-            }
+        .periodo {
+            color: #d0571b;
+            font-family: Times-Roman, "Times New Roman", serif;
+            font-size: 10pt;
+        }
 
-            .cabecalho td {
-                padding: 1px 6px;
-            }
-        </style>
+        .emissao {
+            color: #444444;
+            font-size: 6.5pt;
+            text-align: right;
+            line-height: 1.5;
+        }
 
-    </head>
+        .separador {
+            border-left: 1px solid #9aa4ad;
+            padding-left: 10px;
+        }
 
-    <body>
-        
-        {% for item in relatorio %}
-        <h2>Folha de Ponto Individual de Trabalho / {{ item.relatorio.0.data|date:"F Y" }}</h2>
-        <table class="cabecalho">
+        /* bloco de dados, em fundo cinza como no cartão */
+        .bloco {
+            background-color: #e6e9ea;
+            padding: 6px 8px 4px 8px;
+        }
+
+        .bloco td {
+            font-size: 8pt;
+            padding: 6px 4px 4px 0;
+        }
+
+        .bloco .rotulo {
+            width: 12%;
+            border-bottom: 1px solid #b9c1c6;
+        }
+
+        .bloco .valor {
+            width: 37%;
+            border-bottom: 1px solid #b9c1c6;
+        }
+
+        .bloco .vao {
+            width: 3%;
+        }
+
+        .bloco .semana {
+            width: 6%;
+        }
+
+        .bloco .hora {
+            width: 7%;
+        }
+
+        .bloco .cabeca {
+            border-bottom: 1px solid #b9c1c6;
+            font-size: 6.5pt;
+        }
+
+        .horario-titulo {
+            font-size: 8.5pt;
+            font-weight: bold;
+        }
+
+        /* tabela diária, em fonte de máquina como no cartão */
+        .dias th {
+            background-color: #3b3f43;
+            color: #ffffff;
+            font-size: 6pt;
+            text-align: left;
+            padding: 6px 3px 4px 3px;
+        }
+
+        .dias td {
+            border-bottom: 1px solid #b9c1c6;
+            font-family: Courier, monospace;
+            font-size: 8pt;
+            padding: 6px 3px 4px 3px;
+        }
+
+        .dias .fim-de-semana td {
+            color: #6b7782;
+        }
+
+        .dias .totais td {
+            border-bottom: 0;
+            border-top: 1px solid #3b3f43;
+            font-weight: bold;
+            padding-top: 6px;
+        }
+
+        .legenda {
+            font-family: Courier, monospace;
+            font-size: 7.5pt;
+            padding-top: 5px;
+        }
+
+        .declaracao {
+            font-family: Courier, monospace;
+            font-size: 8.5pt;
+            line-height: 1.35;
+            padding-top: 26px;
+        }
+
+        .assinaturas td {
+            font-family: Courier, monospace;
+            font-size: 8.5pt;
+            text-align: center;
+        }
+
+        .linha-assinatura {
+            border-top: 1px solid #1f2a33;
+            padding-top: 3px;
+        }
+    </style>
+</head>
+<body>
+<div id="rodape">Cartão ponto de {{ data_inicio|date:"d/m/Y" }} a {{ data_fim|date:"d/m/Y" }} &nbsp;|&nbsp; Página <pdf:pagenumber> de <pdf:pagecount></div>
+{% for item in relatorio %}
+    {% with cartao=item.cartao funcionario=item.funcionario %}
+    <table>
+        <tr>
+            <td style="width: 24%;"><img src="{{ logo }}" style="width: 120px;"></td>
+            <td class="separador" style="width: 46%;">
+                <div class="titulo">CARTÃO PONTO</div>
+                <div class="periodo">DE {{ data_inicio|date:"d/m/Y" }} ATÉ {{ data_fim|date:"d/m/Y" }}</div>
+            </td>
+            <td class="emissao" style="width: 30%;">
+                <b>Registro de Ponto</b><br>
+                Prime Tecnologia<br>
+                Emitido em {{ emitido_em|date:"d/m/Y" }} às {{ emitido_em|time:"H:i" }}
+            </td>
+        </tr>
+    </table>
+
+    {% with gestor=funcionario.perfil.gestor.user.get_full_name|default:"—" nome=funcionario.get_full_name|default:funcionario.username %}
+    <table class="bloco" style="margin-top: 8px;">
+        {# uma tabela só: cada linha de dados fica na mesma altura de uma linha do horário #}
+        <tr>
+            <td class="rotulo">Empresa</td><td class="valor"><span style="font-size: 9.5pt; font-weight: bold;">{{ empresa_nome }}</span></td>
+            <td class="vao"></td>
+            <td class="horario-titulo" colspan="7">Horário de Trabalho</td>
+        </tr>
+        <tr>
+            <td class="rotulo">Endereço</td><td class="valor">{{ empresa_endereco }}</td>
+            <td class="vao"></td>
+            <td class="semana cabeca"></td>
+            <td class="cabeca">ENT 1</td><td class="cabeca">SAÍ 1</td><td class="cabeca">ENT 2</td>
+            <td class="cabeca">SAÍ 2</td><td class="cabeca">ENT 3</td><td class="cabeca">SAÍ 3</td>
+        </tr>
+        {% for dia in horario %}
             <tr>
-                <td>Nome Empresa</td>
-                <td>Núcleo Prime de Tecnologias LTDA</td>
+                {% if forloop.counter == 1 %}<td class="rotulo">Nome</td><td class="valor"><span style="font-size: 9.5pt; font-weight: bold;">{{ nome }}</span></td>
+                {% elif forloop.counter == 2 %}<td class="rotulo">CPF</td><td class="valor">{{ funcionario.perfil.cpf|default:"—" }}</td>
+                {% elif forloop.counter == 3 %}<td class="rotulo">Função</td><td class="valor">{{ funcionario.perfil.funcao.nome|default:"—" }}</td>
+                {% elif forloop.counter == 4 %}<td class="rotulo">Gestor</td><td class="valor">{{ gestor }}</td>
+                {% elif forloop.counter == 5 %}<td class="rotulo">OBS</td><td class="valor">Jornada de {{ jornada }}; tolerância de {{ tolerancia }} min no saldo.</td>
+                {% else %}<td></td><td></td>
+                {% endif %}
+                <td class="vao"></td>
+                <td class="semana">{{ dia.nome }}</td>
+                {% for par in dia.pares %}<td class="hora">{{ par.0 }}</td><td class="hora">{{ par.1 }}</td>{% empty %}<td class="hora" colspan="6">Folga</td>{% endfor %}
             </tr>
-            <tr>
-                <td>Endereço</td>
-                <td>Av. Belo Horizonte, 397</td>
-            </tr>
-            <tr>
-                <td>Empregado(a)</td>
-                <td>{{ item.funcionario.get_full_name }}</td>
-            </tr>
-            <tr>
-                <td>Função</td>
-                <td>{{ item.funcionario.perfil.funcao.nome }} </td>
-            </tr>
-            <tr>
-                <td>Horário de Trabalho de Seg a Sexta</td>
-                <td>09:00 às 12:45<br>14:00 às 16:15<br>16:30 às 18:00</td>
-            </tr>
-        </table>
-        <table>
-            <thead>
-            <tr>
-                <th>Dias</th>
-                <th>Entrada</th>
-                <th>Saída Almoço</th>
-                <th>Retorno Almoço</th>
-                <th>Saída Café</th>
-                <th>Retorno Café</th>
-                <th>Saída</th>
-                <th>Extras Entrada</th>
-                <th>Extras Saída</th>
-            </tr>
-            </thead>   
-                <tbody>
-                {% for dia in item.relatorio %}
-                    <tr>
-                        <td class="dia">{{ dia.data|date:"d" }} - {{ dia.data|date:"l" }}</td>
-                        <td>{{ dia.horarios.entrada|time:"H:i" }}</td>
-                        <td>{{ dia.horarios.saida_almoco|time:"H:i" }}</td>
-                        <td>{{ dia.horarios.volta_almoco|time:"H:i" }}</td>
-                        <td>{{ dia.horarios.saida_cafe|time:"H:i" }}</td>
-                        <td>{{ dia.horarios.volta_cafe|time:"H:i" }}</td>
-                        <td>{{ dia.horarios.saida|time:"H:i" }}</td>
-                        <td></td>
-                        <td></td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-        </table>  
-        <h3>Resumo Geral</h3>
-            <p>Horas Normais: {{ item.horas_normais|ponto_filter }}</p>
-            <p>Horas Extras: {{ item.horas_extras|ponto_filter }}</p>
-            <p>_________________________<br>Assinatura Funcionário</p>
-            <p>_________________________<br>Assinatura Gestor</p>  
-            {% if not forloop.last %}
-                <div class="quebra-pagina"></div>
-            {% endif %}
         {% endfor %}
-    </body>
+    </table>
+    {% endwith %}
+
+    <table class="dias" style="margin-top: 6px;">
+        <thead>
+            <tr>
+                <th style="width: 14%;">DIA</th>
+                <th>ENT. 1</th><th>SAÍ. 1</th><th>ENT. 2</th><th>SAÍ. 2</th><th>ENT. 3</th><th>SAÍ. 3</th>
+                <th>NORMAIS</th><th>FALTAS</th><th>EXTRAS</th><th>CARGA</th>
+                <th style="width: 11%;">OBS.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for linha in cartao.linhas %}
+                <tr{% if linha.fim_de_semana %} class="fim-de-semana"{% endif %}>
+                    <td>{{ linha.dia }}</td>
+                    {% for batida in linha.batidas %}<td>{{ batida.hora }}{% if batida.manual %}*{% endif %}</td>{% endfor %}
+                    <td>{{ linha.normais }}</td>
+                    <td>{{ linha.faltas }}</td>
+                    <td>{{ linha.extras }}</td>
+                    <td>{{ linha.carga }}</td>
+                    <td>{{ linha.observacao }}</td>
+                </tr>
+            {% endfor %}
+            <tr class="totais">
+                <td colspan="7">TOTAIS</td>
+                <td>{{ cartao.totais.normais }}</td>
+                <td>{{ cartao.totais.faltas }}</td>
+                <td>{{ cartao.totais.extras }}</td>
+                <td>{{ cartao.totais.carga }}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <table class="legenda">
+        <tr>
+            <td>(*) - Batida lançada manualmente</td>
+            <td>Falta - Dia útil sem batidas</td>
+            <td>Incompleto - Sem entrada ou saída</td>
+        </tr>
+    </table>
+
+    <div class="declaracao">
+        Reconheço a exatidão das horas constantes de acordo com minha frequência neste intervalo
+        {{ data_inicio|date:"d/m/Y" }} a {{ data_fim|date:"d/m/Y" }}.
+    </div>
+
+    <table class="assinaturas" style="margin-top: 46px;">
+        <tr>
+            <td style="width: 46%;" class="linha-assinatura">{{ funcionario.get_full_name|default:funcionario.username }}</td>
+            <td style="width: 8%;"></td>
+            <td style="width: 46%;" class="linha-assinatura">
+                {% if funcionario.perfil.gestor %}{{ funcionario.perfil.gestor.user.get_full_name }}<br>{% endif %}Gestor
+            </td>
+        </tr>
+    </table>
+    {% endwith %}
+    {% if not forloop.last %}<pdf:nextpage>{% endif %}
+{% endfor %}
+</body>
 </html>
