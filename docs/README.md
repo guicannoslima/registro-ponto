@@ -26,6 +26,7 @@ permissões estão descritas a partir do código, não de testes ([Testes](TESTE
 - [Desenvolvimento local, PyCharm, dependências e Ruff](DESENVOLVIMENTO.md)
 - [Testes](TESTES.md)
 - [Capacidade e teste de carga](CAPACIDADE.md)
+- [Carga de 50 colaboradores e configuração da VM](CARGA_50_COLABORADORES.md)
 - [Padrões de documentação e escrita](PADROES_DE_DOCUMENTACAO.md)
 
 ## Planejamento

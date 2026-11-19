@@ -1,7 +1,12 @@
 # Capacidade
 
-Para 20 colaboradores simultâneos, o sistema roda com folga em **2 vCPU e 2 GB de RAM**; o
-mínimo testado é **1 vCPU e 1 GB**, com respostas de 1 a 2 s quando PDFs e logins coincidem.
+Para o pico de **50 colaboradores**, a indicação atual é **4 vCPU e 4 GB de RAM**, com
+aplicação e PostgreSQL na mesma VM. O cenário de 2 CPUs / orçamento de 2 GB também passou;
+4 CPUs oferecem margem. Consulte o [ensaio de 19/11/2026](CARGA_50_COLABORADORES.md):
+1.200 POSTs medidos, sem falhas, com reconhecimento facial real e recursos descartados.
+
+O teste abaixo é histórico, para 20 usuários numa revisão anterior ao reconhecimento
+facial, e não substitui o dimensionamento de 50 colaboradores.
 
 ## Teste de carga — 18/11/2026
 
