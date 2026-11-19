@@ -991,6 +991,45 @@ span.batida-celula {
     background: #525659;
 }
 
+/* ---------- voltar ao topo ----------
+ * Fica fora do <main>, por isso usa as cores direto e não as variáveis de .principal-interno.
+ */
+.voltar-topo {
+    position: fixed;
+    right: max(24px, env(safe-area-inset-right));
+    bottom: max(24px, env(safe-area-inset-bottom));
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 1px solid #0a6ea3;
+    border-radius: 50%;
+    background: #0a6ea3;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(24, 50, 75, 0.14);
+    cursor: pointer;
+}
+
+.voltar-topo:hover {
+    background: #085a86;
+}
+
+.voltar-topo:focus-visible {
+    outline: 3px solid #0a6ea3;
+    outline-offset: 3px;
+}
+
+.voltar-topo[hidden] {
+    display: none;
+}
+
+.voltar-topo svg {
+    width: 20px;
+    height: 20px;
+}
+
 /* ---------- responsivo ---------- */
 
 @media (max-width: 900px) {
@@ -1031,6 +1070,13 @@ span.batida-celula {
 }
 
 @media (max-width: 600px) {
+    .voltar-topo {
+        right: max(16px, env(safe-area-inset-right));
+        bottom: max(16px, env(safe-area-inset-bottom));
+        width: 44px;
+        height: 44px;
+    }
+
     .principal-interno {
         padding: 24px 12px 48px;
     }

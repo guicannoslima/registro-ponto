@@ -8,6 +8,9 @@
 {% endblock %}
 
 {% block scripts %}
+    <button id="voltar-topo" class="voltar-topo" type="button" aria-label="Voltar ao topo" title="Voltar ao topo" hidden>
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M4 10l6-6 6 6"/></svg>
+    </button>
     <script src="{% static 'ponto/interno.js' %}" defer></script>
 {% endblock %}
 

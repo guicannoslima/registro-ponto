@@ -172,6 +172,16 @@ class TelasInternasTests(TestCase):
         self.assertEqual(resposta.context['aba_ativa'], 'hoje')
         self.assertNotContains(resposta, 'id="aba-equipe"')
 
+    def test_voltar_ao_topo_so_nas_telas_internas(self):
+        self.client.force_login(self.funcionario)
+        interna = self.client.get(reverse('painel'))
+        self.client.logout()
+        login = self.client.get(reverse('login'))
+
+        self.assertContains(interna, 'id="voltar-topo"')
+        self.assertContains(interna, 'aria-label="Voltar ao topo"')
+        self.assertNotContains(login, 'voltar-topo')
+
     def test_equipe_lista_situacao_e_link_de_exclusao(self):
         entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(self.hoje, 8, 14))
         self.client.force_login(self.gestor)

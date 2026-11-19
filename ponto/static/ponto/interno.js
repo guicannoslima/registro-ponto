@@ -65,3 +65,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+// Voltar ao topo: aparece depois de rolar 200px; ao clicar, sobe e devolve o foco para a logo do header.
+document.addEventListener('DOMContentLoaded', () => {
+    const botao = document.getElementById('voltar-topo');
+    if (!botao) {
+        return;
+    }
+
+    const atualizar = () => {
+        botao.hidden = window.scrollY <= 200;
+    };
+
+    botao.addEventListener('click', () => {
+        const reduzir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 0, behavior: reduzir ? 'auto' : 'smooth' });
+        document.querySelector('.logo-topo')?.focus({ preventScroll: true });
+    });
+
+    window.addEventListener('scroll', atualizar, { passive: true });
+    window.addEventListener('resize', atualizar);
+    atualizar();
+});

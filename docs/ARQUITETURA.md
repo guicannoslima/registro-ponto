@@ -87,7 +87,9 @@ Todas as regras de `interno.css` ficam sob `.principal-interno`, então o header
 login, cadastro e redefinição de senha, que usam só `estilo.css`, não mudam. A Figtree é servida
 de `static/ponto/fonts/`, sem dependência externa. Os parciais `_campo.html`, `_voltar.html`,
 `_linha_do_dia.html` e `_erros_formulario.html` mantêm campos, botão de voltar e linha do dia iguais
-em todas as telas. O desenho de referência está em [design](../design/README.md).
+em todas as telas. O botão **Voltar ao topo**, no canto inferior direito, aparece depois de rolar 200 px,
+devolve o foco à logo do header e respeita a preferência por movimento reduzido. O desenho de referência está
+em [design](../design/README.md).
 
 ## Arquivos estáticos e e-mail
 
