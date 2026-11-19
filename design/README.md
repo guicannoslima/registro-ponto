@@ -153,3 +153,9 @@ A página **Feriados · Alinhamento dos controles** detalha campo Ano e botões 
 e sincronização com 48 px, alinhados pela base. Prévia em `previas/feriados-alinhamento/`.
 O rótulo Ano fica em uma linha própria; somente o input e os botões compartilham a
 linha de controles, com topo e base iguais, usando as classes já existentes.
+
+A página **Feriados e folgas** propõe o aviso do dia no painel (feriado, folga semanal da
+jornada e folga compensatória), a tela **Lançar folga** do gestor, com os tipos Dispensa e
+Compensação e o efeito no saldo de horas extras, e a tela **Gestão › Folgas**, só com as
+folgas da equipe; os feriados continuam em Administração › Feriados. O quadro **Regras
+propostas** traz as regras e as decisões em aberto. Prévias em `previas/feriados-folgas/`.
