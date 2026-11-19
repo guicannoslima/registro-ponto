@@ -12,10 +12,19 @@ O menu foi reorganizado por clique, e o cabeçalho e conteúdo agora usam toda a
 por autorização explícita do usuário. Formulários em `forms.py`, views em `views.py` e
 exceções em `exceptions.py`. As telas públicas continuam como estavam.
 Serviços de apresentação, batidas e sequência reunidos em `services.py`; módulo de e-mail
-renomeado para `email.py`, e todos os 69 testes reunidos em `tests.py`. A interface usa
+renomeado para `email.py`, e os testes reunidos em `tests.py`. A interface usa
 **Colaborador**, e botões comuns e campos têm 48 px para alinhar formulários.
 A migração `0009`, somente de rótulos, foi aplicada no banco local.
-Os auxiliares `_gestor`, `_pessoas`, `_limitar_captura` e `_erro` ficam em `ponto/utils.py`.
+`services.py` reúne regras, consultas e preparação de dados, incluindo `_gestor` e `_pessoas`.
+Formatadores de datas e durações e os auxiliares HTTP `_limitar_captura` e `_erro` ficam em `utils.py`.
+O registro pessoal e do terminal utiliza `registrar_ponto_facial` em `services.py`, sem
+dependência de requisição, sessão ou resposta HTTP. As views usam os adaptadores de `utils.py`.
+A tela Cadastrar rosto consulta o cadastro da pessoa selecionada e diferencia cadastrar,
+substituir e remover. A remoção só aparece quando existe cadastro facial.
+Meu ponto → Meu perfil permite escolher ou remover a foto da confirmação. Ao registrar,
+foto ou imagem genérica com nome aparecem por 3 segundos, com **PONTO REGISTRADO - PRIMEIRO NOME**.
+Os atalhos de cadastro facial e terminal saíram do início e permanecem no menu Gestão.
+A migração `0010` da foto de perfil foi aplicada no banco local.
 O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 ([uso e limitações](USO.md#registro-por-reconhecimento-facial)).
 
@@ -29,7 +38,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 69 testes reunidos em `ponto/tests.py`, todos passando ([Testes](TESTES.md)) |
+| Testes | 82 testes reunidos em `ponto/tests.py`, todos passando ([Testes](TESTES.md)) |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | 2 vCPU e 2 GB para 20 pessoas simultâneas ([Capacidade](CAPACIDADE.md)) |

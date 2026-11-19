@@ -1,42 +1,29 @@
-"""Serviços de registro de ponto, sequência de batidas e apresentação das telas e do PDF."""
+"""Regras, consultas e preparação dos dados de negócio do registro de ponto."""
 
 from datetime import timedelta
+from io import BytesIO
+from uuid import uuid4
 
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import Exists, OuterRef
 from django.utils import timezone
+from PIL import Image, ImageOps
 
 from .constants import (
     DIAS_ABREVIADOS,
-    DIAS_CURTOS,
-    DIAS_SEMANA,
     DIAS_UTEIS,
+    FACIAL_LIMIAR,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
-    MESES,
     ROTULOS_CURTOS,
 )
-from .exceptions import ErroBatida
-from .models import RegistroPonto
-
-
-def data_por_extenso(data):
-    """18/11/2026 -> 'Quarta-feira, 18 de novembro'."""
-    return f'{DIAS_SEMANA[data.weekday()]}, {data.day} de {MESES[data.month - 1]}'
-
-
-def dia_curto(data):
-    """05/11/2026 -> 'Qui, 05/11'."""
-    return f'{DIAS_CURTOS[data.weekday()]}, {data:%d/%m}'
-
-
-def rotulo_do_dia(data, hoje):
-    """Rótulo para agrupar batidas: 'Hoje, 18/11', 'Ontem, 17/11' ou 'Seg, 16/11'."""
-    if data == hoje:
-        return f'Hoje, {data:%d/%m}'
-    if data == hoje - timedelta(days=1):
-        return f'Ontem, {data:%d/%m}'
-    return dia_curto(data)
+from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial
+from .facial import extrair_vetor, identificar
+from .models import CadastroFacial, Perfil, RegistroPonto
+from .permissoes import funcionarios_visiveis
+from .utils import hhmm
 
 
 def proximo_tipo(registros):
@@ -80,24 +67,6 @@ def situacao(registros):
     if ultima == RegistroPonto.SAIDA_CAFE:
         return 'No café', 'atencao'
     return 'Em jornada', 'info'
-
-
-def formatar_saldo(delta):
-    """Saldo do dia com sinal: '+0h50min', '−0h13min' ou '0min' quando zerado pela tolerância."""
-    total = int(delta.total_seconds()) // 60
-    if total == 0:
-        return '0min'
-    sinal = '+' if total > 0 else '−'
-    horas, minutos = divmod(abs(total), 60)
-    return f'{sinal}{horas}h{minutos:02d}min'
-
-
-def hhmm(delta):
-    """Duração no formato do cartão ponto: timedelta(hours=7, minutes=45) -> '07:45'; vazio quando não há valor."""
-    if not delta:
-        return ''
-    minutos = int(delta.total_seconds()) // 60
-    return f'{minutos // 60:02d}:{minutos % 60:02d}'
 
 
 def preparar_cartao_ponto(item, data_inicio, data_fim):
@@ -195,3 +164,115 @@ def registrar_batida(usuario):
     if not tipo:
         raise ErroBatida('Todos os pontos do dia foram batidos.')
     return RegistroPonto.objects.create(funcionario=usuario, tipo=tipo, data_hora=agora)
+
+
+def tem_cadastro_facial(usuario):
+    return CadastroFacial.objects.filter(funcionario=usuario).exists()
+
+
+def pessoas_para_cadastro_facial(usuario):
+    cadastros = CadastroFacial.objects.filter(funcionario_id=OuterRef('pk'))
+    return _pessoas(usuario).annotate(rosto_cadastrado=Exists(cadastros)).order_by('first_name', 'username')
+
+
+def estado_cadastro_facial(pessoa):
+    return {'funcionario_id': pessoa.pk, 'cadastrado': tem_cadastro_facial(pessoa)}
+
+
+def salvar_cadastro_facial(pessoa, foto, responsavel):
+    vetor = extrair_vetor(foto)
+    outros = CadastroFacial.objects.exclude(funcionario=pessoa).select_related('funcionario')
+    if any(sum(a * b for a, b in zip(vetor, outro.vetor, strict=True)) >= FACIAL_LIMIAR for outro in outros):
+        raise ErroFacial('Este rosto já possui cadastro. Peça a revisão ao administrador.')
+    CadastroFacial.objects.update_or_create(
+        funcionario=pessoa,
+        defaults={'vetor': vetor, 'cadastrado_por': responsavel},
+    )
+    return {
+        'funcionario_id': pessoa.pk,
+        'cadastrado': True,
+        'mensagem': f'Rosto cadastrado para {pessoa.get_full_name() or pessoa.username}.',
+    }
+
+
+def remover_cadastro_facial(pessoa):
+    CadastroFacial.objects.filter(funcionario=pessoa).delete()
+    return {'funcionario_id': pessoa.pk, 'cadastrado': False, 'mensagem': 'Cadastro facial removido.'}
+
+
+def registrar_ponto_facial(usuario, foto, *, compartilhado=False, presenca_anterior=None):
+    """Reconhece e registra sem depender de requisição, sessão ou resposta HTTP.
+
+    No modo compartilhado, o usuário é o gestor responsável. A presença anterior contém
+    apenas pessoa_id, registrado e mensagem, para não repetir a batida de quem permanece na câmera.
+    """
+    if compartilhado:
+        cadastros = CadastroFacial.objects.filter(funcionario__in=_pessoas(usuario))
+        sem_cadastro = 'Nenhum rosto cadastrado. Peça ao gestor para preparar os cadastros.'
+    else:
+        cadastros = CadastroFacial.objects.filter(funcionario=usuario)
+        sem_cadastro = 'Peça ao gestor para cadastrar seu rosto antes de usar a câmera.'
+    cadastros = cadastros.select_related('funcionario')
+    if not cadastros.exists():
+        raise CadastroFacialAusente(sem_cadastro)
+
+    pessoa = identificar(extrair_vetor(foto), cadastros)
+    repetido = bool(compartilhado and presenca_anterior and presenca_anterior['pessoa_id'] == pessoa.pk)
+    if repetido:
+        if not presenca_anterior['registrado']:
+            return presenca_anterior
+    else:
+        try:
+            registrar_batida(pessoa)
+        except ErroBatida as exc:
+            return {'pessoa_id': pessoa.pk, 'registrado': False, 'mensagem': str(exc)}
+
+    primeiro_nome = (pessoa.first_name.strip() or pessoa.username).split()[0].upper()
+    return {
+        'pessoa_id': pessoa.pk,
+        'registrado': True,
+        'mensagem': f'PONTO REGISTRADO - {primeiro_nome}',
+        'nome_completo': pessoa.get_full_name() or pessoa.username,
+        'tem_foto': bool(pessoa.perfil.foto),
+        'repetido': repetido,
+    }
+
+
+@transaction.atomic
+def salvar_foto_perfil(usuario, arquivo=None, *, remover=False):
+    perfil = usuario.perfil
+    antiga = perfil.foto.name
+    storage = perfil.foto.storage
+    if remover:
+        perfil.foto = ''
+    else:
+        arquivo.seek(0)
+        with Image.open(arquivo) as original:
+            imagem = ImageOps.fit(ImageOps.exif_transpose(original).convert('RGB'), (512, 512))
+            conteudo = BytesIO()
+            imagem.save(conteudo, 'JPEG', quality=85)
+        perfil.foto.save(f'{uuid4().hex}.jpg', ContentFile(conteudo.getvalue()), save=False)
+    perfil.save(update_fields=['foto'])
+    if antiga and antiga != perfil.foto.name:
+        transaction.on_commit(lambda: storage.delete(antiga))
+
+
+def obter_foto_perfil(usuario, usuario_id):
+    perfil = Perfil.objects.filter(user_id=usuario_id, user__in=_pessoas(usuario)).first()
+    return perfil.foto if perfil and perfil.foto else None
+
+
+def _gestor(usuario):
+    return (
+        usuario.is_authenticated
+        and usuario.is_active
+        and usuario.perfil.papel
+        in (
+            Perfil.PAPEL_GESTOR,
+            Perfil.PAPEL_ADMIN,
+        )
+    )
+
+
+def _pessoas(usuario):
+    return (funcionarios_visiveis(usuario) | User.objects.filter(pk=usuario.pk)).filter(is_active=True)

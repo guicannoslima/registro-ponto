@@ -13,5 +13,9 @@ class FacialIndisponivel(ErroFacial):
     """O servidor não tem o motor facial pronto para uso."""
 
 
+class CadastroFacialAusente(ErroFacial):
+    """Não há cadastro facial disponível para o registro solicitado."""
+
+
 class SemRosto(ErroFacial):
     """Nenhum rosto foi encontrado no enquadramento da câmera."""

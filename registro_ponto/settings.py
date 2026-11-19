@@ -113,6 +113,9 @@ STATIC_URL = 'static/'
 # Pasta onde o "collectstatic" junta todos os arquivos estáticos (usado no Docker)
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Fotos privadas: acessadas pela view autenticada, sem expor uma pasta de mídia pública.
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # WhiteNoise serve os arquivos estáticos direto pelo gunicorn, já comprimidos
 STORAGES = {
     'default': {

@@ -111,3 +111,15 @@ document.addEventListener('DOMContentLoaded', () => {
         grupos.forEach((grupo) => { if (!grupo.contains(evento.target)) grupo.open = false; });
     });
 });
+
+// Se o arquivo da foto não estiver disponível, mantém a imagem genérica com o nome.
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-foto-perfil]').forEach((foto) => {
+        const usarGenerica = () => {
+            foto.hidden = true;
+            foto.parentElement.querySelector('[data-avatar-generico]').hidden = false;
+        };
+        foto.addEventListener('error', usarGenerica);
+        if (foto.complete && !foto.naturalWidth) usarGenerica();
+    });
+});

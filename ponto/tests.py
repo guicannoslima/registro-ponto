@@ -1,6 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
 from smtplib import SMTPException
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -12,7 +13,7 @@ from django.utils import timezone
 from PIL import Image
 
 from .email import BackendEmail, cifrar_senha, decifrar_senha
-from .exceptions import ErroFacial, FacialIndisponivel, SemRosto
+from .exceptions import CadastroFacialAusente, ErroFacial, FacialIndisponivel, SemRosto
 from .facial import extrair_vetor, identificar
 from .models import (
     CadastroFacial,
@@ -25,12 +26,12 @@ from .models import (
 )
 from .relatorios import montar_relatorio
 from .services import (
-    formatar_saldo,
-    hhmm,
     linha_do_dia,
     preparar_cartao_ponto,
+    registrar_ponto_facial,
     situacao,
 )
+from .utils import formatar_saldo, hhmm
 
 # O test runner força DEBUG=False; sem collectstatic não há manifest, então os testes usam o storage simples
 STORAGES_DE_TESTE = {
@@ -395,7 +396,47 @@ class FluxosFaciaisTests(TestCase):
         resposta = self.client.get(reverse('cadastro_facial'))
         self.assertNotContains(resposta, 'outra-equipe')
 
-    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    def test_consulta_distingue_cadastrado_de_sem_cadastro_sem_expor_biometria(self):
+        self.client.force_login(self.gestor)
+        rota = reverse('cadastro_facial')
+
+        resposta = self.client.get(rota, {'estado': '1', 'funcionario': self.pessoa.pk})
+        self.assertEqual(resposta.json(), {'funcionario_id': self.pessoa.pk, 'cadastrado': True})
+        resposta = self.client.get(rota, {'estado': '1', 'funcionario': self.gestor.pk})
+        self.assertEqual(resposta.json(), {'funcionario_id': self.gestor.pk, 'cadastrado': False})
+
+    def test_consulta_de_cadastro_respeita_papel_e_equipe(self):
+        self.client.force_login(self.gestor)
+        dados = {'estado': '1', 'funcionario': self.fora.pk}
+        self.assertEqual(self.client.get(reverse('cadastro_facial'), dados).status_code, 404)
+        self.client.force_login(self.pessoa)
+        self.assertEqual(self.client.get(reverse('cadastro_facial'), dados).status_code, 403)
+
+    def test_lista_de_pessoas_informa_quem_tem_cadastro(self):
+        self.client.force_login(self.gestor)
+        resposta = self.client.get(reverse('cadastro_facial'))
+        pessoas = {p.pk: p.rosto_cadastrado for p in resposta.context['pessoas']}
+        self.assertTrue(pessoas[self.pessoa.pk])
+        self.assertFalse(pessoas[self.gestor.pk])
+        self.assertNotIn(self.fora.pk, pessoas)
+
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
+    def test_servico_registra_ponto_sem_requisicao_http(self, extrair):
+        resultado = registrar_ponto_facial(self.pessoa, foto())
+
+        self.assertTrue(resultado['registrado'])
+        self.assertEqual(resultado['pessoa_id'], self.pessoa.pk)
+        self.assertEqual(RegistroPonto.objects.get().funcionario, self.pessoa)
+
+    @patch('ponto.services.extrair_vetor')
+    def test_servico_sem_cadastro_falha_antes_de_processar_imagem(self, extrair):
+        with self.assertRaises(CadastroFacialAusente):
+            registrar_ponto_facial(self.gestor, foto())
+
+        extrair.assert_not_called()
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
     def test_usuario_logado_reconhece_e_registra_uma_unica_batida(self, extrair):
         self.client.force_login(self.pessoa)
         resposta = self.client.post(reverse('ponto_facial'), {'foto': foto()})
@@ -405,13 +446,13 @@ class FluxosFaciaisTests(TestCase):
         self.client.post(reverse('bater_ponto'))
         self.assertEqual(RegistroPonto.objects.count(), 1)
 
-    @patch('ponto.views.extrair_vetor', return_value=[0., 1.])
+    @patch('ponto.services.extrair_vetor', return_value=[0., 1.])
     def test_nao_grava_quando_rosto_e_de_outra_pessoa(self, extrair):
         self.client.force_login(self.pessoa)
         self.assertEqual(self.client.post(reverse('ponto_facial'), {'foto': foto()}).status_code, 400)
         self.assertFalse(RegistroPonto.objects.exists())
 
-    @patch('ponto.views.extrair_vetor', side_effect=FacialIndisponivel('Modelos indisponíveis.'))
+    @patch('ponto.services.extrair_vetor', side_effect=FacialIndisponivel('Modelos indisponíveis.'))
     def test_falha_do_motor_nao_grava_ponto(self, extrair):
         self.client.force_login(self.pessoa)
         self.assertEqual(self.client.post(reverse('ponto_facial'), {'foto': foto()}).status_code, 503)
@@ -419,7 +460,9 @@ class FluxosFaciaisTests(TestCase):
 
     def test_sem_cadastro_nao_grava(self):
         self.client.force_login(self.gestor)
-        self.assertEqual(self.client.post(reverse('ponto_facial'), {'foto': foto()}).status_code, 400)
+        resposta = self.client.post(reverse('ponto_facial'), {'foto': foto()})
+        self.assertEqual(resposta.status_code, 400)
+        self.assertFalse(resposta.json()['continuar'])
         self.assertFalse(RegistroPonto.objects.exists())
 
     def test_funcionario_nao_cadastra_nem_abre_terminal(self):
@@ -427,25 +470,31 @@ class FluxosFaciaisTests(TestCase):
         self.assertEqual(self.client.get(reverse('cadastro_facial')).status_code, 403)
         self.assertEqual(self.client.post(reverse('abrir_terminal')).status_code, 403)
 
-    @patch('ponto.views.extrair_vetor', return_value=[0.6, 0.8])
+    @patch('ponto.services.extrair_vetor', return_value=[0.6, 0.8])
     def test_gestor_nao_cadastra_pessoa_de_outra_equipe(self, extrair):
         self.client.force_login(self.gestor)
         resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.fora.pk, 'foto': foto()})
         self.assertEqual(resposta.status_code, 404)
         extrair.assert_not_called()
 
-    @patch('ponto.views.extrair_vetor', return_value=[-1., 0.])
+    @patch('ponto.services.extrair_vetor', return_value=[-1., 0.])
     def test_gestor_substitui_e_remove_cadastro_da_equipe(self, extrair):
         self.client.force_login(self.gestor)
         resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'foto': foto()})
         self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.json()['cadastrado'])
+        self.assertEqual(resposta.json()['funcionario_id'], self.pessoa.pk)
         self.cadastro.refresh_from_db()
         self.assertEqual(self.cadastro.vetor, [-1., 0.])
         self.assertEqual(self.cadastro.cadastrado_por, self.gestor)
-        self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'acao': 'excluir'})
+        resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'acao': 'excluir'})
+        self.assertFalse(resposta.json()['cadastrado'])
+        self.assertEqual(resposta.json()['funcionario_id'], self.pessoa.pk)
         self.assertFalse(CadastroFacial.objects.filter(funcionario=self.pessoa).exists())
+        resposta = self.client.get(reverse('cadastro_facial'), {'estado': '1', 'funcionario': self.pessoa.pk})
+        self.assertFalse(resposta.json()['cadastrado'])
 
-    @patch('ponto.views.extrair_vetor', return_value=[0., 1.])
+    @patch('ponto.services.extrair_vetor', return_value=[0., 1.])
     def test_nao_associa_o_mesmo_rosto_a_duas_contas(self, extrair):
         self.client.force_login(self.gestor)
         resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'foto': foto()})
@@ -457,7 +506,7 @@ class FluxosFaciaisTests(TestCase):
         self.client.force_login(self.gestor)
         self.client.post(reverse('abrir_terminal'))
 
-    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
     def test_terminal_identifica_sem_manter_sessao_do_gestor(self, extrair):
         self.abrir()
         self.assertNotIn('_auth_user_id', self.client.session)
@@ -468,7 +517,7 @@ class FluxosFaciaisTests(TestCase):
         # O rosto reconhecido nunca vira uma sessão autenticada.
         self.assertNotIn('_auth_user_id', self.client.session)
 
-    @patch('ponto.views.extrair_vetor', return_value=[0., 1.])
+    @patch('ponto.services.extrair_vetor', return_value=[0., 1.])
     def test_terminal_nao_reconhece_pessoas_fora_da_equipe(self, extrair):
         self.abrir()
         self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 400)
@@ -487,17 +536,19 @@ class FluxosFaciaisTests(TestCase):
         self.assertRedirects(self.client.get(reverse('terminal_facial')), reverse('login'))
 
     @patch('ponto.views._limitar_captura')
-    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
     def test_terminal_nao_repete_batida_de_quem_permanece_na_camera(self, extrair, limitar):
         self.abrir()
         primeira = self.client.post(reverse('terminal_facial'), {'foto': foto()})
         with patch('ponto.services.timezone.now', return_value=timezone.now() + timedelta(minutes=11)):
             segunda = self.client.post(reverse('terminal_facial'), {'foto': foto()})
-        self.assertEqual(segunda.json(), primeira.json())
+        self.assertEqual(segunda.json()['mensagem'], primeira.json()['mensagem'])
+        self.assertFalse(primeira.json()['repetido'])
+        self.assertTrue(segunda.json()['repetido'])
         self.assertEqual(RegistroPonto.objects.count(), 1)
 
     @patch('ponto.views._limitar_captura')
-    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
     def test_terminal_libera_nova_batida_apos_sair_do_enquadramento(self, extrair, limitar):
         self.abrir()
         self.client.post(reverse('terminal_facial'), {'foto': foto()})
@@ -511,7 +562,7 @@ class FluxosFaciaisTests(TestCase):
         self.assertEqual(RegistroPonto.objects.count(), 2)
 
     @patch('ponto.views._limitar_captura')
-    @patch('ponto.views.extrair_vetor', side_effect=[[1., 0.], [0., 1.]])
+    @patch('ponto.services.extrair_vetor', side_effect=[[1., 0.], [0., 1.]])
     def test_terminal_registra_pessoas_diferentes_em_sequencia(self, extrair, limitar):
         outra = User.objects.create_user('colega')
         outra.perfil.gestor = self.gestor.perfil
@@ -774,3 +825,118 @@ class AdministracaoTests(TestCase):
         with override_settings(SECRET_KEY=SEGREDO + '-outra-chave'):
             with self.assertRaises(ImproperlyConfigured):
                 decifrar_senha(cifrada)
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class FotoPerfilTests(TestCase):
+    def setUp(self):
+        self.pasta = TemporaryDirectory()
+        self.addCleanup(self.pasta.cleanup)
+        ambiente = override_settings(MEDIA_ROOT=self.pasta.name)
+        ambiente.enable()
+        self.addCleanup(ambiente.disable)
+        self.gestor = User.objects.create_user('gestor_foto')
+        self.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        self.gestor.perfil.save()
+        self.pessoa = User.objects.create_user('caio_foto', first_name='Caio Henrique', last_name='Pereira')
+        self.pessoa.perfil.gestor = self.gestor.perfil
+        self.pessoa.perfil.save()
+        self.outra = User.objects.create_user('outra_foto')
+        CadastroFacial.objects.create(funcionario=self.pessoa, vetor=[1., 0.])
+        self.client.force_login(self.pessoa)
+
+    def enviar_foto(self):
+        return self.client.post(reverse('meu_perfil'), {'foto': foto()})
+
+    def test_colaborador_escolhe_foto_e_arquivo_e_normalizado(self):
+        self.assertRedirects(self.enviar_foto(), reverse('meu_perfil'))
+        self.pessoa.perfil.refresh_from_db()
+        arquivo = self.pessoa.perfil.foto
+        with arquivo.open('rb') as conteudo, Image.open(conteudo) as imagem:
+            self.assertEqual(imagem.format, 'JPEG')
+            self.assertEqual(imagem.size, (512, 512))
+        self.assertTrue(arquivo.name.startswith('perfis/'))
+        self.assertNotIn('camera', arquivo.name)
+        self.assertFalse(self.outra.perfil.foto)
+        self.assertTrue(CadastroFacial.objects.filter(funcionario=self.pessoa).exists())
+
+    def test_foto_invalida_nao_e_salva(self):
+        resposta = self.client.post(reverse('meu_perfil'), {'foto': SimpleUploadedFile('foto.jpg', b'invalida')})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context['form'].errors)
+        self.pessoa.perfil.refresh_from_db()
+        self.assertFalse(self.pessoa.perfil.foto)
+
+    def test_substituir_e_remover_apaga_arquivos_antigos(self):
+        self.enviar_foto()
+        self.pessoa.perfil.refresh_from_db()
+        antiga = self.pessoa.perfil.foto.name
+        storage = self.pessoa.perfil.foto.storage
+        with self.captureOnCommitCallbacks(execute=True):
+            self.enviar_foto()
+        self.assertFalse(storage.exists(antiga))
+        self.pessoa.perfil.refresh_from_db()
+        atual = self.pessoa.perfil.foto.name
+        with self.captureOnCommitCallbacks(execute=True):
+            self.client.post(reverse('meu_perfil'), {'acao': 'remover'})
+        self.assertFalse(storage.exists(atual))
+        self.pessoa.perfil.refresh_from_db()
+        self.assertFalse(self.pessoa.perfil.foto)
+
+    def test_fotos_sao_privadas_e_limitadas_a_equipe(self):
+        self.enviar_foto()
+        rota = reverse('foto_perfil', args=[self.pessoa.pk])
+        resposta = self.client.get(rota)
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta['Cache-Control'], 'private, no-store')
+        b''.join(resposta.streaming_content)
+        self.client.force_login(self.gestor)
+        resposta = self.client.get(rota)
+        self.assertEqual(resposta.status_code, 200)
+        b''.join(resposta.streaming_content)
+        self.client.force_login(self.outra)
+        self.assertEqual(self.client.get(rota).status_code, 404)
+        self.client.logout()
+        self.assertEqual(self.client.get(rota).status_code, 404)
+        self.assertEqual(self.client.get(reverse('meu_perfil')).status_code, 302)
+
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
+    def test_confirmacao_usa_primeiro_nome_foto_e_omite_tipo_e_horario(self, extrair):
+        self.enviar_foto()
+        resposta = self.client.post(reverse('ponto_facial'), {'foto': foto()})
+        dados = resposta.json()
+        self.assertEqual(dados['mensagem'], 'PONTO REGISTRADO - CAIO')
+        self.assertEqual(dados['confirmacao']['nome'], 'Caio Henrique Pereira')
+        self.assertEqual(dados['confirmacao']['foto_url'], reverse('foto_perfil', args=[self.pessoa.pk]))
+        self.assertFalse(dados['repetido'])
+
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
+    def test_sem_foto_orienta_imagem_generica_com_nome(self, extrair):
+        dados = self.client.post(reverse('ponto_facial'), {'foto': foto()}).json()
+        self.assertIsNone(dados['confirmacao']['foto_url'])
+        self.assertEqual(dados['confirmacao']['nome'], self.pessoa.get_full_name())
+
+    @patch('ponto.services.extrair_vetor', return_value=[1., 0.])
+    def test_terminal_so_acessa_foto_da_pessoa_confirmada(self, extrair):
+        self.enviar_foto()
+        self.client.force_login(self.gestor)
+        self.client.post(reverse('abrir_terminal'))
+        rota = reverse('foto_perfil', args=[self.pessoa.pk])
+        self.assertEqual(self.client.get(rota).status_code, 404)
+        self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 200)
+        resposta = self.client.get(rota)
+        self.assertEqual(resposta.status_code, 200)
+        b''.join(resposta.streaming_content)
+        self.assertEqual(self.client.get(reverse('foto_perfil', args=[self.outra.pk])).status_code, 404)
+        self.gestor.is_active = False
+        self.gestor.save()
+        self.assertEqual(self.client.get(rota).status_code, 404)
+
+    def test_inicio_mantem_acoes_de_gestao_apenas_no_menu(self):
+        self.client.force_login(self.gestor)
+        html = self.client.get(reverse('painel')).content.decode()
+        principal = html.split('<main', 1)[1].split('</main>', 1)[0]
+        self.assertNotIn(reverse('cadastro_facial'), principal)
+        self.assertNotIn(reverse('abrir_terminal'), principal)
+        self.assertIn(reverse('cadastro_facial'), html)
+        self.assertIn(reverse('abrir_terminal'), html)

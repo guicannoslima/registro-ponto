@@ -13,7 +13,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
 from django.urls import reverse
@@ -25,12 +25,12 @@ from xhtml2pdf import pisa
 from .constants import (
     ABAS_DO_PAINEL,
     ACAO_REGISTRAR,
+    CONFIRMACAO_PONTO_MS,
     DIAS_ABREVIADOS,
     DIAS_DE_AJUSTE,
     DIAS_UTEIS,
     EMPRESA_ENDERECO,
     EMPRESA_NOME,
-    FACIAL_LIMIAR,
     HORARIO_DE_TRABALHO,
     JORNADA_DIARIA,
     TOLERANCIA_SALDO,
@@ -38,10 +38,10 @@ from .constants import (
 )
 from .email import BackendEmail
 from .exceptions import ErroBatida, ErroFacial, SemRosto
-from .facial import extrair_vetor, identificar
 from .forms import (
     CadastroForm,
     ConfiguracaoEmailForm,
+    FotoPerfilForm,
     HistoricoFiltroForm,
     MotivoExclusaoForm,
     MotivoRejeicaoForm,
@@ -53,7 +53,6 @@ from .forms import (
     UsuarioAdministracaoForm,
 )
 from .models import (
-    CadastroFacial,
     ConfiguracaoEmail,
     HistoricoAlteracaoPonto,
     Perfil,
@@ -63,15 +62,22 @@ from .models import (
 from .permissoes import funcionarios_visiveis
 from .relatorios import calcular_horas_dia, calcular_progresso, formatar_timedelta, montar_relatorio
 from .services import (
-    data_por_extenso,
+    _gestor,
+    estado_cadastro_facial,
     linha_do_dia,
+    obter_foto_perfil,
+    pessoas_para_cadastro_facial,
     preparar_cartao_ponto,
     proximo_tipo,
     registrar_batida,
-    rotulo_do_dia,
+    registrar_ponto_facial,
+    remover_cadastro_facial,
+    salvar_cadastro_facial,
+    salvar_foto_perfil,
     situacao,
+    tem_cadastro_facial,
 )
-from .utils import _erro, _gestor, _limitar_captura, _pessoas
+from .utils import _erro, _limitar_captura, _presenca_facial, _resposta_registro_facial, data_por_extenso, rotulo_do_dia
 
 
 def _registros_do_dia(usuario, data):
@@ -589,29 +595,24 @@ def cadastro_usuario(request):
 def cadastro_facial(request):
     if not _gestor(request.user):
         return HttpResponseForbidden('Somente gestores podem cadastrar rostos.')
-    pessoas = _pessoas(request.user).order_by('first_name', 'username')
-    if request.method == 'POST':
+    pessoas = pessoas_para_cadastro_facial(request.user)
+    if request.method == 'POST' or request.GET.get('estado') == '1':
+        dados = request.POST if request.method == 'POST' else request.GET
         try:
-            pessoa_id = int(request.POST.get('funcionario', ''))
+            pessoa_id = int(dados.get('funcionario', ''))
         except ValueError as exc:
             raise Http404 from exc
         pessoa = get_object_or_404(pessoas, pk=pessoa_id)
+        if request.method == 'GET':
+            return JsonResponse(estado_cadastro_facial(pessoa))
         if request.POST.get('acao') == 'excluir':
-            CadastroFacial.objects.filter(funcionario=pessoa).delete()
-            return JsonResponse({'mensagem': 'Cadastro facial removido.'})
+            return JsonResponse(remover_cadastro_facial(pessoa))
         try:
             _limitar_captura(request)
-            vetor = extrair_vetor(request.FILES.get('foto'))
-            # Impede associar um rosto já cadastrado a outra conta.
-            outros = CadastroFacial.objects.exclude(funcionario=pessoa).select_related('funcionario')
-            if any(sum(a * b for a, b in zip(vetor, outro.vetor, strict=True)) >= FACIAL_LIMIAR for outro in outros):
-                raise ErroFacial('Este rosto já possui cadastro. Peça a revisão ao administrador.')
-            CadastroFacial.objects.update_or_create(
-                funcionario=pessoa, defaults={'vetor': vetor, 'cadastrado_por': request.user},
-            )
-            return JsonResponse({'mensagem': f'Rosto cadastrado para {pessoa.get_full_name() or pessoa.username}.'})
+            resultado = salvar_cadastro_facial(pessoa, request.FILES.get('foto'), request.user)
         except ErroFacial as exc:
             return _erro(exc)
+        return JsonResponse(resultado)
     return render(request, 'ponto/camera.html', {'modo': 'cadastro', 'pessoas': pessoas})
 
 
@@ -620,38 +621,15 @@ def cadastro_facial(request):
 def ponto_facial(request):
     if request.method == 'GET':
         return render(request, 'ponto/camera.html', {
-            'modo': 'pessoal', 'tem_cadastro': CadastroFacial.objects.filter(funcionario=request.user).exists(),
+            'modo': 'pessoal', 'tem_cadastro': tem_cadastro_facial(request.user),
+            'confirmacao_ms': CONFIRMACAO_PONTO_MS,
         })
     try:
         _limitar_captura(request)
-        cadastros = CadastroFacial.objects.filter(funcionario=request.user).select_related('funcionario')
-        if not cadastros.exists():
-            return _erro(ErroFacial('Peça ao gestor para cadastrar seu rosto antes de usar a câmera.'), continuar=False)
-        pessoa = identificar(extrair_vetor(request.FILES.get('foto')), cadastros)
-        return _registrar(pessoa)
+        resultado = registrar_ponto_facial(request.user, request.FILES.get('foto'))
     except ErroFacial as exc:
         return _erro(exc)
-
-
-def _registrar(pessoa, terminal=None):
-    if terminal is not None and terminal.get('facial_pessoa_presente') == pessoa.pk:
-        anterior = terminal['facial_resultado_presente']
-        return JsonResponse(anterior['dados'], status=anterior['status'])
-    try:
-        registro = registrar_batida(pessoa)
-    except ErroBatida as exc:
-        dados = {'erro': str(exc), 'continuar': terminal is not None}
-        status = 409
-    else:
-        nome = pessoa.get_full_name() or pessoa.username
-        hora = timezone.localtime(registro.data_hora).strftime('%H:%M')
-        dados = {'mensagem': f'{nome}: {registro.get_tipo_display()} registrada às {hora}.'}
-        status = 200
-    if terminal is not None:
-        # A mesma pessoa precisa sair do enquadramento antes de poder registrar de novo.
-        terminal['facial_pessoa_presente'] = pessoa.pk
-        terminal['facial_resultado_presente'] = {'dados': dados, 'status': status}
-    return JsonResponse(dados, status=status)
+    return _resposta_registro_facial(resultado)
 
 
 @login_required
@@ -679,21 +657,58 @@ def terminal_facial(request):
             return redirect('login')
         try:
             _limitar_captura(request)
-            cadastros = CadastroFacial.objects.filter(
-                funcionario__in=_pessoas(gestor),
-            ).select_related('funcionario')
-            if not cadastros.exists():
-                return _erro(ErroFacial('Nenhum rosto cadastrado. Peça ao gestor para preparar os cadastros.'),
-                             continuar=False)
-            pessoa = identificar(extrair_vetor(request.FILES.get('foto')), cadastros)
-            return _registrar(pessoa, terminal=request.session)
+            resultado = registrar_ponto_facial(
+                gestor, request.FILES.get('foto'), compartilhado=True,
+                presenca_anterior=_presenca_facial(request.session),
+            )
+            return _resposta_registro_facial(resultado, terminal=request.session)
         except SemRosto as exc:
             request.session.pop('facial_pessoa_presente', None)
             request.session.pop('facial_resultado_presente', None)
             return _erro(exc)
         except ErroFacial as exc:
             return _erro(exc)
-    return render(request, 'ponto/camera.html', {'modo': 'terminal'})
+    return render(request, 'ponto/camera.html', {'modo': 'terminal', 'confirmacao_ms': CONFIRMACAO_PONTO_MS})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def meu_perfil(request):
+    form = FotoPerfilForm()
+    if request.method == 'POST':
+        if request.POST.get('acao') == 'remover':
+            salvar_foto_perfil(request.user, remover=True)
+            messages.success(request, 'Foto de perfil removida.')
+            return redirect('meu_perfil')
+        form = FotoPerfilForm(request.POST, request.FILES)
+        if form.is_valid():
+            salvar_foto_perfil(request.user, form.cleaned_data['foto'])
+            messages.success(request, 'Foto de perfil atualizada.')
+            return redirect('meu_perfil')
+    return render(request, 'ponto/meu_perfil.html', {'form': form})
+
+
+@require_http_methods(['GET'])
+def foto_perfil(request, usuario_id):
+    visualizador = request.user
+    if not visualizador.is_authenticated:
+        anterior = request.session.get('facial_resultado_presente', {})
+        if request.session.get('facial_pessoa_presente') != usuario_id or anterior.get('status') != 200:
+            raise Http404
+        visualizador = User.objects.filter(pk=request.session.get('terminal_gestor_id'), is_active=True).first()
+        if not visualizador or not _gestor(visualizador):
+            raise Http404
+    foto = obter_foto_perfil(visualizador, usuario_id)
+    if not foto:
+        raise Http404
+    try:
+        arquivo = foto.open('rb')
+    except OSError as exc:
+        raise Http404 from exc
+    resposta = FileResponse(arquivo, content_type='image/jpeg')
+    resposta['Cache-Control'] = 'private, no-store'
+    resposta['X-Content-Type-Options'] = 'nosniff'
+    return resposta
 
 
 def administrador_required(view):

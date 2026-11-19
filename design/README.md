@@ -83,3 +83,18 @@ Os textos das pranchas passaram a usar **Colaborador**. A prancha **Envio de e-m
 foi ajustada antes do CSS para alinhar **Enviar teste** ao campo de destinatário: ambos
 com 48 px de altura. As prévias de Administração e Câmera foram exportadas novamente.
 As capturas históricas da página Atual representam o estado antigo da aplicação.
+
+## Estado do cadastro facial
+
+As pranchas **Cadastrar rosto · Sem cadastro** e **Cadastrar rosto · Cadastrado**, na
+página Câmera, foram desenhadas antes da implementação. Mostram o estado da pessoa
+selecionada, **Cadastrar rosto** ou **Substituir rosto**, e remoção disponível somente
+quando existe cadastro. Prévias em `previas/camera/`.
+
+## Perfil e confirmação
+
+A página **Perfil e confirmação** foi desenhada antes da implementação, com **Meu perfil**,
+**Ponto registrado · Foto do perfil** e **Ponto registrado · Imagem genérica**. A confirmação
+exibe apenas **PONTO REGISTRADO - CAIO** e a foto escolhida ou avatar com nome, durante
+3 segundos. Os atalhos de cadastro facial e terminal foram retirados da prancha de ações
+do início. Prévias em `previas/perfil/`.

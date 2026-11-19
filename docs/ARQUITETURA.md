@@ -13,6 +13,8 @@ flowchart LR
   Views --> Forms[forms.py]
   Views --> Permissoes[permissoes.py]
   Views --> Services[services.py]
+  Views --> Utils[utils.py]
+  Services --> Utils
   Views --> Relatorios[relatorios.py]
   Views --> Templates[templates/ e PDF xhtml2pdf]
   Permissoes --> Models[models.py]
@@ -30,7 +32,8 @@ flowchart LR
 | `ponto/models.py` | `Funcao`, `Perfil`, `RegistroPonto`, `HistoricoAlteracaoPonto`, `SolicitacaoAjustePonto` |
 | `ponto/views.py` | Telas e ações: painel, batida, equipe, ajustes, histórico, relatórios, PDF e cadastro |
 | `ponto/permissoes.py` | `funcionarios_visiveis`: quais usuários cada papel enxerga |
-| `ponto/services.py` | Sequência e gravação de batidas; dados prontos para as telas e o PDF |
+| `ponto/services.py` | Regras e consultas: sequência e gravação de batidas, acesso e dados das telas e do PDF |
+| `ponto/utils.py` | Formatação de datas e durações e auxiliares HTTP; sem consultas ao banco |
 | `ponto/relatorios.py` | Horas do dia, saldo, resumo do período e progresso do relógio |
 | `ponto/constants.py` | Regras de jornada, limites das telas e textos fixos, num só lugar |
 | `ponto/signals.py` | Cria o `Perfil` de todo usuário novo |

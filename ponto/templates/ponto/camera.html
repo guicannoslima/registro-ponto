@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Reconhecimento facial - Registro de Ponto{% endblock %}
 {% block conteudo %}
-<div class="pagina" data-camera data-modo="{{ modo }}">
+<div class="pagina" data-camera data-modo="{{ modo }}" data-confirmacao-ms="{{ confirmacao_ms|default:3000 }}">
     <header class="titulo-pagina">
         <div class="titulo-pagina__texto">
             <h1>{% if modo == 'cadastro' %}Cadastrar rosto{% elif modo == 'terminal' %}Ponto em computador compartilhado{% else %}Registrar por reconhecimento facial{% endif %}</h1>
@@ -17,12 +17,19 @@
                     <label for="camera-pessoa">Colaborador</label>
                     <select id="camera-pessoa" name="funcionario" required>
                         <option value="">Selecione a pessoa</option>
-                        {% for pessoa in pessoas %}<option value="{{ pessoa.pk }}">{{ pessoa.get_full_name|default:pessoa.username }} ({{ pessoa.username }})</option>{% endfor %}
+                        {% for pessoa in pessoas %}<option value="{{ pessoa.pk }}" data-nome="{{ pessoa.get_full_name|default:pessoa.username }} ({{ pessoa.username }})">{{ pessoa.get_full_name|default:pessoa.username }} ({{ pessoa.username }}) — {% if pessoa.rosto_cadastrado %}Cadastrado{% else %}Sem cadastro{% endif %}</option>{% endfor %}
                     </select>
                 {% endif %}
                 <div class="camera-previa">
                     <video id="camera-video" autoplay playsinline muted hidden aria-label="Prévia da câmera"></video>
                     <p id="camera-desligada">Câmera desligada</p>
+                    {% if modo != 'cadastro' %}
+                        <div id="camera-confirmacao" class="camera-confirmacao" role="status" aria-live="polite" aria-atomic="true" hidden>
+                            <h2 id="camera-confirmacao-titulo"></h2>
+                            <img id="camera-confirmacao-foto" alt="" hidden>
+                            <div id="camera-confirmacao-generica">{% include 'ponto/_avatar_generico.html' %}</div>
+                        </div>
+                    {% endif %}
                 </div>
                 <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="apoio">{% if modo == 'pessoal' and not tem_cadastro %}Peça ao gestor para cadastrar seu rosto antes de usar a câmera.{% else %}Abrindo câmera. Autorize o acesso no navegador quando solicitado.{% endif %}</p>
                 <button id="camera-ligar" type="button" class="btn btn--secundario btn--largo" hidden>Retomar câmera</button>
@@ -33,11 +40,17 @@
         </section>
         <aside class="cartao-interno camera-conteudo">
             <h2>{% if modo == 'cadastro' %}Cadastro acompanhado{% else %}Antes de registrar{% endif %}</h2>
+            {% if modo == 'cadastro' %}
+                <div class="camera-cadastro-estado" aria-live="polite" aria-atomic="true">
+                    <span id="camera-cadastro-estado" class="selo selo--neutro">Selecione um colaborador</span>
+                    <p id="camera-cadastro-detalhe" class="apoio">O estado do cadastro facial será mostrado aqui.</p>
+                </div>
+            {% endif %}
             <p>Enquadre apenas um rosto. Olhe para a câmera em um local iluminado.</p>
             {% if modo == 'cadastro' %}
-                <p>Confirme a identidade da pessoa antes de cadastrar. Uma nova captura substitui o cadastro anterior.</p>
+                <p>Confirme a identidade da pessoa antes de cadastrar ou substituir o rosto.</p>
                 <p>A captura gera um cadastro biométrico no servidor. A imagem é descartada após o processamento.</p>
-                <button type="button" id="camera-excluir" class="btn btn--secundario">Remover cadastro da pessoa selecionada</button>
+                <button type="button" id="camera-excluir" class="btn btn--secundario" hidden>Remover cadastro facial</button>
             {% else %}
                 <p>Ao reconhecer o rosto, o sistema grava o horário atual e a próxima batida, sem clicar.</p>
                 {% if modo == 'terminal' %}<p>Após a confirmação, saia do enquadramento para liberar a câmera para a próxima pessoa.</p>{% endif %}

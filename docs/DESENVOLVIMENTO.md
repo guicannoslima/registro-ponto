@@ -131,10 +131,24 @@ para que pedidos simultâneos respeitem o intervalo mínimo. Os vetores ficam na
 Formulários ficam em `ponto/forms.py`, views em `ponto/views.py` e exceções de domínio
 em `ponto/exceptions.py`, conforme solicitado pelo usuário. `_lock` e `_motor` continuam
 em `facial.py`: são estado do processamento, não exceções.
-Apresentação, sequência e gravação de batidas ficam em `ponto/services.py`; os testes
-ficam todos em `ponto/tests.py`.
-`ponto/utils.py` reúne os auxiliares `_gestor`, `_pessoas`, `_limitar_captura` e `_erro`,
-utilizados pelas views de reconhecimento facial.
+`ponto/services.py` concentra regras e consultas: sequência e gravação de batidas, linha
+do dia, situação, preparação do cartão ponto e os auxiliares de acesso `_gestor` e `_pessoas`.
+`ponto/utils.py` concentra formatação (`data_por_extenso`, `dia_curto`, `rotulo_do_dia`,
+`formatar_saldo`, `hhmm`) e auxiliares HTTP (`_limitar_captura`, `_erro`, `_presenca_facial`
+e `_resposta_registro_facial`). Os serviços
+podem usar os formatadores; os utilitários não consultam o banco nem importam os serviços.
+Todos os testes ficam em `ponto/tests.py`.
+
+`registrar_ponto_facial`, em `services.py`, consulta os cadastros permitidos, reconhece
+o rosto, verifica a presença anterior no terminal e registra a batida. Recebe usuário,
+imagem e dados simples da presença anterior; devolve `pessoa_id`, `registrado` e `mensagem`.
+Não recebe `request` ou sessão e não retorna `JsonResponse` nem códigos HTTP. A ausência
+de cadastro gera `CadastroFacialAusente`, definida em `exceptions.py`.
+
+As views pessoal e de terminal chamam esse serviço. Os utilitários convertem a presença
+armazenada na sessão para dados do serviço e adaptam seu resultado para HTTP, preservando
+as respostas existentes e o formato da sessão. Sem rosto, a view do terminal limpa a
+presença anterior. O GET pessoal consulta `tem_cadastro_facial` para montar a tela.
 
 `ponto/email.py` estende o [backend SMTP do Django](https://docs.djangoproject.com/en/5.2/topics/email/).
 Até haver `ConfiguracaoEmail` no banco, utiliza as definições atuais de `settings.py`.
@@ -144,3 +158,22 @@ a cada conexão, inclusive para recuperação de senha. Não exige reiniciar o s
 A senha SMTP é cifrada com [Fernet](https://cryptography.io/en/latest/fernet/), usando uma
 chave derivada da `SECRET_KEY`. Preserve a chave ao restaurar backups; após trocá-la, salve
 novamente a senha SMTP. A migração `0008` cria a tabela, sem gravar credenciais do ambiente.
+
+## Foto de perfil e confirmação visual
+
+`Perfil.foto` guarda a foto escolhida pelo colaborador, com a migração `0010`. O formulário
+valida JPEG, PNG ou WebP, até 5 MB e 16 milhões de pixels. `salvar_foto_perfil` normaliza
+orientação e enquadramento para JPEG de 512 × 512, usando nome aleatório, e remove o arquivo
+anterior após confirmar a alteração no banco. Os arquivos ficam em `MEDIA_ROOT` (`media/`,
+ignorado pelo Git).
+
+`/perfil/` permite alterar somente a foto do usuário logado. `/perfil/foto/<id>/` entrega
+imagens pelo controle de acesso do sistema, com resposta privada sem cache; não há rota
+pública para a pasta de mídia. A sessão do terminal só permite a foto da pessoa confirmada
+e exige um gestor ativo e autorizado.
+
+O serviço retorna **PONTO REGISTRADO - PRIMEIRO NOME**, o nome completo e a indicação de
+foto. O adaptador HTTP monta a URL privada e indica se é uma confirmação repetida.
+`camera.js` exibe foto ou avatar genérico por `CONFIRMACAO_PONTO_MS` (3000), contado após
+o carregamento da imagem. Durante esse período não envia outra captura; respostas repetidas
+do terminal não reabrem a confirmação. Sem conseguir carregar a foto, usa a imagem genérica.

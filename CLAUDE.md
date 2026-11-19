@@ -20,7 +20,8 @@ capacidade e decisões. Para documentação, mensagens e rótulos, siga os
   o cabeçalho revisado a pedido do usuário usa `.topo-aplicacao` no mesmo arquivo.
   `estilo.css` e as telas públicas não mudam.
 - Formulários em `ponto/forms.py`, views em `ponto/views.py` e exceções em `ponto/exceptions.py`.
-- Serviços de apresentação, sequência e gravação em `ponto/services.py`; e-mail em `ponto/email.py`.
+- Regras, consultas e preparação de dados em `ponto/services.py`; formatação e auxiliares HTTP
+  em `ponto/utils.py`; e-mail em `ponto/email.py`.
 - Todos os testes ficam em `ponto/tests.py`. O papel mostrado na interface é **Colaborador**.
 - Ruff com 120 colunas (`pyproject.toml`); dependências em `requirements/` por ambiente.
 

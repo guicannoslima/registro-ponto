@@ -115,3 +115,12 @@ funciona mesmo sem modelos instalados.
 Publique a aplicação com HTTPS para o navegador permitir a câmera fora de `localhost`.
 O modo compartilhado exige autorização de um gestor e encerra seu login antes de liberar
 somente a identificação facial. Consulte [os fluxos e as limitações](USO.md#registro-por-reconhecimento-facial).
+
+## Persistência das fotos de perfil
+
+As fotos escolhidas pelos colaboradores ficam em `/app/media`, no volume `media_data`
+do Compose. A imagem cria esse diretório com permissão do usuário `appuser`. Inclua o
+volume no backup junto do PostgreSQL; o banco guarda o nome do arquivo e não seu conteúdo.
+Não publique a pasta como mídia aberta: a aplicação entrega as fotos pela rota privada.
+`docker compose config --quiet` foi validado após adicionar o volume; esta alteração não
+incluiu um novo teste de build e execução do Docker.

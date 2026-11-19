@@ -132,10 +132,10 @@ empresa e o horário impresso ficam em `ponto/constants.py`.
 ## Registro por reconhecimento facial
 
 **Implementado:** o painel oferece **Registrar por câmera** para confirmar o rosto da
-pessoa logada. **Gerenciar cadastros faciais** e **Abrir terminal compartilhado** aparecem
-para gestores e administradores. O registro comum continua disponível sem câmera.
+pessoa logada. **Cadastros faciais** e **Abrir terminal compartilhado** ficam no menu
+**Gestão**, para gestores e administradores. O registro comum continua disponível sem câmera.
 
-1. O gestor abre **Gerenciar cadastros faciais**, seleciona a pessoa, confere sua identidade
+1. O gestor abre **Gestão → Cadastros faciais**, seleciona a pessoa, confere sua identidade
    presencialmente e confirma **Cadastrar rosto**; a câmera abre automaticamente. Pode substituir ou remover
    o cadastro nessa mesma tela. Gestores só cadastram sua equipe e o próprio rosto;
    administradores podem cadastrar qualquer pessoa ativa.
@@ -155,9 +155,15 @@ reconhecida nem dá acesso às telas de gestão.
 No terminal, a câmera continua aguardando pessoas. Permanecer no enquadramento não gera
 novas batidas, mesmo depois de 10 minutos: a pessoa deve sair do enquadramento ou dar lugar
 a outra pessoa reconhecida. O intervalo mínimo também vale quando ela retorna.
-As capturas são sequenciais, com 3,5 segundos entre tentativas após cada resposta. Não há
+As tentativas são sequenciais, normalmente com 3,5 segundos de intervalo. Após uma batida
+nova, a confirmação fica visível por 3 segundos e o terminal retoma a identificação. Não há
 clique para identificar ou registrar. **Pausar câmera** interrompe as capturas;
 **Retomar câmera** permite reabrir após pausa ou falha. Sair da aba também pausa a câmera.
+
+Após gravar, a tela mostra **PONTO REGISTRADO - CAIO**, usando apenas o primeiro nome,
+sem tipo de batida nem horário. A foto escolhida no perfil é exibida por 3 segundos;
+sem foto, aparece uma imagem genérica com o nome completo. Permanecer na câmera não
+repete a confirmação nem grava outra batida. Erros e bloqueios não mostram confirmação de sucesso.
 
 É preciso uma câmera conectada, permissão no navegador e HTTPS em produção
 (`localhost` funciona no desenvolvimento; HTTP pelo IP da rede não libera a câmera).
@@ -237,3 +243,32 @@ bloqueio de privacidade, driver ou falha do dispositivo. Veja a
 Feche outros usos da câmera, confira a tampa física e a permissão no sistema, e use
 **Retomar câmera**. Se continuar, teste a webcam no aplicativo do sistema. Essa falha
 acontece antes de enviar a imagem ao reconhecimento; `_lock` no servidor não reserva a webcam.
+
+### Saber quem já possui cadastro facial
+
+Em **Gestão → Cadastros faciais**, a lista identifica as pessoas como **Cadastrado** ou
+**Sem cadastro**. Ao selecionar alguém, a tela consulta novamente o banco e mostra:
+
+- **Rosto não cadastrado:** oferece **Cadastrar rosto** e mantém a remoção oculta.
+- **Rosto cadastrado:** oferece **Substituir rosto**, com confirmação, e **Remover cadastro facial**.
+
+O estado e o rótulo da pessoa na lista são atualizados após cadastrar, substituir ou
+remover, sem recarregar a página. Durante o envio, a seleção fica bloqueada para manter
+a ação vinculada à pessoa escolhida. Enquanto a consulta está em andamento ou falha,
+a tela não permite cadastrar, substituir ou remover com base em um estado desconhecido.
+A câmera continua abrindo automaticamente; remover um cadastro não exige câmera ligada.
+
+## Foto de perfil e confirmação do ponto
+
+Abra **Meu ponto → Meu perfil**, escolha um arquivo JPEG, PNG ou WebP de até 5 MB e
+use **Salvar foto**. A foto é enquadrada em 512 × 512 pixels. **Remover foto de perfil**
+volta à imagem genérica com seu nome. Cada colaborador escolhe sua própria foto.
+
+Essa foto é usada na confirmação da batida; o cadastro facial para identificação
+continua sob responsabilidade do gestor. São dados independentes. As imagens capturadas
+pela câmera para reconhecimento continuam sendo descartadas após o processamento.
+
+As fotos são privadas. Usuários veem a própria foto; gestores e administradores podem
+ver as fotos das pessoas sob seu acesso. No terminal compartilhado, somente a foto da
+última pessoa cujo ponto foi confirmado fica acessível, dentro do alcance do gestor.
+A confirmação é encerrada ao sair da aba ou pausar a câmera.

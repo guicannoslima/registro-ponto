@@ -43,7 +43,7 @@ COPY . .
 RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 # Usuário sem privilégios de root (boa prática de segurança)
-RUN useradd --create-home appuser && chown -R appuser:appuser /app
+RUN mkdir -p /app/media && useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000

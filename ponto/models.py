@@ -46,6 +46,8 @@ class Perfil(models.Model):
         blank=True
     )
 
+    foto = models.ImageField(upload_to='perfis/', blank=True, verbose_name='foto de perfil')
+
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_papel_display()})"
 

@@ -1,6 +1,6 @@
 # Testes
 
-**Implementado:** 69 testes reunidos em `ponto/tests.py`: perfil
+**Implementado:** 82 testes reunidos em `ponto/tests.py`: perfil
 automático, apresentação, views e fluxos faciais. As regras de cálculo de horas ainda
 não têm testes próprios; a cobertura de permissões inclui os novos fluxos faciais.
 
@@ -119,3 +119,45 @@ topos foi 0 px. No celular ficam empilhados com 16 px de intervalo. A busca de u
 também manteve campo e botão com 48 px e topos alinhados. Conferidos os rótulos **Colaborador**
 no cadastro de usuários, na lista de contas e no lançamento manual. Sem erros JavaScript
 ou envio de e-mail; a conta fictícia foi removida ao final.
+
+### Serviço de registro facial — 18/11/2026
+
+**Verificado:** 71 testes passaram com `registrar_ponto_facial` em `services.py` e as
+views pessoal e de terminal usando esse serviço. Dois testes adicionais exercitam o
+registro diretamente, sem requisição HTTP, e a ausência de cadastro antes do processamento
+da imagem. As regressões existentes conferem rostos desconhecidos, erro do motor, intervalo
+mínimo, identificação restrita à equipe e presença contínua sem duplicar batidas.
+O teste de ausência de cadastro também confere que a resposta manda interromper as tentativas.
+`check`, conferência de migrações e Ruff nos serviços, utilitários, exceções e testes passaram.
+
+### Estado do cadastro por colaborador — 18/11/2026
+
+**Verificado:** 74 testes passaram. Três coberturas adicionais conferem consulta de
+cadastrado/sem cadastro sem retornar vetores biométricos, acesso restrito por papel/equipe
+e indicação de cadastro na lista. As respostas de salvar e remover também informam o
+estado final, e uma nova consulta após a remoção confirma a ausência do cadastro.
+`check`, conferência de migrações e Ruff nos serviços e testes passaram. Sem migração nova.
+
+No Chrome, com câmera simulada e colaboradores fictícios do banco de design, foram
+conferidos: estado inicial, troca entre pessoas cadastradas e sem cadastro, resposta
+atrasada ignorada, ações bloqueadas enquanto se consulta, cadastro e substituição pelo
+motor real, cancelamento da substituição, remoção sem câmera e atualização imediata dos
+rótulos. A seleção ficou bloqueada durante o envio. Falha de consulta mostrou estado
+indeterminado e manteve as ações bloqueadas. Conferidas telas em 1333 e 390 px sem
+rolagem horizontal nem erros JavaScript. Os dados fictícios foram removidos ao final.
+
+### Foto escolhida e confirmação por 3 segundos — 18/11/2026
+
+**Verificado:** 82 testes passaram. Oito testes adicionais cobrem foto escolhida pelo
+colaborador, normalização, rejeição de arquivo inválido, substituição/remoção dos arquivos,
+acesso privado por pessoa/equipe, foto no terminal apenas após confirmação, uso do primeiro
+nome, imagem genérica sem foto e atalhos de gestão fora da página inicial. `check` e a
+conferência de migrações passaram; a migração `0010` foi aplicada no banco local.
+
+No Chrome, com pessoas fictícias e câmera simulada por imagens públicas do OpenCV, foram
+verificados upload e remoção pelo próprio perfil, reconhecimento real e exibição da foto
+escolhida e da imagem genérica com o nome. Um observador das mudanças de visibilidade mediu
+3000 ms em ambos os casos. **Retomar câmera** ficou bloqueado durante a confirmação; o
+terminal não repetiu a imagem ao reconhecer a mesma pessoa. Conferidos primeiro nome em
+caixa alta sem tipo/horário, ações de gestão somente no menu e tela em 390 px sem recorte ou
+rolagem horizontal. Sem erros JavaScript; os dados fictícios foram removidos ao final.

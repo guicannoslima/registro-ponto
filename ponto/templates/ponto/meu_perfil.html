@@ -1,0 +1,29 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}Meu perfil - Registro de Ponto{% endblock %}
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina"><div class="titulo-pagina__texto"><h1>Meu perfil</h1><p class="apoio">Escolha a foto exibida ao registrar seu ponto.</p></div></header>
+    <div class="grade perfil-grade">
+        <section class="cartao-interno perfil-resumo">
+            <div class="perfil-avatar">
+                {% if user.perfil.foto %}<img data-foto-perfil src="{% url 'foto_perfil' user.pk %}" alt="Foto de {{ user.get_full_name|default:user.username }}">{% endif %}
+                <div data-avatar-generico{% if user.perfil.foto %} hidden{% endif %}>{% include 'ponto/_avatar_generico.html' with nome=user.get_full_name|default:user.username %}</div>
+            </div>
+            <h2>{{ user.get_full_name|default:user.username }}</h2>
+            <p class="apoio">{{ user.email|default:'Sem e-mail informado' }}</p>
+            <span class="selo selo--neutro">{{ user.perfil.get_papel_display }}</span>
+        </section>
+        <section class="cartao-interno">
+            <h2>Foto de perfil</h2>
+            <form method="post" enctype="multipart/form-data" class="campos" novalidate>
+                {% csrf_token %}{% include 'ponto/_erros_formulario.html' %}
+                {% include 'ponto/_campo.html' with campo=form.foto %}
+                <div class="acoes"><button class="btn" type="submit">Salvar foto</button></div>
+            </form>
+            <p class="apoio">Sua foto aparece por 3 segundos na confirmação do ponto. Sem foto, o sistema mostra uma imagem genérica com seu nome.</p>
+            {% if user.perfil.foto %}<form method="post">{% csrf_token %}<input type="hidden" name="acao" value="remover"><button class="btn btn--secundario" type="submit">Remover foto de perfil</button></form>{% endif %}
+            <p class="apoio pequeno">O cadastro facial para reconhecimento é feito pelo gestor em Gestão → Cadastros faciais.</p>
+        </section>
+    </div>
+</div>
+{% endblock %}
