@@ -488,8 +488,9 @@ em produção.
 | Certificado não emitido | Token da Cloudflare sem permissão de editar o DNS da zona. Gere outro e rode `bash /opt/registro-ponto/scripts/instalar.sh` de novo. |
 | Valor do `.env` cortado | O valor tem `$`. Gere outro só com letras, números, `-` e `_`. |
 
-O guia e o `scripts/instalar.sh` foram escritos a partir do `compose.yaml`, do `Dockerfile`, do
-`docker-entrypoint.sh` e das configurações do projeto em 19/11/2026. Foram verificados a
-sintaxe do script, as funções auxiliares, o `.env`, o `crontab` e o Nginx gerados com valores
-de exemplo, e o `compose.override.yaml` no Docker Compose 2.27. A instalação completa ainda
-não foi executada num servidor Ubuntu 24.04 limpo.
+Em 19/11/2026, a instalação e a reexecução foram verificadas num Ubuntu 24.04 em Docker,
+com systemd, daemon Docker próprio e credenciais fictícias. O teste cobriu login, Nginx,
+backup com restauração, preservação de senhas e HTTPS com certificado local. O instalador
+passou a iniciar o Nginx antes de recarregá-lo. Consulte o
+[procedimento, os resultados e os limites](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026).
+Ainda falta validar numa VM completa e emitir/renovar o certificado real pela Cloudflare.

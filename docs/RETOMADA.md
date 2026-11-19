@@ -65,7 +65,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
 | Testes | 111 testes em `ponto/tests.py`, suíte completa aprovada em 19/11 ([Testes](TESTES.md)) |
 | Folgas e banco de horas | Gestão › Folgas (dispensa e compensação), banco de horas desde a primeira batida, aviso do dia no painel ([Uso](USO.md#folgas-e-banco-de-horas)) |
-| Instalação | `scripts/instalar.sh` e [guia de instalação](INSTALACAO.md), sem teste em servidor limpo |
+| Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | Indicação de 4 vCPU / 4 GB para pico de 50 pessoas; 1.200 POSTs sem falhas, imagem e recursos de teste descartados ([Carga de 50](CARGA_50_COLABORADORES.md)) |
@@ -197,7 +197,10 @@ restringe a porta 8000 a `127.0.0.1` via `compose.override.yaml`, sobe os contai
 administrador, configura Nginx com HTTPS, backup diário (`/var/backups/registro-ponto`, `700`,
 `umask 077`) e sincronização anual de feriados. Rodar de novo atualiza sem trocar senhas.
 
-Verificado: `bash -n`, funções auxiliares, `.env`, `crontab` e Nginx gerados com valores de
-exemplo, `compose.override.yaml` no Compose 2.27. **Não verificado:** shellcheck (a imagem foi
-bloqueada pela permissão de rede) e a execução completa num Ubuntu 24.04 limpo. Próximo passo
-sugerido: testar numa VM limpa antes do servidor de produção.
+Validação posterior: instalação e reexecução no Ubuntu 24.04 em Docker com systemd e daemon
+próprio, backup restaurado, login e HTTPS com certificado local aprovados. Correção local:
+`systemctl enable --now nginx`, porque recarregar o serviço parado interrompia o script.
+Checks Django aprovados; 110 de 111 testes passaram na imagem. O teste de foto de perfil
+recebe `application/octet-stream` em vez de `image/webp`, inclusive isoladamente.
+ShellCheck executado, com três observações. [Procedimento e limites](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026).
+Ainda falta VM completa e emissão/renovação real pela Cloudflare. Sem push.

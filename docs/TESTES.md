@@ -17,6 +17,51 @@ O test runner força `DEBUG=False`, e o storage do WhiteNoise exigiria o
 `collectstatic`. As classes de teste usam `override_settings` com o
 `StaticFilesStorage` simples para renderizar as telas sem esse passo.
 
+## Instalação em Ubuntu 24.04 no Docker — 19/11/2026
+
+**Verificado:** `scripts/instalar.sh` da revisão `52446f3`, com a correção local
+`systemctl enable --now nginx`, concluiu a instalação e a reexecução num Ubuntu 24.04
+descartável. O Nginx parado revelou que `enable` sozinho não inicia o serviço;
+a correção inicia o Nginx antes de recarregá-lo.
+
+O contêiner executou systemd e um daemon Docker próprio, sem montar o socket Docker
+da máquina. A base recebeu `sudo`, cron e SSH para representar o servidor, com usuário
+`prime` e sudo sem autenticação para automatizar o teste. Docker 29.10.0 e Compose 5.8.0
+foram instalados pelo script. O armazenamento interno usou `vfs`, pois o armazenamento
+padrão falhou ao extrair uma camada no Docker aninhado. O clone foi redirecionado por
+`git insteadOf` para uma cópia local do repositório; todas as credenciais eram fictícias.
+As portas externas ficaram restritas a `127.0.0.1:18080` e `127.0.0.1:18443`.
+O contêiner, seus recursos internos e as imagens externas exclusivas do teste foram
+removidos ao final; os contêineres preexistentes permaneceram em execução.
+
+Procedimento: executar o instalador sem certificado; entrar pelo Nginx com o administrador;
+gravar um arquivo de mídia; executar e restaurar o backup; provisionar certificado
+autoassinado de teste; reexecutar o instalador; comparar configuração, senhas e agendamentos.
+
+| Verificação | Resultado |
+| --- | --- |
+| Instalação desde banco vazio, com Nginx inicialmente parado | Saída 0; administrador criado; 31 migrações aplicadas |
+| Serviços e firewall | Docker, containerd, Nginx e cron ativos; UFW ativo com SSH, HTTP e HTTPS |
+| Acesso | Login com CSRF retorna 302; painel autenticado e login via proxy retornam 200 |
+| Porta da aplicação | Somente `127.0.0.1:8000` dentro do servidor de teste |
+| Permissões | `.env` e `.git/config`: 600; pasta de backups: 700; dump e arquivo de mídia: 600 |
+| Backup | Dump restaurado num segundo banco; administrador recuperado; conteúdo do arquivo de mídia conferido |
+| Reexecução | Saída 0; hashes do `.env` e das senhas preservados; mídia preservada; somente duas linhas no crontab |
+| HTTPS com certificado local | Login retorna 200 validando o certificado de teste; HTTP retorna 301 para HTTPS |
+| Django | `check` aprovado; `makemigrations --check --dry-run` sem alterações |
+| Suíte na imagem instalada | 110 de 111 testes aprovados; falha de tipo de conteúdo descrita abaixo |
+| Shell | `bash -n` aprovado; ShellCheck aponta SC2015 nas linhas 81/324 e SC2016 na linha 239 |
+
+**Limitação conhecida:** `FotoPerfilTests.test_fotos_sao_privadas_e_limitadas_a_equipe`
+recebe `application/octet-stream` em vez de `image/webp` na imagem de produção.
+O teste também falhou isoladamente. A aplicação não foi alterada nesta validação do instalador.
+
+**Não verificado:** autenticação real no GitHub, envio Gmail, emissão/renovação do Let's Encrypt
+pela Cloudflare, execução dos agendamentos pelo relógio e reinicialização de uma VM completa.
+O certificado autoassinado verifica a configuração HTTPS do Nginx, sem validar DNS-01.
+Se a primeira execução parar depois de gerar `.env` e antes de criar o administrador,
+a reexecução pula a criação da conta; nesse caso, use `docker compose exec web python manage.py createsuperuser`.
+
 ## Cobertura atual
 
 | Teste | Verifica |
