@@ -34,6 +34,9 @@ from .constants import (
     EMPRESA_NOME,
     HORARIO_DE_TRABALHO,
     JORNADA_DIARIA,
+    TERMINAL_INATIVIDADE_MS,
+    TERMINAL_MANUTENCAO_MS,
+    TERMINAL_SESSAO_SEGUNDOS,
     TOLERANCIA_SALDO,
     USUARIOS_POR_PAGINA,
 )
@@ -638,7 +641,7 @@ def abrir_terminal(request):
     # A sessão do gestor termina: o computador compartilhado só pode bater ponto.
     logout(request)
     request.session['terminal_gestor_id'] = gestor_id
-    request.session.set_expiry(12 * 60 * 60)
+    request.session.set_expiry(TERMINAL_SESSAO_SEGUNDOS)
     return redirect('terminal_facial')
 
 
@@ -647,7 +650,12 @@ def terminal_facial(request):
     gestor_id = request.session.get('terminal_gestor_id')
     gestor = User.objects.filter(pk=gestor_id, is_active=True).first() if gestor_id else None
     if not gestor or not _gestor(gestor):
+        if request.GET.get('manter') == '1':
+            return JsonResponse({'ativo': False}, status=401)
         return redirect('login')
+    request.session.set_expiry(TERMINAL_SESSAO_SEGUNDOS)
+    if request.method == 'GET' and request.GET.get('manter') == '1':
+        return JsonResponse({'ativo': True})
     if request.method == 'POST':
         if request.POST.get('acao') == 'encerrar':
             request.session.flush()
@@ -665,7 +673,10 @@ def terminal_facial(request):
             return _erro(exc)
         except ErroFacial as exc:
             return _erro(exc)
-    return render(request, 'ponto/camera.html', {'modo': 'terminal', 'confirmacao_ms': CONFIRMACAO_PONTO_MS})
+    return render(request, 'ponto/camera.html', {
+        'modo': 'terminal', 'confirmacao_ms': CONFIRMACAO_PONTO_MS,
+        'inatividade_ms': TERMINAL_INATIVIDADE_MS, 'manutencao_ms': TERMINAL_MANUTENCAO_MS,
+    })
 
 
 @login_required

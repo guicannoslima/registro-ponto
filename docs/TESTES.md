@@ -1,6 +1,6 @@
 # Testes
 
-**Implementado:** 88 testes reunidos em `ponto/tests.py`: perfil
+**Implementado:** 89 testes reunidos em `ponto/tests.py`: perfil
 automático, apresentação, views e fluxos faciais. As regras de cálculo de horas ainda
 não têm testes próprios; a cobertura de permissões inclui os fluxos faciais e os relatórios.
 
@@ -239,3 +239,57 @@ Retomar câmera continuou funcionando. Enter na área focada também abriu a câ
 Dois cliques rápidos dispararam apenas uma abertura; a área ficou desabilitada com a
 câmera ativa. Sem erros JavaScript. Câmera e respostas simuladas, sem batidas reais.
 Sintaxe JavaScript e `git diff --check` passaram.
+
+### Terminal contínuo e repouso da câmera — 19/11/2026
+
+**Verificado:** 23 testes de `FluxosFaciaisTests` passaram. Incluem a renovação após 13 horas
+sem criar batidas, encerramento que invalida a manutenção, acesso revogado ao desativar
+o gestor, botão único no cabeçalho, ausência do painel lateral e prevenção de duplicações.
+A suíte contém 89 testes; os demais não foram repetidos nesta revisão.
+
+No Chrome com HTML do Django, câmera e respostas simuladas, a webcam foi pausada após
+30019 ms reais sem atividade: tracks encerradas, capturas interrompidas e terminal aberto.
+Conferidos retomada por toque, uso de Retomar câmera, reconhecimento após a confirmação,
+cabeçalho com encerramento e telas em 1333 e 390 px sem rolagem horizontal.
+Com relógio simulado instalado antes da navegação, toque renovou os 30 segundos,
+respostas sem rosto não renovaram, a manutenção respondeu após 5 minutos com webcam
+pausada e o botão do cabeçalho encaminhou o encerramento. Sem erros JavaScript.
+Nenhum rosto ou ponto real foi criado por essa validação de interface.
+
+### Terminal sem título e sem rolagem — 19/11/2026
+
+**Verificado:** no Chrome, com HTML do Django e câmera/API simuladas, o terminal coube em
+12 viewports: 1333×768, 1920×1080, 1024×768, 768×1024, 820×1180, 1180×820, 390×844,
+844×390, 360×640, 640×360, 320×568 e 568×320. Sem rolagem vertical ou horizontal e sem
+ocultar controles fora da tela; altura calculada pelo layout, sem mascarar overflow da página.
+Título e introdução ausentes. Conferidos também o cartão de confirmação e imagem genérica
+em desktop, tablet, celular e celular horizontal, sem recorte. Sem erros JavaScript.
+Nenhuma batida real foi registrada. `git diff --check` passou.
+
+### Preenchimento da prévia em tablet e celular — 19/11/2026
+
+**Verificado:** no Chrome, com vídeo simulado de 640×480, a prévia usou preenchimento
+proporcional com recorte central em 390×844, 768×1024, 1366×1024 com toque e 844×390.
+Elemento de vídeo ocupando integralmente o quadro, sem esticar ou alterar a captura de
+origem. Em desktop de 1333×768 sem toque, mantida a exibição integral anterior. Sem
+rolagem horizontal/vertical nem erros JavaScript. Conferida captura de tela em celular.
+`git diff --check` passou. Alteração somente de apresentação; sem batidas reais.
+
+### Guia minimalista de posicionamento do rosto — 19/11/2026
+
+**Verificado:** no Chrome, nas prévias pessoal, de cadastro e de terminal, em 1333×768,
+390×844 e 844×390. Guia de quatro cantos com enquadramento quadrado central, traço cinza
+claro semitransparente e sem preenchimento. Os cantos permanecem dentro da prévia em
+retrato e paisagem, não bloqueiam os eventos de ponteiro e desaparecem ao pausar a câmera.
+Retomada por toque funcionando nos nove cenários; sem erros JavaScript. Câmera e API
+simuladas, sem gravações reais. Conferida captura visual do terminal móvel.
+`git diff --check` e sintaxe JavaScript passaram. A referência visual não foi incorporada
+como imagem ao sistema; o guia é SVG da própria interface.
+
+### Respostas repetidas não renovam a inatividade — 19/11/2026
+
+**Verificado:** no Chrome com relógio e API simulados, respostas 200 com `repetido: true`
+não reiniciaram os 30 segundos. Conferidos tanto presença já conhecida desde a primeira
+resposta quanto uma batida nova seguida de respostas repetidas. A câmera foi pausada,
+as tracks encerradas e não houve novas capturas após a pausa; o terminal permaneceu
+aberto. Sem erros JavaScript. Nenhuma batida real criada; sintaxe JS e diff conferidos.

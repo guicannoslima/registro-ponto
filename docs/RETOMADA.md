@@ -42,6 +42,14 @@ Os demais avisos operacionais da câmera também ficam nessa camada inferior, se
 separado entre a prévia e os botões.
 A câmera também pode ser ativada por clique/toque em toda a prévia, além do botão
 Retomar câmera; a área aceita teclado e bloqueia aberturas simultâneas.
+O terminal compartilhado renova a sessão enquanto aberto/conectado, incluindo durante
+a pausa da câmera. Webcam desliga após 30 segundos sem interação ou nova batida;
+retomada por toque/botão. Respostas repetidas não reiniciam o prazo.
+Sem painel lateral; Encerrar terminal fica no cabeçalho.
+O terminal também não tem título ou introdução: câmera e controles se ajustam à altura
+disponível, sem rolagem em computador, tablet e celular, inclusive em paisagem.
+As prévias pessoal, de cadastro e de terminal têm guia central de quatro cantos em
+cinza claro semitransparente, com centro livre, visível apenas com a câmera ativa.
 O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 ([uso e limitações](USO.md#registro-por-reconhecimento-facial)).
 
@@ -55,10 +63,10 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 88 testes em `ponto/tests.py`; 13 focados passaram na revisão de 19/11, sem repetir a suíte completa ([Testes](TESTES.md)) |
+| Testes | 89 testes em `ponto/tests.py`; 23 faciais passaram na revisão do terminal, sem repetir a suíte completa ([Testes](TESTES.md)) |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
-| Capacidade | 2 vCPU e 2 GB para 20 pessoas simultâneas ([Capacidade](CAPACIDADE.md)) |
+| Capacidade | Indicação de 4 vCPU / 4 GB para pico de 50 pessoas; 1.200 POSTs sem falhas, imagem e recursos de teste descartados ([Carga de 50](CARGA_50_COLABORADORES.md)) |
 
 ## Decisões pendentes do usuário
 

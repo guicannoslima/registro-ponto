@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.contrib.sessions.models import Session
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
@@ -512,7 +513,11 @@ class FluxosFaciaisTests(TestCase):
     def test_terminal_identifica_sem_manter_sessao_do_gestor(self, extrair):
         self.abrir()
         self.assertNotIn('_auth_user_id', self.client.session)
-        self.assertEqual(self.client.get(reverse('terminal_facial')).status_code, 200)
+        tela = self.client.get(reverse('terminal_facial'))
+        self.assertEqual(tela.status_code, 200)
+        self.assertNotContains(tela, 'Antes de registrar')
+        self.assertContains(tela, 'Encerrar terminal', count=1)
+        self.assertIn('Encerrar terminal', tela.content.decode().split('</header>', 1)[0])
         self.assertEqual(self.client.get(reverse('equipe')).status_code, 302)
         self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 200)
         self.assertEqual(RegistroPonto.objects.get().funcionario, self.pessoa)
@@ -527,15 +532,30 @@ class FluxosFaciaisTests(TestCase):
 
     def test_terminal_exige_autorizacao_e_pode_ser_encerrado(self):
         self.assertRedirects(self.client.get(reverse('terminal_facial')), reverse('login'))
+        self.assertEqual(self.client.get(reverse('terminal_facial'), {'manter': '1'}).status_code, 401)
         self.abrir()
         self.client.post(reverse('terminal_facial'), {'acao': 'encerrar'})
         self.assertNotIn('terminal_gestor_id', self.client.session)
+        self.assertEqual(self.client.get(reverse('terminal_facial'), {'manter': '1'}).status_code, 401)
+
+    def test_terminal_renova_sessao_apos_13_horas_sem_gravar_batida(self):
+        self.abrir()
+        chave = self.client.session.session_key
+        anterior = Session.objects.get(session_key=chave).expire_date
+        futuro = timezone.now() + timedelta(hours=13)
+        with patch('django.utils.timezone.now', return_value=futuro):
+            resposta = self.client.get(reverse('terminal_facial'), {'manter': '1'})
+        self.assertEqual(resposta.json(), {'ativo': True})
+        self.assertGreater(Session.objects.get(session_key=chave).expire_date, anterior + timedelta(hours=12))
+        self.assertFalse(RegistroPonto.objects.exists())
+        self.assertNotIn('_auth_user_id', self.client.session)
 
     def test_terminal_perde_acesso_quando_gestor_e_desativado(self):
         self.abrir()
         self.gestor.is_active = False
         self.gestor.save()
         self.assertRedirects(self.client.get(reverse('terminal_facial')), reverse('login'))
+        self.assertEqual(self.client.get(reverse('terminal_facial'), {'manter': '1'}).status_code, 401)
 
     @patch('ponto.views._limitar_captura')
     @patch('ponto.services.extrair_vetor', return_value=[1., 0.])

@@ -32,6 +32,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let timerConfirmacao = null;
     let timerAviso = null;
     let avisoAtivo = false;
+    let timerInatividade = null;
+    let ultimaAtividade = performance.now();
+
+    const atividadeTerminal = () => {
+        if (!terminal) return;
+        ultimaAtividade = performance.now();
+        clearTimeout(timerInatividade);
+        if (stream) timerInatividade = setTimeout(verificarInatividade, Number(pagina.dataset.inatividadeMs));
+    };
+    const verificarInatividade = () => {
+        if (!terminal || !stream) return;
+        const restante = Number(pagina.dataset.inatividadeMs) - (performance.now() - ultimaAtividade);
+        if (restante > 0 || ocupado || confirmando) {
+            timerInatividade = setTimeout(verificarInatividade, Math.max(1000, restante));
+            return;
+        }
+        desligar();
+        mensagem('Câmera pausada após 30 segundos sem atividade. Toque na prévia ou use Retomar câmera.');
+    };
 
     const atualizarControles = () => {
         const consultado = !pessoa || (cadastroAtual && String(cadastroAtual.funcionario_id) === pessoa.value);
@@ -158,6 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const desligar = () => {
         geracao += 1;
         clearTimeout(timer);
+        clearTimeout(timerInatividade);
         ocultarAvisoRegistro();
         cancelarConfirmacao();
         stream?.getTracks().forEach((track) => track.stop());
@@ -216,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (resultado.ok && pessoa) aplicarEstado(resultado.dados);
             if (tentativa !== geracao) return;
+            if (resultado.ok && !resultado.dados.repetido) atividadeTerminal();
             if (pagina.dataset.modo === 'pessoal' && resultado.status === 409) {
                 mostrarAvisoRegistro(resultado.dados.erro);
                 return;
@@ -272,6 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
             parar.hidden = false;
             await video.play();
             if (tentativa !== geracao) return;
+            atividadeTerminal();
             atualizarControles();
             mensagem(automatico ? 'Aguardando rosto. O ponto será registrado automaticamente.'
                 : 'Confirme a pessoa selecionada e capture o rosto.');
@@ -329,9 +351,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     pessoa?.addEventListener('change', consultarEstado);
+    const manterTerminal = async () => {
+        // As capturas já renovam a sessão; a manutenção atende o terminal em repouso.
+        if (stream || abrindo || ocupado || confirmando) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('manter', '1');
+        try {
+            const resposta = await fetch(url, { cache: 'no-store', headers: { Accept: 'application/json' } });
+            if (resposta.status === 401 || resposta.redirected) {
+                desligar();
+                if (resposta.redirected) window.location.assign(resposta.url);
+                else window.location.reload();
+            }
+        } catch {
+            // A próxima manutenção tenta novamente sem encerrar a sessão do terminal.
+        }
+    };
+    if (terminal) {
+        document.addEventListener('pointerdown', atividadeTerminal);
+        document.addEventListener('keydown', atividadeTerminal);
+        const manutencao = setInterval(manterTerminal, Number(pagina.dataset.manutencaoMs));
+        window.addEventListener('pagehide', () => clearInterval(manutencao));
+    }
     window.addEventListener('pagehide', desligar);
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) { desligar(); mensagem('Câmera pausada. Use Retomar câmera para continuar.'); }
+        else if (terminal) manterTerminal();
     });
     consultarEstado();
     abrir();

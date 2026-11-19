@@ -115,3 +115,20 @@ destacado de rosto ainda não cadastrado e a confirmação verde do cadastro por
 Prévias em `previas/avisos/`. A ausência de webcam não esconde o aviso de cadastro.
 A prancha **Intervalo entre pontos · Aviso por 6 segundos** mostra o aviso temporário
 como camada levemente transparente no rodapé da câmera, ocupando toda a largura da prévia.
+
+## Terminal contínuo
+
+A página **Terminal contínuo** mostra a prévia sem painel lateral e o botão Encerrar
+terminal no cabeçalho, além do estado de câmera pausada após 30 segundos sem atividade.
+O terminal permanece autorizado durante a pausa; a câmera retoma por toque ou botão.
+Desenho anterior à implementação; prévias em `previas/terminal/`.
+As pranchas **Desktop sem rolagem**, **Tablet sem rolagem** e **Celular sem rolagem**
+removem o título e a introdução, reservando a área disponível para a câmera e seus controles.
+Tablet e celular preenchem a prévia com recorte central proporcional, sem faixas vazias.
+
+## Guia de rosto
+
+A página **Guia de rosto** mostra as prévias pessoal, de cadastro e do terminal com
+quatro cantos minimalistas em cinza claro semitransparente. O centro fica livre e o
+enquadramento acompanha o menor lado da prévia. Sem indicadores de gravação ou barras.
+Prévias em `previas/guia/`.

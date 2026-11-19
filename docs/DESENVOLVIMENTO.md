@@ -160,6 +160,22 @@ A senha SMTP é cifrada com [Fernet](https://cryptography.io/en/latest/fernet/),
 chave derivada da `SECRET_KEY`. Preserve a chave ao restaurar backups; após trocá-la, salve
 novamente a senha SMTP. A migração `0008` cria a tabela, sem gravar credenciais do ambiente.
 
+## Terminal compartilhado contínuo
+
+O terminal compartilhado usa sessão renovável de 30 dias e manutenção por GET
+`/terminal/?manter=1` a cada 5 minutos quando a webcam está em repouso. As capturas ativas
+também renovam a sessão, sem manutenção concorrente. Isso elimina o
+limite fixo anterior de 12 horas enquanto a página permanece conectada. Fechar a página
+não executa logout; limpar cookies, ficar sem renovação por 30 dias ou revogar o gestor
+invalida o acesso. A manutenção não autentica colaboradores nem registra batidas.
+`Encerrar terminal` continua sendo POST com CSRF e limpa a sessão.
+
+No navegador, somente o modo terminal aplica 30 segundos de inatividade à webcam.
+Interação e confirmações de nova batida renovam o prazo. Respostas repetidas
+(`repetido: true`), recusas de batida e respostas sem rosto não renovam.
+Capturas e confirmações pendentes são concluídas antes da pausa. Pausar libera as tracks
+e cancela a captura agendada; a manutenção de sessão continua independente.
+
 ## Foto de perfil e confirmação visual
 
 `Perfil.foto` guarda a foto escolhida pelo colaborador, com a migração `0010`. O formulário

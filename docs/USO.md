@@ -137,6 +137,9 @@ empresa e o horário impresso ficam em `ponto/constants.py`.
 pessoa logada. **Cadastros faciais** fica em **Gestão**; **Abrir terminal compartilhado**,
 em **Administração**. Ambos estão disponíveis a gestores e administradores.
 O registro comum continua disponível sem câmera.
+Todas as prévias de câmera exibem um guia central com quatro cantos em cinza claro
+semitransparente, sem preenchimento, para ajudar a posicionar o rosto. O guia aparece
+somente com a câmera ativa e não interfere no clique/toque nem na imagem capturada.
 
 1. O gestor abre **Gestão → Cadastros faciais**, seleciona a pessoa, confere sua identidade
    presencialmente e confirma **Cadastrar rosto**; a câmera abre automaticamente. Pode substituir ou remover
@@ -146,9 +149,16 @@ O registro comum continua disponível sem câmera.
    autoriza a câmera no navegador quando solicitado e posiciona o rosto. O ponto é gravado
    automaticamente e a câmera é desligada após a confirmação.
 3. Para um PC compartilhado, o gestor usa **Abrir terminal compartilhado**. Isso encerra
-   a sessão dele e libera somente o registro facial de sua equipe e dele próprio, por até
-   12 horas. A câmera abre e reconhece cada pessoa automaticamente. **Encerrar terminal**
-   encerra essa autorização; um gestor precisa entrar novamente para reabrir.
+   a sessão dele e libera somente o registro facial de sua equipe e dele próprio.
+   A câmera abre e reconhece cada pessoa automaticamente. O terminal renova sua sessão
+   enquanto permanece aberto e conectado, inclusive com a câmera pausada.
+   **Encerrar terminal**, no cabeçalho, encerra essa autorização; um gestor precisa entrar
+   novamente para reabrir. O bloco lateral **Antes de registrar** foi removido do terminal.
+   A tela mostra diretamente a câmera e os controles, sem título ou texto introdutório.
+   A prévia se ajusta à altura disponível em computador, tablet e celular, sem rolagem,
+   incluindo a orientação horizontal.
+   Em telas menores ou dispositivos com toque, a imagem preenche a prévia com recorte
+   central das bordas quando as proporções diferem, sem esticar a imagem ou deixar faixas.
 
 O rosto reconhecido grava a próxima batida com o horário do servidor. Valem a mesma
 sequência e o intervalo mínimo de 10 minutos do botão comum. Rosto desconhecido, mais de
@@ -158,6 +168,13 @@ reconhecida nem dá acesso às telas de gestão.
 No terminal, a câmera continua aguardando pessoas. Permanecer no enquadramento não gera
 novas batidas, mesmo depois de 10 minutos: a pessoa deve sair do enquadramento ou dar lugar
 a outra pessoa reconhecida. O intervalo mínimo também vale quando ela retorna.
+
+Após **30 segundos sem interação ou nova batida**, o terminal desliga a webcam e
+interrompe as capturas para poupar o dispositivo. Cliques, toques e teclas renovam a
+contagem, assim como uma nova batida; respostas automáticas repetidas (`repetido: true`),
+recusas de batida e consultas sem rosto não contam como atividade. Uma captura
+ou confirmação em andamento é concluída antes da pausa. Toque na prévia ou use **Retomar
+câmera** para continuar: a pausa não encerra o terminal nem exige login do colaborador.
 As tentativas são sequenciais, normalmente com 3,5 segundos de intervalo. Após uma batida
 nova, a confirmação fica visível por 3 segundos e o terminal retoma a identificação. Não há
 clique para identificar ou registrar. **Pausar câmera** interrompe as capturas;
