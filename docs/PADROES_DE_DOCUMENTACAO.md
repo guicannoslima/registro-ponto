@@ -16,6 +16,7 @@ Use listas numeradas para passos em sequência e tabelas para comparar parâmetr
 | Funcionalidades, papéis e rotas | [Uso](USO.md) |
 | Módulos, modelos, permissões e regras de cálculo | [Arquitetura](ARQUITETURA.md) |
 | Ambiente local, PyCharm, dependências e lint | [Desenvolvimento](DESENVOLVIMENTO.md) |
+| Instalação em servidor, passo a passo | [Instalação](INSTALACAO.md) |
 | Docker, variáveis de ambiente e dados | [Implantação](IMPLANTACAO.md) |
 | Como reproduzir as verificações | [Testes](TESTES.md) |
 | Recursos necessários e teste de carga | [Capacidade](CAPACIDADE.md) |

@@ -2,6 +2,8 @@
 
 `docker compose up -d --build` sobe a aplicação (Gunicorn) e o PostgreSQL em containers.
 A cada subida, o container aplica as migrações e roda o `collectstatic`.
+Para instalar num servidor de produção, com Nginx, HTTPS e backup, siga a
+[instalação no servidor](INSTALACAO.md).
 
 ## Primeira subida
 

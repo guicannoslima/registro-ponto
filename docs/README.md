@@ -18,6 +18,7 @@ permissões estão descritas a partir do código, não de testes ([Testes](TESTE
 ## Uso
 
 - [Funcionalidades, papéis e rotas](USO.md)
+- [Instalação no servidor, passo a passo, com HTTPS, backup e atualização](INSTALACAO.md)
 - [Implantação com Docker, variáveis de ambiente e dados](IMPLANTACAO.md)
 
 ## Engenharia
