@@ -1,6 +1,15 @@
 {% extends 'ponto/base_interna.html' %}
 {% block title %}Feriados - Registro de Ponto{% endblock %}
 {% block conteudo %}<div class="pagina"><header class="titulo-pagina"><div class="titulo-pagina__texto"><h1>Feriados</h1><p class="apoio">Calendário nacional e feriados locais da empresa.</p></div><a class="btn" href="{% url 'feriado_criar' %}">Cadastrar feriado</a></header>
-<section class="cartao-interno campos"><form method="get" class="acoes">{% include 'ponto/_campo.html' with campo=form.ano %}<button class="btn btn--secundario" type="submit">Consultar</button><button class="btn" type="submit" formmethod="post" name="csrfmiddlewaretoken" value="{{ csrf_token }}">Sincronizar nacionais</button></form>
+<section class="cartao-interno campos">
+<form method="get" class="campo">
+    <label for="{{ form.ano.id_for_label }}">{{ form.ano.label }} (obrigatório)</label>
+    <div class="acoes">
+        <div class="campo">{{ form.ano }}</div>
+        <button class="btn btn--secundario" type="submit">Consultar</button>
+        <button class="btn" type="submit" formmethod="post" name="csrfmiddlewaretoken" value="{{ csrf_token }}">Sincronizar nacionais</button>
+    </div>
+    {{ form.ano.errors }}
+</form>
 <p class="apoio">A sincronização usa o calendário nacional incluído no sistema, sem depender de uma API. Preserva alterações e não duplica datas. Carnaval, Corpus Christi e Sexta-feira da Paixão devem ser cadastrados conforme a legislação local. Apenas datas com dispensa de expediente zeram a carga prevista.</p>
 <div class="tabela-rolagem"><table class="tabela-interna"><thead><tr><th>Data</th><th>Feriado</th><th>Origem</th><th>Dispensa expediente</th><th>Ações</th></tr></thead><tbody>{% for feriado in feriados %}<tr><td>{{ feriado.data|date:'d/m/Y' }}</td><td>{{ feriado.nome }}</td><td>{% if feriado.nacional %}Nacional{% else %}Manual{% endif %}</td><td>{% if feriado.dispensa_expediente %}<span class="selo selo--sucesso">Sim</span>{% else %}Não{% endif %}</td><td><a class="btn btn--secundario btn--pequeno" href="{% url 'feriado_editar' feriado.pk %}">Editar</a></td></tr>{% empty %}<tr><td colspan="5">Nenhum feriado neste ano. Sincronize os nacionais ou cadastre uma data.</td></tr>{% endfor %}</tbody></table></div></section></div>{% endblock %}

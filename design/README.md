@@ -148,3 +148,8 @@ colaborador e calendário anual. Prévias em `previas/jornadas/`. Os dois novos 
 ficam em Administração; o cabeçalho conserva o layout. A implementação calcula a carga
 pelos horários e mantém snapshots por vigência. Pausa do café segue remunerada; não há
 configuração separada de remuneração na tela.
+
+A página **Feriados · Alinhamento dos controles** detalha campo Ano e botões de consulta
+e sincronização com 48 px, alinhados pela base. Prévia em `previas/feriados-alinhamento/`.
+O rótulo Ano fica em uma linha própria; somente o input e os botões compartilham a
+linha de controles, com topo e base iguais, usando as classes já existentes.

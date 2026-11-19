@@ -165,3 +165,7 @@ corrente localmente e a tela permite outros anos. Não existe sincronização co
 externo. [Uso, fontes e limites](USO.md#jornadas-e-feriados).
 Validação: 43 testes distintos afetados aprovados, sem repetir a suíte completa;
 cinco telas em três resoluções no Chrome e checks de Django/migrações aprovados.
+Ajuste posterior na tela de Feriados: o rótulo Ano fica em linha própria e o input,
+Consultar e Sincronizar nacionais compartilham a mesma linha, com topo, base e altura
+iguais (48 px), usando classes existentes. Prancha **Feriados · Alinhamento dos controles**
+no Figcraft e prévia em `design/previas/feriados-alinhamento/`.
