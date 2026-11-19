@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}Reconhecimento facial - Registro de Ponto{% endblock %}
 {% block conteudo %}
-<div class="pagina" data-camera data-modo="{{ modo }}" data-confirmacao-ms="{{ confirmacao_ms|default:3000 }}">
+<div class="pagina" data-camera data-modo="{{ modo }}" data-confirmacao-ms="{{ confirmacao_ms|default:3000 }}" data-aviso-ms="{{ aviso_ms|default:6000 }}">
     <header class="titulo-pagina">
         <div class="titulo-pagina__texto">
             <h1>{% if modo == 'cadastro' %}Cadastrar rosto{% elif modo == 'terminal' %}Ponto em computador compartilhado{% else %}Registrar por reconhecimento facial{% endif %}</h1>
@@ -22,8 +22,11 @@
                     </select>
                 {% endif %}
                 <div class="camera-previa">
+                    <button id="camera-area" class="camera-ativar" type="button" aria-label="Ativar ou retomar câmera" title="Clique ou toque para ativar a câmera" disabled></button>
                     <video id="camera-video" autoplay playsinline muted hidden aria-label="Prévia da câmera"></video>
                     <p id="camera-desligada">Câmera desligada</p>
+                    <div id="camera-registro-aviso" class="camera-registro-aviso" role="alert" hidden></div>
+                    <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="camera-registro-aviso">Abrindo câmera. Autorize o acesso no navegador quando solicitado.</p>
                     <div id="camera-confirmacao" class="camera-confirmacao" role="status" aria-live="polite" aria-atomic="true" hidden>
                         <h2 id="camera-confirmacao-titulo"></h2>
                         {% if modo != 'cadastro' %}
@@ -32,7 +35,6 @@
                         {% endif %}
                     </div>
                 </div>
-                <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="apoio">Abrindo câmera. Autorize o acesso no navegador quando solicitado.</p>
                 <button id="camera-ligar" type="button" class="btn btn--secundario btn--largo" hidden>Retomar câmera</button>
                 {% if modo == 'cadastro' %}<button id="camera-capturar" type="submit" class="btn btn--largo" disabled>Cadastrar rosto</button>{% endif %}
                 <button id="camera-parar" type="button" class="btn btn--secundario btn--largo" hidden>Pausar câmera</button>
@@ -57,7 +59,6 @@
                 {% if modo == 'terminal' %}<p>Após a confirmação, saia do enquadramento para liberar a câmera para a próxima pessoa.</p>{% endif %}
                 <p>A imagem é descartada após a comparação com o cadastro facial.</p>
             {% endif %}
-            <p class="apoio pequeno">Sem prova de vida nesta versão: uma fotografia pode enganar o reconhecimento. O registro comum continua disponível.</p>
             {% if modo == 'terminal' %}
                 <form method="post">{% csrf_token %}<input type="hidden" name="acao" value="encerrar"><button class="btn btn--secundario" type="submit">Encerrar terminal</button></form>
             {% else %}

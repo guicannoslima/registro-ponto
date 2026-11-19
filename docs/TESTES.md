@@ -204,3 +204,38 @@ rostos reais nesse teste de interface.
 
 No banco local, a conta solicitada `tech_leader` foi conferida com papel Gestor, função
 Tech Leader e somente Rafael na equipe. Sem privilégios de administrador ou superusuário.
+
+### Aviso de intervalo sobre a câmera — 19/11/2026
+
+**Verificado:** no Chrome, com HTML do Django e resposta 409 simulada, o aviso de intervalo
+ocupou a largura da prévia em sua parte inferior, com fundo de opacidade 88%, em 1333 e
+390 px. A câmera permaneceu visível durante o aviso; não houve nova captura nesse período.
+A camada desapareceu e limpou seu texto após 6001 ms; Retomar câmera iniciou uma nova
+tentativa corretamente. Sem erros JavaScript ou rolagem horizontal. Nenhum ponto real
+foi gravado ou removido. O teste focado `FluxosFaciaisTests.test_telas_renderizam` passou;
+sintaxe JavaScript e `git diff --check` passaram. Ruff mantém apenas as duas linhas longas
+preexistentes em views, sem novos avisos.
+
+### Confirmação pessoal sem mensagem duplicada — 19/11/2026
+
+**Verificado:** no Chrome, com resposta de sucesso simulada, a confirmação pessoal foi
+exibida por aproximadamente 3 segundos. Após ocultar o cartão, o texto abaixo da prévia
+ficou vazio e oculto, e Retomar câmera permaneceu disponível. Sem erros JavaScript;
+nenhuma batida real foi registrada. Sintaxe JavaScript e `git diff --check` passaram.
+
+### Demais mensagens no rodapé da câmera — 19/11/2026
+
+**Verificado:** no Chrome em 1333 e 390 px, os avisos de abertura, câmera ausente e pausa
+ficaram dentro da prévia, na mesma camada inferior transparente, sem parágrafo entre a
+prévia e Retomar câmera. Conferidos alinhamento à borda inferior, largura da camada,
+botão disponível após pausa e ausência de rolagem horizontal ou erros JavaScript.
+Teste com câmera e respostas simuladas, sem alterar o banco.
+
+### Retomar câmera por clique ou toque — 19/11/2026
+
+**Verificado:** Chrome em contexto desktop de 1333 px e móvel de 390 px com toque. Após
+falha inicial simulada, clicar ou tocar na prévia inteira retomou a câmera; o botão
+Retomar câmera continuou funcionando. Enter na área focada também abriu a câmera.
+Dois cliques rápidos dispararam apenas uma abertura; a área ficou desabilitada com a
+câmera ativa. Sem erros JavaScript. Câmera e respostas simuladas, sem batidas reais.
+Sintaxe JavaScript e `git diff --check` passaram.

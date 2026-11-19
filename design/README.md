@@ -113,3 +113,5 @@ Prévias em `previas/ajustes/` e na prancha atualizada em `previas/administracao
 A página **Avisos da câmera**, desenhada antes do código, mostra o aviso persistente e
 destacado de rosto ainda não cadastrado e a confirmação verde do cadastro por 3 segundos.
 Prévias em `previas/avisos/`. A ausência de webcam não esconde o aviso de cadastro.
+A prancha **Intervalo entre pontos · Aviso por 6 segundos** mostra o aviso temporário
+como camada levemente transparente no rodapé da câmera, ocupando toda a largura da prévia.

@@ -88,3 +88,4 @@ USUARIOS_POR_PAGINA = 25
 # Foto escolhida pelo colaborador e confirmação visual da batida
 FOTO_PERFIL_MAX_BYTES = 5 * 1024 * 1024
 CONFIRMACAO_PONTO_MS = 3000
+AVISO_PONTO_MS = 6000

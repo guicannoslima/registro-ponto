@@ -36,6 +36,12 @@ de `services.py`: administrador vê todos; gestor, subordinados; colaborador, ap
 Em 19/11, o aviso de rosto sem cadastro passou a ocupar uma faixa destacada no topo;
 a confirmação de cadastro facial usa o cartão verde por 3 segundos. Fotos acima de
 16 milhões de pixels são reduzidas automaticamente para WebP de 512 × 512.
+O aviso de intervalo na câmera pessoal ocupa uma camada levemente transparente no
+rodapé da prévia por 6 segundos, sem repetir capturas durante a exibição.
+Os demais avisos operacionais da câmera também ficam nessa camada inferior, sem texto
+separado entre a prévia e os botões.
+A câmera também pode ser ativada por clique/toque em toda a prévia, além do botão
+Retomar câmera; a área aceita teclado e bloqueia aberturas simultâneas.
 O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 ([uso e limitações](USO.md#registro-por-reconhecimento-facial)).
 

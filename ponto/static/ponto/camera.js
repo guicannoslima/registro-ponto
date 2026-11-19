@@ -5,7 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const video = document.getElementById('camera-video');
     const aviso = document.getElementById('camera-mensagem');
     const avisoCadastro = document.getElementById('camera-cadastro-aviso');
+    const avisoRegistro = document.getElementById('camera-registro-aviso');
     const ligar = document.getElementById('camera-ligar');
+    const areaCamera = document.getElementById('camera-area');
     const capturar = document.getElementById('camera-capturar');
     const parar = document.getElementById('camera-parar');
     const desligada = document.getElementById('camera-desligada');
@@ -28,10 +30,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let confirmando = false;
     let versaoConfirmacao = 0;
     let timerConfirmacao = null;
+    let timerAviso = null;
+    let avisoAtivo = false;
 
     const atualizarControles = () => {
         const consultado = !pessoa || (cadastroAtual && String(cadastroAtual.funcionario_id) === pessoa.value);
         const bloqueado = ocupado || confirmando;
+        areaCamera.disabled = bloqueado || abrindo || Boolean(stream);
         if (capturar) {
             capturar.disabled = bloqueado || !stream || !consultado;
             capturar.textContent = cadastroAtual?.cadastrado ? 'Substituir rosto' : 'Cadastrar rosto';
@@ -83,6 +88,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const mensagem = (texto, erro = false) => {
         if (aviso.textContent !== texto) aviso.textContent = texto;
         aviso.dataset.erro = String(erro);
+        aviso.hidden = !texto;
+    };
+    const ocultarAvisoRegistro = () => {
+        clearTimeout(timerAviso);
+        avisoAtivo = false;
+        avisoRegistro.hidden = true;
+        avisoRegistro.textContent = '';
+        aviso.hidden = false;
+    };
+    const mostrarAvisoRegistro = (texto) => {
+        ocultarAvisoRegistro();
+        clearTimeout(timer);
+        avisoAtivo = true;
+        avisoRegistro.textContent = texto;
+        avisoRegistro.hidden = false;
+        mensagem('Toque na prévia ou use Retomar câmera para tentar novamente.');
+        aviso.hidden = true;
+        timerAviso = setTimeout(desligar, Number(pagina.dataset.avisoMs));
     };
     const cancelarConfirmacao = () => {
         versaoConfirmacao += 1;
@@ -92,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             confirmacao.hidden = true;
             fotoConfirmacao?.removeAttribute('src');
         }
-        aviso.hidden = false;
+        aviso.hidden = !aviso.textContent;
         ligar.disabled = ocupado || abrindo;
         atualizarControles();
     };
@@ -135,6 +158,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const desligar = () => {
         geracao += 1;
         clearTimeout(timer);
+        ocultarAvisoRegistro();
         cancelarConfirmacao();
         stream?.getTracks().forEach((track) => track.stop());
         stream = null;
@@ -148,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const agendar = (atraso = 3500) => {
         clearTimeout(timer);
-        if (automatico && stream && !document.hidden && !confirmando) timer = setTimeout(processar, atraso);
+        if (automatico && stream && !document.hidden && !confirmando && !avisoAtivo) timer = setTimeout(processar, atraso);
     };
     const enviar = async (dados) => {
         const resposta = await fetch(window.location.href, {
@@ -157,10 +181,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!resposta.headers.get('content-type')?.includes('application/json')) {
             throw new Error('Sua sessão terminou. Entre novamente para continuar.');
         }
-        return { ok: resposta.ok, dados: await resposta.json() };
+        return { ok: resposta.ok, status: resposta.status, dados: await resposta.json() };
     };
     const processar = async () => {
-        if (ocupado || !stream || document.hidden || confirmando) return;
+        if (ocupado || !stream || document.hidden || confirmando || avisoAtivo) return;
         if (!video.videoWidth) { agendar(); return; }
         if (!automatico && !form.reportValidity()) return;
         if (pessoa && (!cadastroAtual || String(cadastroAtual.funcionario_id) !== pessoa.value)) return;
@@ -192,8 +216,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (resultado.ok && pessoa) aplicarEstado(resultado.dados);
             if (tentativa !== geracao) return;
+            if (pagina.dataset.modo === 'pessoal' && resultado.status === 409) {
+                mostrarAvisoRegistro(resultado.dados.erro);
+                return;
+            }
             mensagem(resultado.dados.repetido ? 'Aguardando próximo colaborador.'
-                : resultado.dados.mensagem || resultado.dados.erro, !resultado.ok);
+                : resultado.ok ? '' : resultado.dados.erro, !resultado.ok);
             if (resultado.ok) {
                 avisoCadastro.hidden = true;
                 if (!terminal) desligar();
@@ -218,6 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const abrir = async () => {
         if (abrindo || ocupado || stream || document.hidden || confirmando) return;
+        ocultarAvisoRegistro();
         if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
             mensagem('A câmera exige HTTPS ou localhost e um navegador compatível. Use o registro comum no painel.', true);
             ligar.hidden = false;
@@ -225,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const tentativa = ++geracao;
         abrindo = true;
+        atualizarControles();
         ligar.hidden = true;
         mensagem('Abrindo câmera. Autorize o acesso no navegador quando solicitado.');
         try {
@@ -262,10 +292,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             abrindo = false;
             ligar.disabled = ocupado;
+            atualizarControles();
         }
     };
     ligar.addEventListener('click', abrir);
-    parar.addEventListener('click', () => { desligar(); mensagem('Câmera pausada. Use Retomar câmera para continuar.'); });
+    areaCamera.addEventListener('click', abrir);
+    parar.addEventListener('click', () => { desligar(); mensagem('Câmera pausada. Toque na prévia ou use Retomar câmera para continuar.'); });
     form.addEventListener('submit', (evento) => {
         evento.preventDefault();
         if (!automatico) processar();

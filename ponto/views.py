@@ -25,6 +25,7 @@ from xhtml2pdf import pisa
 from .constants import (
     ABAS_DO_PAINEL,
     ACAO_REGISTRAR,
+    AVISO_PONTO_MS,
     CONFIRMACAO_PONTO_MS,
     DIAS_ABREVIADOS,
     DIAS_DE_AJUSTE,
@@ -618,6 +619,7 @@ def ponto_facial(request):
         return render(request, 'ponto/camera.html', {
             'modo': 'pessoal', 'tem_cadastro': tem_cadastro_facial(request.user),
             'confirmacao_ms': CONFIRMACAO_PONTO_MS,
+            'aviso_ms': AVISO_PONTO_MS,
         })
     try:
         _limitar_captura(request)

@@ -272,6 +272,16 @@ prévia durante 3 segundos. Depois, a seleção e a retomada da câmera ficam di
 Na tela de registro pessoal, quem ainda não tem cadastro vê um aviso destacado no topo;
 ele permanece visível mesmo se a câmera não abrir.
 
+Na câmera pessoal, o aviso **Você só pode bater ponto a cada 10 minutos.** aparece por
+6 segundos em uma camada levemente transparente, na parte inferior da prévia e ocupando
+sua largura. A captura fica suspensa durante o aviso; depois, ele desaparece e a câmera
+pode ser retomada pelo botão. O intervalo entre batidas permanece o mesmo.
+Os demais avisos que ficavam acima de **Retomar câmera**, como abertura, espera, pausa e
+falha do dispositivo, também aparecem nessa camada inferior transparente da prévia.
+Para ativar ou retomar a câmera, use **Retomar câmera** ou clique/toque em qualquer parte
+da prévia. A área também aceita `Enter` e espaço pelo teclado quando focada. Clicar durante
+a abertura, uma captura ou a confirmação não inicia outra câmera.
+
 ## Foto de perfil e confirmação do ponto
 
 Abra **Meu ponto → Meu perfil**, escolha um arquivo JPEG, PNG ou WebP de até 5 MB e
@@ -287,3 +297,5 @@ As fotos são privadas. Usuários veem a própria foto; gestores e administrador
 ver as fotos das pessoas sob seu acesso. No terminal compartilhado, somente a foto da
 última pessoa cujo ponto foi confirmado fica acessível, dentro do alcance do gestor.
 A confirmação é encerrada ao sair da aba ou pausar a câmera.
+No registro pessoal, a mensagem **PONTO REGISTRADO - PRIMEIRO NOME** aparece somente
+na confirmação de 3 segundos, sem repetição acima de **Retomar câmera**.
