@@ -132,3 +132,10 @@ A página **Guia de rosto** mostra as prévias pessoal, de cadastro e do termina
 quatro cantos minimalistas em cinza claro semitransparente. O centro fica livre e o
 enquadramento acompanha o menor lado da prévia. Sem indicadores de gravação ou barras.
 Prévias em `previas/guia/`.
+
+## Foto ampliada na confirmação
+
+A página **Foto ampliada na confirmação** apresenta foto maior em computador, tablet e
+celular, preservando a confirmação por 3 segundos. A foto cresce até 512 × 512 e se
+ajusta à área disponível; em telas baixas, fica ao lado da mensagem. Prévias em
+`previas/foto-ampliada/`.

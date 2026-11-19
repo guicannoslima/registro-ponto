@@ -293,3 +293,13 @@ não reiniciaram os 30 segundos. Conferidos tanto presença já conhecida desde 
 resposta quanto uma batida nova seguida de respostas repetidas. A câmera foi pausada,
 as tracks encerradas e não houve novas capturas após a pausa; o terminal permaneceu
 aberto. Sem erros JavaScript. Nenhuma batida real criada; sintaxe JS e diff conferidos.
+
+### Foto ampliada na confirmação — 19/11/2026
+
+**Verificado:** no Chrome com foto e API simuladas, a imagem permaneceu quadrada, sem
+recorte ou sobreposição do título: 382×382 no terminal 1333×768, 512×512 em 768×1024,
+289×289 em 390×844, 177×177 em 844×390 e 107×107 em 568×320. No modo pessoal: 268×268
+em 1333×768 e 109×109 em 390×844. Confirmados foto dentro da prévia, ausência de
+rolagem no terminal e de erros JavaScript. Mantida a duração de 3 segundos; alteração
+somente de CSS. Nenhuma nova batida real foi gravada pela verificação de interface.
+`git diff --check` passou.

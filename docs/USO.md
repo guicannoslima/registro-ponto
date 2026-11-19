@@ -316,3 +316,5 @@ ver as fotos das pessoas sob seu acesso. No terminal compartilhado, somente a fo
 A confirmação é encerrada ao sair da aba ou pausar a câmera.
 No registro pessoal, a mensagem **PONTO REGISTRADO - PRIMEIRO NOME** aparece somente
 na confirmação de 3 segundos, sem repetição acima de **Retomar câmera**.
+A foto na confirmação ocupa uma área maior, até 512 × 512 pixels, ajustando-se à largura
+e à altura disponíveis para manter a mensagem e a imagem dentro da prévia.
