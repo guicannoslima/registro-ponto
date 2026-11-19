@@ -79,7 +79,9 @@ quem fez, quando e por quê, e filtra por colaborador, ação e período.
 **Implementado.** Escolha o período e o colaborador, ou marque **Gerar para toda a equipe**.
 **Gerar relatório** exibe o cartão ponto em PDF dentro da página, num visualizador que rola
 por todas as páginas; **Abrir em nova aba** mostra o mesmo PDF em tela cheia. **Baixar PDF**
-baixa o arquivo direto. O colaborador gera só o próprio relatório.
+baixa o arquivo direto. O administrador acessa todos os colaboradores; o gestor, apenas
+seus subordinados; o colaborador, apenas o próprio relatório. A mesma restrição vale para
+visualizar e baixar o PDF, inclusive ao alterar os parâmetros da URL ou marcar toda a equipe.
 
 O **Cartão Ponto** tem uma página por pessoa quando a equipe inteira é gerada. O cartão traz:
 
@@ -132,8 +134,9 @@ empresa e o horário impresso ficam em `ponto/constants.py`.
 ## Registro por reconhecimento facial
 
 **Implementado:** o painel oferece **Registrar por câmera** para confirmar o rosto da
-pessoa logada. **Cadastros faciais** e **Abrir terminal compartilhado** ficam no menu
-**Gestão**, para gestores e administradores. O registro comum continua disponível sem câmera.
+pessoa logada. **Cadastros faciais** fica em **Gestão**; **Abrir terminal compartilhado**,
+em **Administração**. Ambos estão disponíveis a gestores e administradores.
+O registro comum continua disponível sem câmera.
 
 1. O gestor abre **Gestão → Cadastros faciais**, seleciona a pessoa, confere sua identidade
    presencialmente e confirma **Cadastrar rosto**; a câmera abre automaticamente. Pode substituir ou remover
@@ -186,10 +189,11 @@ apaga esse vetor do banco ativo; backups seguem a rotina de retenção da implan
 ## Menu e administração
 
 **Implementado:** o cabeçalho usa submenus por clique. **Início** abre o painel;
-**Meu ponto** reúne registro por câmera, solicitação de ajuste e relatório.
+**Meu ponto** reúne registro por câmera, solicitação de ajuste, relatório e, por último, **Meu perfil**.
 **Gestão**, disponível para gestores e administradores, reúne equipe, lançamento manual,
-solicitações pendentes, histórico, cadastro facial e abertura do terminal compartilhado.
-**Administração** aparece apenas para o papel **Administrador**.
+solicitações pendentes, histórico e cadastro facial. **Administração** reúne **Usuários**,
+**Envio de e-mails** e **Abrir terminal compartilhado** para administradores; para gestores,
+mostra apenas a abertura do terminal. **Cadastrar usuário** fica na página **Usuários**.
 
 O clique em outro grupo fecha o anterior; clique fora ou `Escape` fecha o submenu.
 Também é possível abrir pelo teclado usando `Tab` e `Enter`. Cabeçalho e conteúdo
@@ -201,6 +205,7 @@ Em **Administração → Usuários**, use **Cadastrar usuário**. Preencha nome,
 nome de usuário, e-mail, senha e confirmação; CPF, função e gestor podem ser definidos
 na mesma tela. Escolha o papel **Colaborador**, **Gestor** ou **Administrador**.
 A seleção de gestor inclui somente gestores ativos.
+O CPF usa a máscara **000.000.000-00** no cadastro e na edição; o banco guarda apenas os números.
 
 A lista permite buscar por nome, usuário ou e-mail e abrir **Editar**. Na edição,
 senha em branco conserva a senha atual. Desmarcar **Usuário ativo** bloqueia o acesso
@@ -250,7 +255,11 @@ Em **Gestão → Cadastros faciais**, a lista identifica as pessoas como **Cadas
 **Sem cadastro**. Ao selecionar alguém, a tela consulta novamente o banco e mostra:
 
 - **Rosto não cadastrado:** oferece **Cadastrar rosto** e mantém a remoção oculta.
-- **Rosto cadastrado:** oferece **Substituir rosto**, com confirmação, e **Remover cadastro facial**.
+- **Rosto cadastrado:** faixa verde ocupa a largura do cartão; oferece **Substituir rosto** e **Remover cadastro facial**.
+
+Substituir e remover abrem um diálogo da aplicação com a pessoa selecionada, sem o sufixo
+de estado. **Cancelar** ou `Escape` fecha sem alterar o cadastro; a operação só é enviada
+após a confirmação.
 
 O estado e o rótulo da pessoa na lista são atualizados após cadastrar, substituir ou
 remover, sem recarregar a página. Durante o envio, a seleção fica bloqueada para manter
@@ -261,7 +270,7 @@ A câmera continua abrindo automaticamente; remover um cadastro não exige câme
 ## Foto de perfil e confirmação do ponto
 
 Abra **Meu ponto → Meu perfil**, escolha um arquivo JPEG, PNG ou WebP de até 5 MB e
-use **Salvar foto**. A foto é enquadrada em 512 × 512 pixels. **Remover foto de perfil**
+use **Salvar foto**. A foto é enquadrada em 512 × 512 pixels e salva em WebP. **Remover foto de perfil**
 volta à imagem genérica com seu nome. Cada colaborador escolhe sua própria foto.
 
 Essa foto é usada na confirmação da batida; o cadastro facial para identificação

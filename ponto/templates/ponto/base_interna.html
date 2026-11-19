@@ -24,10 +24,10 @@
                     <details class="menu-grupo">
                         <summary>Meu ponto</summary>
                         <div class="menu-grupo__itens">
-                            <a href="{% url 'meu_perfil' %}">Meu perfil</a>
                             <a href="{% url 'ponto_facial' %}">Registrar por câmera</a>
                             <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
                             <a href="{% url 'relatorio_ponto' %}">Relatório de ponto</a>
+                            <a href="{% url 'meu_perfil' %}">Meu perfil</a>
                         </div>
                     </details>
                     {% if user.perfil.papel == 'gestor' or user.perfil.papel == 'admin' %}
@@ -39,17 +39,18 @@
                                 <a href="{% url 'solicitacoes_pendentes' %}">Solicitações pendentes</a>
                                 <a href="{% url 'historico_alteracoes' %}">Histórico de alterações</a>
                                 <a href="{% url 'cadastro_facial' %}">Cadastros faciais</a>
-                                <form method="post" action="{% url 'abrir_terminal' %}">{% csrf_token %}<button type="submit">Abrir terminal compartilhado</button><p>Encerra sua sessão e libera apenas o registro por rosto.</p></form>
                             </div>
                         </details>
                     {% endif %}
-                    {% if user.perfil.papel == 'admin' %}
+                    {% if user.perfil.papel == 'gestor' or user.perfil.papel == 'admin' %}
                         <details class="menu-grupo">
                             <summary>Administração</summary>
                             <div class="menu-grupo__itens">
-                                <a href="{% url 'usuarios' %}">Usuários</a>
-                                <a href="{% url 'usuario_criar' %}">Cadastrar usuário</a>
-                                <a href="{% url 'configurar_email' %}">Envio de e-mails</a>
+                                {% if user.perfil.papel == 'admin' %}
+                                    <a href="{% url 'usuarios' %}">Usuários</a>
+                                    <a href="{% url 'configurar_email' %}">Envio de e-mails</a>
+                                {% endif %}
+                                <form method="post" action="{% url 'abrir_terminal' %}">{% csrf_token %}<button type="submit">Abrir terminal compartilhado</button><p>Encerra sua sessão e libera apenas o registro por rosto.</p></form>
                             </div>
                         </details>
                     {% endif %}

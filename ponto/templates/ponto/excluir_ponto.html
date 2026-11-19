@@ -12,7 +12,7 @@
         </div>
     </header>
 
-    <section class="cartao-interno cartao-interno--estreito" aria-label="Confirmar exclusão">
+    <section class="cartao-interno" aria-label="Confirmar exclusão">
         <dl class="resumo">
             <dt>Colaborador</dt><dd>{{ registro.funcionario.get_full_name|default:registro.funcionario.username }}</dd>
             <dt>Batida</dt><dd>{{ registro.get_tipo_display }}</dd>

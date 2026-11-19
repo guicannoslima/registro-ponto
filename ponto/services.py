@@ -250,8 +250,8 @@ def salvar_foto_perfil(usuario, arquivo=None, *, remover=False):
         with Image.open(arquivo) as original:
             imagem = ImageOps.fit(ImageOps.exif_transpose(original).convert('RGB'), (512, 512))
             conteudo = BytesIO()
-            imagem.save(conteudo, 'JPEG', quality=85)
-        perfil.foto.save(f'{uuid4().hex}.jpg', ContentFile(conteudo.getvalue()), save=False)
+            imagem.save(conteudo, 'WEBP', quality=85, method=6)
+        perfil.foto.save(f'{uuid4().hex}.webp', ContentFile(conteudo.getvalue()), save=False)
     perfil.save(update_fields=['foto'])
     if antiga and antiga != perfil.foto.name:
         transaction.on_commit(lambda: storage.delete(antiga))
@@ -260,6 +260,13 @@ def salvar_foto_perfil(usuario, arquivo=None, *, remover=False):
 def obter_foto_perfil(usuario, usuario_id):
     perfil = Perfil.objects.filter(user_id=usuario_id, user__in=_pessoas(usuario)).first()
     return perfil.foto if perfil and perfil.foto else None
+
+
+def pessoas_para_relatorio(usuario):
+    """Administrador vê todos; gestor, seus subordinados; colaborador, somente a si."""
+    eh_colaborador = usuario.perfil.papel == Perfil.PAPEL_FUNCIONARIO
+    pessoas = User.objects.filter(pk=usuario.pk) if eh_colaborador else funcionarios_visiveis(usuario)
+    return pessoas.order_by('first_name', 'last_name', 'username'), eh_colaborador
 
 
 def _gestor(usuario):

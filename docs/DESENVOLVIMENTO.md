@@ -112,7 +112,8 @@ python manage.py preparar_facial
 O segundo comando baixa YuNet e SFace do repositório oficial OpenCV e confere o SHA-256
 antes de salvar em `modelos_faciais/` (ignorado pelo Git). Reexecutar conserva os arquivos
 já verificados. `FACIAL_MODELS_DIR` permite escolher outro diretório. Não há download
-em requisições; modelos ausentes retornam uma orientação sem gravar ponto.
+em requisições; modelos ausentes retornam uma orientação sem gravar ponto. No Docker,
+esse preparo é feito no build, sem banco nem segredos, e os modelos acompanham a imagem.
 
 O processamento usa `opencv-python-headless` e NumPy no servidor, com imagens limitadas a
 1 MB e 1280 × 1280 pixels. O navegador captura até 640 × 480. O vetor normalizado tem
@@ -163,9 +164,10 @@ novamente a senha SMTP. A migração `0008` cria a tabela, sem gravar credenciai
 
 `Perfil.foto` guarda a foto escolhida pelo colaborador, com a migração `0010`. O formulário
 valida JPEG, PNG ou WebP, até 5 MB e 16 milhões de pixels. `salvar_foto_perfil` normaliza
-orientação e enquadramento para JPEG de 512 × 512, usando nome aleatório, e remove o arquivo
+orientação e enquadramento para WebP de 512 × 512, qualidade 85 e método 6, sem metadados,
+usando nome aleatório, e remove o arquivo
 anterior após confirmar a alteração no banco. Os arquivos ficam em `MEDIA_ROOT` (`media/`,
-ignorado pelo Git).
+ignorado pelo Git, com exceção do `media/.gitkeep`).
 
 `/perfil/` permite alterar somente a foto do usuário logado. `/perfil/foto/<id>/` entrega
 imagens pelo controle de acesso do sistema, com resposta privada sem cache; não há rota

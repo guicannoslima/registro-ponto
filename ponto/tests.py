@@ -7,6 +7,7 @@ from unittest.mock import patch
 from django.contrib.auth.models import User
 from django.core.exceptions import ImproperlyConfigured
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.http import HttpResponse
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -853,9 +854,10 @@ class FotoPerfilTests(TestCase):
         self.pessoa.perfil.refresh_from_db()
         arquivo = self.pessoa.perfil.foto
         with arquivo.open('rb') as conteudo, Image.open(conteudo) as imagem:
-            self.assertEqual(imagem.format, 'JPEG')
+            self.assertEqual(imagem.format, 'WEBP')
             self.assertEqual(imagem.size, (512, 512))
         self.assertTrue(arquivo.name.startswith('perfis/'))
+        self.assertTrue(arquivo.name.endswith('.webp'))
         self.assertNotIn('camera', arquivo.name)
         self.assertFalse(self.outra.perfil.foto)
         self.assertTrue(CadastroFacial.objects.filter(funcionario=self.pessoa).exists())
@@ -866,6 +868,20 @@ class FotoPerfilTests(TestCase):
         self.assertTrue(resposta.context['form'].errors)
         self.pessoa.perfil.refresh_from_db()
         self.assertFalse(self.pessoa.perfil.foto)
+
+    def test_png_e_webp_sao_convertidos_para_webp_sem_metadados(self):
+        for formato in ('PNG', 'WEBP'):
+            with self.subTest(formato=formato):
+                buffer = BytesIO()
+                Image.new('RGBA', (300, 400), (40, 100, 180, 255)).save(buffer, formato)
+                arquivo = SimpleUploadedFile(f'perfil.{formato.lower()}', buffer.getvalue())
+                with self.captureOnCommitCallbacks(execute=True):
+                    self.client.post(reverse('meu_perfil'), {'foto': arquivo})
+                self.pessoa.perfil.refresh_from_db()
+                with self.pessoa.perfil.foto.open('rb') as conteudo, Image.open(conteudo) as imagem:
+                    self.assertEqual(imagem.format, 'WEBP')
+                    self.assertEqual(imagem.size, (512, 512))
+                    self.assertFalse(imagem.getexif())
 
     def test_substituir_e_remover_apaga_arquivos_antigos(self):
         self.enviar_foto()
@@ -889,6 +905,7 @@ class FotoPerfilTests(TestCase):
         resposta = self.client.get(rota)
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta['Cache-Control'], 'private, no-store')
+        self.assertEqual(resposta['Content-Type'], 'image/webp')
         b''.join(resposta.streaming_content)
         self.client.force_login(self.gestor)
         resposta = self.client.get(rota)
@@ -940,3 +957,79 @@ class FotoPerfilTests(TestCase):
         self.assertNotIn(reverse('abrir_terminal'), principal)
         self.assertIn(reverse('cadastro_facial'), html)
         self.assertIn(reverse('abrir_terminal'), html)
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class RelatorioPermissoesTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = User.objects.create_user('admin_relatorio', first_name='Administrador')
+        cls.admin.perfil.papel = Perfil.PAPEL_ADMIN
+        cls.admin.perfil.save()
+        cls.gestor = User.objects.create_user('gestor_relatorio', first_name='Gestor')
+        cls.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        cls.gestor.perfil.save()
+        cls.pessoa = User.objects.create_user('equipe_relatorio', first_name='Pessoa')
+        cls.pessoa.perfil.gestor = cls.gestor.perfil
+        cls.pessoa.perfil.save()
+        cls.outra = User.objects.create_user('outra_relatorio', first_name='Outra')
+
+    def dados(self, pessoa=None, **alteracoes):
+        dados = {'data_inicio': '2026-11-16', 'data_fim': '2026-11-18'}
+        if pessoa:
+            dados['funcionario'] = pessoa.pk
+        dados.update(alteracoes)
+        return dados
+
+    def test_opcoes_do_relatorio_seguem_o_papel_e_a_equipe(self):
+        for usuario, permitidos in (
+            (self.admin, {self.admin.pk, self.gestor.pk, self.pessoa.pk, self.outra.pk}),
+            (self.gestor, {self.pessoa.pk}),
+            (self.pessoa, {self.pessoa.pk}),
+        ):
+            with self.subTest(papel=usuario.perfil.papel):
+                self.client.force_login(usuario)
+                form = self.client.get(reverse('relatorio_ponto')).context['form']
+                self.assertSetEqual(set(form.fields['funcionario'].queryset.values_list('pk', flat=True)), permitidos)
+                self.assertEqual('gerar_todos' in form.fields, usuario != self.pessoa)
+
+    @patch('ponto.views._cartao_ponto_pdf', return_value=HttpResponse(b'%PDF', content_type='application/pdf'))
+    def test_visualizacao_e_download_permitidos_por_papel(self, gerar_pdf):
+        for usuario, alvo in ((self.admin, self.outra), (self.gestor, self.pessoa), (self.pessoa, self.pessoa)):
+            with self.subTest(papel=usuario.perfil.papel):
+                self.client.force_login(usuario)
+                pagina = self.client.post(reverse('relatorio_ponto'), self.dados(alvo))
+                self.assertIn('pdf_url', pagina.context)
+                for rota, metodo in (('visualizar_relatorio_pdf', 'get'), ('exportar_relatorio_pdf', 'post')):
+                    resposta = getattr(self.client, metodo)(reverse(rota), self.dados(alvo))
+                    self.assertEqual(resposta.status_code, 200)
+                    self.assertEqual(gerar_pdf.call_args.args[1]['funcionario'], alvo)
+
+    @patch('ponto.views._cartao_ponto_pdf')
+    def test_trocar_id_nao_libera_relatorio_fora_do_escopo(self, gerar_pdf):
+        for usuario in (self.gestor, self.pessoa):
+            with self.subTest(papel=usuario.perfil.papel):
+                self.client.force_login(usuario)
+                dados = self.dados(self.outra, gerar_todos='on')
+                pagina = self.client.post(reverse('relatorio_ponto'), dados)
+                self.assertNotIn('pdf_url', pagina.context)
+                self.assertIn('funcionario', pagina.context['form'].errors)
+                self.assertEqual(self.client.get(reverse('visualizar_relatorio_pdf'), dados).status_code, 400)
+                self.assertEqual(self.client.post(reverse('exportar_relatorio_pdf'), dados).status_code, 302)
+        gerar_pdf.assert_not_called()
+
+    @patch('ponto.views._cartao_ponto_pdf', return_value=HttpResponse(b'%PDF', content_type='application/pdf'))
+    def test_gerar_todos_nao_amplia_as_permissoes(self, gerar_pdf):
+        for usuario, permitidos in (
+            (self.admin, {self.admin.pk, self.gestor.pk, self.pessoa.pk, self.outra.pk}),
+            (self.gestor, {self.pessoa.pk}),
+            (self.pessoa, {self.pessoa.pk}),
+        ):
+            with self.subTest(papel=usuario.perfil.papel):
+                self.client.force_login(usuario)
+                dados = self.dados(self.pessoa if usuario == self.pessoa else None, gerar_todos='on')
+                for rota, metodo in (('visualizar_relatorio_pdf', 'get'), ('exportar_relatorio_pdf', 'post')):
+                    self.assertEqual(getattr(self.client, metodo)(reverse(rota), dados).status_code, 200)
+                    pessoas, filtro = gerar_pdf.call_args.args
+                    self.assertSetEqual(set(pessoas.values_list('pk', flat=True)), permitidos)
+                    self.assertEqual(bool(filtro.get('gerar_todos')), usuario != self.pessoa)

@@ -64,6 +64,7 @@
             {% endif %}
         </aside>
     </div>
+    {% if modo == 'cadastro' %}{% include 'ponto/_confirm_dialog.html' %}{% endif %}
 </div>
 <script src="{% static 'ponto/camera.js' %}" defer></script>
 {% endblock %}

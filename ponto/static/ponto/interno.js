@@ -1,3 +1,49 @@
+// Diálogo da aplicação: foco inicial no cancelamento; Escape cancela e devolve o foco.
+window.confirmDialog = ({ titulo, mensagem, confirmar }) => {
+    const dialog = document.getElementById('confirm-dialog');
+    if (!dialog || dialog.open) return Promise.resolve(false);
+    document.getElementById('confirm-dialog-titulo').textContent = titulo;
+    document.getElementById('confirm-dialog-mensagem').textContent = mensagem;
+    document.getElementById('confirm-dialog-confirmar').textContent = confirmar;
+    dialog.returnValue = 'cancelar';
+    return new Promise((resolve) => {
+        dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirmar'), { once: true });
+        dialog.showModal();
+    });
+};
+
+// CPF: apresenta a máscara sem alterar o armazenamento numérico validado no servidor.
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-mascara="cpf"]').forEach((campo) => {
+        const formatar = () => {
+            const cursor = campo.selectionStart;
+            const digitosAntes = campo.value.slice(0, cursor).replace(/\D/g, '').length;
+            campo.value = campo.value.replace(/\D/g, '').slice(0, 11)
+                .replace(/(\d{3})(\d)/, '$1.$2')
+                .replace(/(\d{3})(\d)/, '$1.$2')
+                .replace(/(\d{3})(\d)/, '$1-$2');
+            let posicao = 0;
+            let encontrados = 0;
+            while (posicao < campo.value.length && encontrados < digitosAntes) {
+                if (/\d/.test(campo.value[posicao])) encontrados += 1;
+                posicao += 1;
+            }
+            if (document.activeElement === campo) campo.setSelectionRange(posicao, posicao);
+        };
+        campo.addEventListener('beforeinput', (evento) => {
+            const inicio = campo.selectionStart;
+            if (inicio !== campo.selectionEnd) return;
+            if (evento.inputType === 'deleteContentBackward' && /[.\-]/.test(campo.value[inicio - 1] || '')) {
+                campo.setSelectionRange(inicio - 2, inicio);
+            } else if (evento.inputType === 'deleteContentForward' && /[.\-]/.test(campo.value[inicio] || '')) {
+                campo.setSelectionRange(inicio, inicio + 2);
+            }
+        });
+        campo.addEventListener('input', formatar);
+        formatar();
+    });
+});
+
 // Lançar ponto manual: atualiza o painel "batidas já registradas" ao trocar a pessoa ou a data.
 document.addEventListener('DOMContentLoaded', () => {
     const painel = document.getElementById('batidas-do-dia');

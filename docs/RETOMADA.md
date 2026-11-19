@@ -23,8 +23,16 @@ A tela Cadastrar rosto consulta o cadastro da pessoa selecionada e diferencia ca
 substituir e remover. A remoção só aparece quando existe cadastro facial.
 Meu ponto → Meu perfil permite escolher ou remover a foto da confirmação. Ao registrar,
 foto ou imagem genérica com nome aparecem por 3 segundos, com **PONTO REGISTRADO - PRIMEIRO NOME**.
-Os atalhos de cadastro facial e terminal saíram do início e permanecem no menu Gestão.
+Os atalhos de cadastro facial e terminal saíram do início. Cadastro fica em Gestão;
+terminal, em Administração, disponível também aos gestores. Meu perfil é o último item
+de Meu ponto; Cadastrar usuário aparece somente na tela Usuários.
 A migração `0010` da foto de perfil foi aplicada no banco local.
+Fotos novas são convertidas para WebP de 512 × 512; `media/.gitkeep` é versionado, fotos não.
+Remoção e substituição facial usam confirmDialog. O cadastro facial tem faixa de estado
+em toda a largura do cartão; busca de usuários alinhada; CPF com máscara; exclusão de
+batida ocupa a largura do layout. O build Docker inclui os dois modelos públicos de IA,
+verificados por SHA-256, sem versionar os binários. Relatórios usam a consulta de escopo
+de `services.py`: administrador vê todos; gestor, subordinados; colaborador, apenas a si.
 O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 ([uso e limitações](USO.md#registro-por-reconhecimento-facial)).
 
@@ -38,7 +46,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 82 testes reunidos em `ponto/tests.py`, todos passando ([Testes](TESTES.md)) |
+| Testes | 87 testes em `ponto/tests.py`; 16 focados passaram nesta revisão, sem repetir a suíte completa de 82 já validada antes ([Testes](TESTES.md)) |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | 2 vCPU e 2 GB para 20 pessoas simultâneas ([Capacidade](CAPACIDADE.md)) |

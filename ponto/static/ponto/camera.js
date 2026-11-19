@@ -156,14 +156,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!video.videoWidth) { agendar(); return; }
         if (!automatico && !form.reportValidity()) return;
         if (pessoa && (!cadastroAtual || String(cadastroAtual.funcionario_id) !== pessoa.value)) return;
-        if (cadastroAtual?.cadastrado
-            && !window.confirm(`Substituir o rosto cadastrado de ${pessoa.selectedOptions[0].dataset.nome}?`)) return;
         const tentativa = geracao;
         const dados = new FormData(form);
         ocupado = true;
-        atualizarControles();
-        if (!automatico) mensagem('Processando o rosto. Aguarde a confirmação do cadastro.');
         try {
+            if (cadastroAtual?.cadastrado && !await window.confirmDialog({
+                titulo: 'Substituir cadastro facial?',
+                mensagem: `Substituir o rosto cadastrado de ${pessoa.selectedOptions[0].dataset.nome}?`,
+                confirmar: 'Substituir rosto',
+            })) return;
+            if (tentativa !== geracao || document.hidden) return;
+            atualizarControles();
+            if (!automatico) mensagem('Processando o rosto. Aguarde a confirmação do cadastro.');
             const canvas = document.createElement('canvas');
             const escala = Math.min(1, 640 / video.videoWidth, 480 / video.videoHeight);
             canvas.width = Math.round(video.videoWidth * escala);
@@ -255,12 +259,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     excluir?.addEventListener('click', async () => {
         if (ocupado || !cadastroAtual?.cadastrado || !form.reportValidity()) return;
-        if (!window.confirm(`Remover o cadastro facial de ${pessoa.selectedOptions[0].textContent}?`)) return;
         const dados = new FormData(form);
         dados.append('acao', 'excluir');
         ocupado = true;
-        atualizarControles();
         try {
+            if (!await window.confirmDialog({
+                titulo: 'Remover cadastro facial?',
+                mensagem: `Remover o cadastro facial de ${pessoa.selectedOptions[0].dataset.nome}? Para usar a câmera novamente, será necessário cadastrar o rosto.`,
+                confirmar: 'Remover cadastro',
+            })) return;
+            atualizarControles();
             const resultado = await enviar(dados);
             if (resultado.ok) aplicarEstado(resultado.dados);
             mensagem(resultado.dados.mensagem || resultado.dados.erro, !resultado.ok);

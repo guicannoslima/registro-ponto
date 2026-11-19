@@ -162,7 +162,10 @@ class UsuarioAdministracaoForm(forms.ModelForm):
     first_name = forms.CharField(label='Nome', max_length=150)
     last_name = forms.CharField(label='Sobrenome', max_length=150)
     email = forms.EmailField(label='E-mail')
-    cpf = forms.CharField(label='CPF', max_length=14, required=False)
+    cpf = forms.CharField(
+        label='CPF', max_length=14, required=False,
+        widget=forms.TextInput(attrs={'inputmode': 'numeric', 'data-mascara': 'cpf', 'placeholder': '000.000.000-00'}),
+    )
     papel = forms.ChoiceField(label='Papel', choices=Perfil.PAPEL_CHOICES)
     funcao = forms.ModelChoiceField(label='Função', queryset=Funcao.objects.all(), required=False)
     gestor = forms.ModelChoiceField(label='Gestor', queryset=Perfil.objects.none(), required=False)

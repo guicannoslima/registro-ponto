@@ -98,3 +98,12 @@ A página **Perfil e confirmação** foi desenhada antes da implementação, com
 exibe apenas **PONTO REGISTRADO - CAIO** e a foto escolhida ou avatar com nome, durante
 3 segundos. Os atalhos de cadastro facial e terminal foram retirados da prancha de ações
 do início. Prévias em `previas/perfil/`.
+
+## Diálogos e ajustes de navegação
+
+A página **Diálogos e navegação** registra, antes do código, o diálogo centralizado de
+confirmação facial, busca com controles alinhados, menus revisados, exclusão de batida
+na largura do layout e estado facial em faixa verde. O terminal passou para Administração,
+com acesso mantido aos gestores; Meu perfil fica por último em Meu ponto; o atalho duplicado
+de Cadastrar usuário saiu do menu. O CPF com máscara está indicado na prancha de cadastro.
+Prévias em `previas/ajustes/` e na prancha atualizada em `previas/administracao/`.

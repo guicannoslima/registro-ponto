@@ -9,8 +9,10 @@
     <section class="cartao-interno">
         <form method="get" class="busca-usuarios" role="search">
             <div class="campo"><label for="busca-usuario">Buscar por nome, usuário ou e-mail</label><input id="busca-usuario" name="q" value="{{ busca }}" type="search"></div>
-            <button class="btn btn--secundario" type="submit">Buscar</button>
-            {% if busca %}<a href="{% url 'usuarios' %}" class="link">Limpar busca</a>{% endif %}
+            <div class="busca-usuarios__acoes">
+                <button class="btn btn--secundario" type="submit">Buscar</button>
+                {% if busca %}<a href="{% url 'usuarios' %}" class="link">Limpar busca</a>{% endif %}
+            </div>
         </form>
         <div class="tabela-rolagem">
             <table class="tabela-interna">

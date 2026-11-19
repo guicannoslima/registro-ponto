@@ -67,6 +67,7 @@ from .services import (
     linha_do_dia,
     obter_foto_perfil,
     pessoas_para_cadastro_facial,
+    pessoas_para_relatorio,
     preparar_cartao_ponto,
     proximo_tipo,
     registrar_batida,
@@ -467,14 +468,6 @@ def historico_alteracoes(request):
     })
 
 
-def _funcionarios_do_relatorio(usuario):
-    """O colaborador só gera o próprio relatório; gestor e administrador, o de quem eles enxergam."""
-    eh_funcionario = usuario.perfil.papel == Perfil.PAPEL_FUNCIONARIO
-    if eh_funcionario:
-        return User.objects.filter(pk=usuario.pk), eh_funcionario
-    return funcionarios_visiveis(usuario).order_by('first_name', 'last_name'), eh_funcionario
-
-
 def _cartao_ponto_pdf(funcionarios, dados, inline):
     """Gera o PDF do cartão ponto a partir dos dados validados do RelatorioForm."""
     data_inicio, data_fim = dados['data_inicio'], dados['data_fim']
@@ -523,7 +516,7 @@ def _parametros_do_relatorio(dados):
 
 @login_required
 def relatorio_ponto(request):
-    funcionarios, eh_funcionario = _funcionarios_do_relatorio(request.user)
+    funcionarios, eh_funcionario = pessoas_para_relatorio(request.user)
     contexto = {}
 
     if request.method == 'POST':
@@ -547,7 +540,7 @@ def relatorio_ponto(request):
 @require_POST
 def exportar_relatorio_pdf(request):
     """Baixar PDF: o cartão ponto como anexo."""
-    funcionarios, eh_funcionario = _funcionarios_do_relatorio(request.user)
+    funcionarios, eh_funcionario = pessoas_para_relatorio(request.user)
     form = RelatorioForm(request.POST, funcionarios=funcionarios, permite_todos=not eh_funcionario)
     if form.is_valid():
         return _cartao_ponto_pdf(funcionarios, form.cleaned_data, inline=False)
@@ -559,7 +552,7 @@ def exportar_relatorio_pdf(request):
 @xframe_options_sameorigin
 def visualizar_relatorio_pdf(request):
     """Gerar relatório: o mesmo cartão ponto exibido no navegador, dentro do iframe da página de relatório."""
-    funcionarios, eh_funcionario = _funcionarios_do_relatorio(request.user)
+    funcionarios, eh_funcionario = pessoas_para_relatorio(request.user)
     form = RelatorioForm(request.GET, funcionarios=funcionarios, permite_todos=not eh_funcionario)
     if not form.is_valid():
         return HttpResponse('Filtro do relatório inválido. Gere o relatório de novo.', status=400)
@@ -705,7 +698,7 @@ def foto_perfil(request, usuario_id):
         arquivo = foto.open('rb')
     except OSError as exc:
         raise Http404 from exc
-    resposta = FileResponse(arquivo, content_type='image/jpeg')
+    resposta = FileResponse(arquivo)
     resposta['Cache-Control'] = 'private, no-store'
     resposta['X-Content-Type-Options'] = 'nosniff'
     return resposta

@@ -1147,6 +1147,17 @@ span.batida-celula {
 .principal-interno [data-camera] [hidden] { display: none; }
 .principal-interno #camera-mensagem { min-height: 3em; }
 .principal-interno #camera-mensagem[data-erro="true"] { color: var(--perigo); }
+.principal-interno .camera-cadastro-estado > .selo {
+    display: flex;
+    width: 100%;
+    min-height: 64px;
+    align-items: center;
+    padding: 16px 20px;
+    border-radius: 8px;
+    font-size: 20px;
+    font-weight: 700;
+}
+.principal-interno .camera-cadastro-estado > p { margin-top: 12px; }
 @media (max-width: 800px) {
     .principal-interno .camera-grade { grid-template-columns: minmax(0, 1fr); }
 }
@@ -1182,6 +1193,7 @@ span.batida-celula {
 .topo-aplicacao :focus-visible { outline: 3px solid #0a6ea3; outline-offset: 2px; }
 .principal-interno .busca-usuarios { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
 .principal-interno .busca-usuarios .campo { flex: 1; min-width: min(100%, 260px); }
+.principal-interno .busca-usuarios__acoes { display: flex; align-items: center; gap: 16px; min-height: 48px; }
 .principal-interno input[type="search"],
 .principal-interno input[type="number"] { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--borda-campo); border-radius: 6px; font: inherit; background: white; color: var(--texto); }
 @media (max-width: 900px) {
@@ -1198,8 +1210,24 @@ span.batida-celula {
     .topo-aplicacao .navegacao__inicio { padding: 10px 8px; font-size: 14px; }
     .topo-aplicacao .menu-grupo__itens { position: fixed; inset: auto 12px auto 12px; width: auto; max-width: none; }
     .topo-aplicacao .topo-usuario-texto { max-width: 170px; }
-    .principal-interno .busca-usuarios > .btn { width: 100%; }
+    .principal-interno .busca-usuarios__acoes { width: 100%; flex-wrap: wrap; }
 }
+
+.principal-interno .confirm-dialog {
+    width: min(560px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 28px;
+    border: 1px solid var(--linha);
+    border-radius: var(--raio);
+    background: var(--superficie);
+    color: var(--texto);
+    font: inherit;
+    box-shadow: 0 20px 60px #18324b33;
+}
+.principal-interno .confirm-dialog::backdrop { background: #18324b80; }
+.principal-interno .confirm-dialog__conteudo { display: flex; flex-direction: column; gap: 20px; }
+.principal-interno .confirm-dialog__acoes { justify-content: flex-end; }
 
 .principal-interno .camera-cadastro-estado { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
 

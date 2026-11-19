@@ -1,8 +1,8 @@
 # Testes
 
-**Implementado:** 82 testes reunidos em `ponto/tests.py`: perfil
+**Implementado:** 87 testes reunidos em `ponto/tests.py`: perfil
 automático, apresentação, views e fluxos faciais. As regras de cálculo de horas ainda
-não têm testes próprios; a cobertura de permissões inclui os novos fluxos faciais.
+não têm testes próprios; a cobertura de permissões inclui os fluxos faciais e os relatórios.
 
 ## Executar
 
@@ -161,3 +161,29 @@ escolhida e da imagem genérica com o nome. Um observador das mudanças de visib
 terminal não repetiu a imagem ao reconhecer a mesma pessoa. Conferidos primeiro nome em
 caixa alta sem tipo/horário, ações de gestão somente no menu e tela em 390 px sem recorte ou
 rolagem horizontal. Sem erros JavaScript; os dados fictícios foram removidos ao final.
+
+### Diálogos, WebP, CPF e acesso aos relatórios — 18/11/2026
+
+**Verificado:** executados somente os testes relacionados aos pedidos: `FotoPerfilTests`,
+`RelatorioPermissoesTests`, cadastro administrativo com CPF e dois testes de geração do
+cartão em PDF. **16 testes passaram** no PostgreSQL. A suíte agora tem 87 testes; os demais
+não foram repetidos nesta revisão, conforme solicitado. A última execução completa
+anterior foi a de 82 testes descrita acima.
+
+Os novos casos conferem conversão de PNG e WebP para WebP de 512 × 512 sem metadados,
+Content-Type da foto, seleção por papel/equipe, visualização e download do PDF,
+tentativa de trocar o id e envio de `gerar_todos` sem autorização. Administrador vê todos,
+gestor vê subordinados e colaborador vê somente a si.
+
+No Chrome em 1333 e 390 px, com câmera simulada, banco SQLite e fotos isolados em `/tmp`,
+foram conferidos: diálogo da aplicação sem `window.confirm`, substituição cancelada por
+Escape, remoção cancelada e confirmada, foco inicial em Cancelar, alinhamento dos controles
+de busca, CPF digitado/colado/editado, exclusão na largura do layout, faixa facial em toda
+a linha, menus por papel e upload servido em WebP. Sem rolagem horizontal ou erros JS.
+O registro 197 do banco do usuário não foi alterado. O servidor, o banco e as fotos
+temporários foram removidos ao encerrar a validação.
+
+`check`, `makemigrations --check --dry-run`, sintaxe JavaScript e `git diff --check`
+passaram. Ruff passou em forms, services e testes; views conserva os dois avisos de linha
+longa anteriores a esta revisão. A imagem Docker foi construída, e um contêiner descartável
+sem rede confirmou SHA-256, carregamento dos dois modelos OpenCV e suporte WebP.
