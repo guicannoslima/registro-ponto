@@ -1,6 +1,6 @@
 # Ponto de retomada
 
-Estado em 18/11/2026, revisão `e90fa50` publicada em `origin/main`. Esta página diz o que já
+Estado em 19/11/2026, revisão `c542991` publicada em `origin/main`; instalação automática em `9aacf61`, local, sem push. Esta página diz o que já
 foi feito, o que está pendente e como continuar o trabalho sem repetir o que já se decidiu.
 
 Revisão local posterior, sem push: reconhecimento facial pessoal e terminal compartilhado
@@ -63,7 +63,9 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 89 testes em `ponto/tests.py`; 23 faciais passaram na revisão do terminal, sem repetir a suíte completa ([Testes](TESTES.md)) |
+| Testes | 111 testes em `ponto/tests.py`, suíte completa aprovada em 19/11 ([Testes](TESTES.md)) |
+| Folgas e banco de horas | Gestão › Folgas (dispensa e compensação), banco de horas desde a primeira batida, aviso do dia no painel ([Uso](USO.md#folgas-e-banco-de-horas)) |
+| Instalação | `scripts/instalar.sh` e [guia de instalação](INSTALACAO.md), sem teste em servidor limpo |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | Indicação de 4 vCPU / 4 GB para pico de 50 pessoas; 1.200 POSTs sem falhas, imagem e recursos de teste descartados ([Carga de 50](CARGA_50_COLABORADORES.md)) |
@@ -179,3 +181,23 @@ Modelo `Folga` com migração `0013` aplicada nos bancos `registro_ponto` e
 `formatar_timedelta` passou para `utils.py`. Fim de semana na regra anterior agora tem carga
 zero. Prancha **Feriados e folgas** no Figcraft. [Uso e regras](USO.md#folgas-e-banco-de-horas).
 Validação: 111 testes aprovados, checks de Django e migrações, telas renderizadas com dados.
+
+## Revisão de 19/11 — instalação no servidor
+
+Script e guia no commit `9aacf61`; esta página no commit seguinte. Ambos locais, sem push.
+
+Cenário definido pelo usuário: Ubuntu Server 24.04, usuário padrão `prime` com acesso SSH por
+senha (sem chave), IP interno, domínio apontado pela Cloudflare para o IP interno. Clone por
+HTTPS com `usuário:token@github.com` (o GitHub não aceita senha; token fine-grained só leitura).
+HTTPS pelo Let's Encrypt com validação DNS-01 da Cloudflare (token **Edit zone DNS**), porque a
+internet não alcança o servidor; registro DNS precisa ficar em **DNS only**.
+
+O script é interativo e idempotente: instala Docker, clona em `/opt/registro-ponto`, gera `.env`,
+restringe a porta 8000 a `127.0.0.1` via `compose.override.yaml`, sobe os containers, cria o
+administrador, configura Nginx com HTTPS, backup diário (`/var/backups/registro-ponto`, `700`,
+`umask 077`) e sincronização anual de feriados. Rodar de novo atualiza sem trocar senhas.
+
+Verificado: `bash -n`, funções auxiliares, `.env`, `crontab` e Nginx gerados com valores de
+exemplo, `compose.override.yaml` no Compose 2.27. **Não verificado:** shellcheck (a imagem foi
+bloqueada pela permissão de rede) e a execução completa num Ubuntu 24.04 limpo. Próximo passo
+sugerido: testar numa VM limpa antes do servidor de produção.
