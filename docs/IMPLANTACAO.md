@@ -100,17 +100,22 @@ a documentação e as ferramentas de desenvolvimento.
 
 ## Habilitar o reconhecimento facial
 
-Após reconstruir e subir a imagem com as novas dependências, prepare os modelos:
+O build da imagem Docker já baixa e verifica YuNet e SFace. Para atualizar a imagem:
 
 ```bash
-docker compose exec web python manage.py preparar_facial
+docker compose build web
+docker compose up -d
 ```
 
-O comando precisa de acesso HTTPS ao repositório OpenCV no GitHub para baixar cerca de
-39 MB de modelos públicos. Faça isso a cada recriação do container, ou monte um diretório
-persistente e gravável pelo usuário `appuser` em `FACIAL_MODELS_DIR`. Os modelos são públicos;
-os cadastros biométricos ficam no PostgreSQL e acompanham seus backups. O botão comum
-funciona mesmo sem modelos instalados.
+O build precisa de acesso HTTPS ao repositório OpenCV no GitHub para baixar cerca de
+39 MB de modelos públicos; o SHA-256 esperado é conferido antes de aceitar cada arquivo.
+Os modelos ficam em `/app/modelos_faciais`, dentro da imagem. Recriar o container conserva
+os modelos sem baixar novamente em execução. Os binários continuam fora do Git e do
+contexto de build; não é necessário enviá-los manualmente nem usar um volume para eles.
+Se definir `FACIAL_MODELS_DIR` para outro caminho, prepare os modelos nesse diretório.
+Os cadastros biométricos ficam no PostgreSQL e acompanham seus backups. O botão comum
+funciona mesmo sem modelos instalados. A imagem foi construída e os dois modelos foram
+carregados em um container descartável sem rede.
 
 Publique a aplicação com HTTPS para o navegador permitir a câmera fora de `localhost`.
 O modo compartilhado exige autorização de um gestor e encerra seu login antes de liberar
@@ -122,5 +127,8 @@ As fotos escolhidas pelos colaboradores ficam em `/app/media`, no volume `media_
 do Compose. A imagem cria esse diretório com permissão do usuário `appuser`. Inclua o
 volume no backup junto do PostgreSQL; o banco guarda o nome do arquivo e não seu conteúdo.
 Não publique a pasta como mídia aberta: a aplicação entrega as fotos pela rota privada.
-`docker compose config --quiet` foi validado após adicionar o volume; esta alteração não
-incluiu um novo teste de build e execução do Docker.
+As fotos novas são normalizadas para WebP; `media/.gitkeep` mantém a pasta no repositório,
+e os demais arquivos de mídia continuam ignorados pelo Git.
+`docker compose config --quiet` e o build foram validados. O contêiner de verificação
+carregou os modelos sem rede e confirmou suporte WebP; não iniciou banco nem aplicação
+de produção.

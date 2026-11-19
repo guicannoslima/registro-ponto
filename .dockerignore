@@ -26,6 +26,7 @@ __pycache__/
 # Dados locais e arquivos gerados
 db.sqlite3
 media/
+modelos_faciais/
 staticfiles/
 *.log
 

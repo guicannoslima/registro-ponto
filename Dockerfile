@@ -35,7 +35,15 @@ WORKDIR /app
 COPY --from=builder /wheels /wheels
 RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
 
-# Copia o código do projeto
+# Inclui os modelos públicos verificados na imagem, sem banco nem segredos de ambiente.
+# O download fica em uma camada que não muda a cada ajuste nas telas.
+COPY ponto/management/commands/preparar_facial.py ponto/management/commands/preparar_facial.py
+RUN python -c "from pathlib import Path; \
+    from django.conf import settings; \
+    settings.configure(FACIAL_MODELS_DIR=Path('/app/modelos_faciais')); \
+    from ponto.management.commands.preparar_facial import Command; Command().handle()"
+
+# Copia o código do projeto; modelos locais ficam fora do contexto de build.
 COPY . .
 
 # Garante que o entrypoint tenha quebra de linha Unix (LF) e seja executável,
