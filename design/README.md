@@ -26,6 +26,7 @@ senha ficam como estão; as pranchas usam o recorte do header real.
 | Rejeitar solicitação | Confirmação no layout, com exemplo de erro de validação |
 | Histórico de alterações | Coluna da batida alterada e filtros por funcionário, ação e período |
 | Relatório de ponto | Filtro horizontal, nome completo no select, totais em destaque e situação por cor e texto |
+| Relatório de ponto · PDF no iframe | **Gerar relatório** mostra o cartão ponto em PDF na própria página |
 
 Três telas atuais (`excluir_ponto.html`, `solicitar_exclusao.html` e `rejeitar_solicitacao.html`)
 não herdam o layout e abrem sem header nem CSS; a proposta as traz para dentro dele.
