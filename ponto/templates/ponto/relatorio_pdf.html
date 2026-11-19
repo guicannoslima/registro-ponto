@@ -205,13 +205,13 @@
             <td class="cabeca">ENT 1</td><td class="cabeca">SAÍ 1</td><td class="cabeca">ENT 2</td>
             <td class="cabeca">SAÍ 2</td><td class="cabeca">ENT 3</td><td class="cabeca">SAÍ 3</td>
         </tr>
-        {% for dia in horario %}
+        {% for dia in item.horario %}
             <tr>
                 {% if forloop.counter == 1 %}<td class="rotulo">Nome</td><td class="valor"><span style="font-size: 9.5pt; font-weight: bold;">{{ nome }}</span></td>
                 {% elif forloop.counter == 2 %}<td class="rotulo">CPF</td><td class="valor">{{ funcionario.perfil.cpf|default:"—" }}</td>
                 {% elif forloop.counter == 3 %}<td class="rotulo">Função</td><td class="valor">{{ funcionario.perfil.funcao.nome|default:"—" }}</td>
                 {% elif forloop.counter == 4 %}<td class="rotulo">Gestor</td><td class="valor">{{ gestor }}</td>
-                {% elif forloop.counter == 5 %}<td class="rotulo">OBS</td><td class="valor">Jornada de {{ jornada }}; tolerância de {{ tolerancia }} min no saldo.</td>
+                {% elif forloop.counter == 5 %}<td class="rotulo">OBS</td><td class="valor">{{ item.jornada_nome }}; tolerância de {{ tolerancia }} min no saldo.</td>
                 {% else %}<td></td><td></td>
                 {% endif %}
                 <td class="vao"></td>

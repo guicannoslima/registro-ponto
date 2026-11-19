@@ -1,4 +1,4 @@
-<ol class="linha-dia" aria-label="Batidas do dia, em ordem">
+<ol class="linha-dia" style="--batidas-dia: {{ linha|length }}" aria-label="Batidas do dia, em ordem">
     {% for passo in linha %}
         <li class="linha-dia__passo{% if passo.registro %} linha-dia__passo--feito{% elif passo.proxima %} linha-dia__passo--proxima{% endif %}">
             <span class="linha-dia__marco" aria-hidden="true">

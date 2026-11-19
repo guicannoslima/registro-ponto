@@ -139,3 +139,12 @@ A página **Foto ampliada na confirmação** apresenta foto maior em computador,
 celular, preservando a confirmação por 3 segundos. A foto cresce até 512 × 512 e se
 ajusta à área disponível; em telas baixas, fica ao lado da mensagem. Prévias em
 `previas/foto-ampliada/`.
+
+## Jornadas e feriados
+
+A página **Jornadas e feriados** foi desenhada antes do código, mantendo Figtree e as
+cores existentes. Mostra a lista de jornadas, horários por dia, vínculo no cadastro do
+colaborador e calendário anual. Prévias em `previas/jornadas/`. Os dois novos subitens
+ficam em Administração; o cabeçalho conserva o layout. A implementação calcula a carga
+pelos horários e mantém snapshots por vigência. Pausa do café segue remunerada; não há
+configuração separada de remuneração na tela.

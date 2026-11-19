@@ -27,13 +27,9 @@ from .constants import (
     ACAO_REGISTRAR,
     AVISO_PONTO_MS,
     CONFIRMACAO_PONTO_MS,
-    DIAS_ABREVIADOS,
     DIAS_DE_AJUSTE,
-    DIAS_UTEIS,
     EMPRESA_ENDERECO,
     EMPRESA_NOME,
-    HORARIO_DE_TRABALHO,
-    JORNADA_DIARIA,
     TERMINAL_INATIVIDADE_MS,
     TERMINAL_MANUTENCAO_MS,
     TERMINAL_SESSAO_SEGUNDOS,
@@ -43,10 +39,13 @@ from .constants import (
 from .email import BackendEmail
 from .exceptions import ErroBatida, ErroFacial, SemRosto
 from .forms import (
+    AnoFeriadosForm,
     CadastroForm,
     ConfiguracaoEmailForm,
+    FeriadoForm,
     FotoPerfilForm,
     HistoricoFiltroForm,
+    JornadaForm,
     MotivoExclusaoForm,
     MotivoRejeicaoForm,
     RegistroManualForm,
@@ -58,7 +57,9 @@ from .forms import (
 )
 from .models import (
     ConfiguracaoEmail,
+    Feriado,
     HistoricoAlteracaoPonto,
+    Jornada,
     Perfil,
     RegistroPonto,
     SolicitacaoAjustePonto,
@@ -67,20 +68,23 @@ from .permissoes import funcionarios_visiveis
 from .relatorios import calcular_horas_dia, calcular_progresso, formatar_timedelta, montar_relatorio
 from .services import (
     _gestor,
+    configuracao_jornada,
     estado_cadastro_facial,
+    jornadas_para_listagem,
     linha_do_dia,
     obter_foto_perfil,
     pessoas_para_cadastro_facial,
     pessoas_para_relatorio,
     preparar_cartao_ponto,
-    proximo_tipo,
     registrar_batida,
     registrar_ponto_facial,
     remover_cadastro_facial,
     salvar_cadastro_facial,
     salvar_foto_perfil,
+    sincronizar_feriados_nacionais,
     situacao,
     tem_cadastro_facial,
+    tipos_da_jornada,
 )
 from .utils import _erro, _limitar_captura, _presenca_facial, _resposta_registro_facial, data_por_extenso, rotulo_do_dia
 
@@ -97,10 +101,12 @@ def _linhas_da_equipe(gestor, hoje, agora):
     equipe_visivel = funcionarios_visiveis(gestor).select_related('perfil__funcao')
     for usuario in equipe_visivel.order_by('first_name', 'last_name'):
         registros = _registros_do_dia(usuario, hoje)
-        progresso = calcular_progresso(calcular_horas_dia(usuario, hoje)['horarios'], agora)
+        progresso = calcular_progresso(
+            calcular_horas_dia(usuario, hoje)['horarios'], agora, configuracao_jornada(usuario, hoje)['carga']
+        )
         linhas.append({
             'usuario': usuario,
-            'linha': linha_do_dia(registros),
+            'linha': linha_do_dia(registros, usuario=usuario, data=hoje),
             'situacao': situacao(registros),
             'ultima': registros[-1] if registros else None,
             'trabalhado': formatar_timedelta(progresso['tempo_trabalhado']) if registros else None,
@@ -115,8 +121,11 @@ def painel(request):
     agora = timezone.now()
 
     registros_hoje = _registros_do_dia(request.user, hoje)
-    progresso = calcular_progresso(calcular_horas_dia(request.user, hoje)['horarios'], agora)
-    proximo = proximo_tipo(registros_hoje)
+    progresso = calcular_progresso(
+        calcular_horas_dia(request.user, hoje)['horarios'], agora, configuracao_jornada(request.user, hoje)['carga']
+    )
+    feitos = {r.tipo for r in registros_hoje}
+    proximo = next((t for t in tipos_da_jornada(request.user, hoje) if t not in feitos), None)
 
     ontem = hoje - timedelta(days=1)
     registros_ontem = _registros_do_dia(request.user, ontem)
@@ -125,7 +134,7 @@ def painel(request):
     contexto = {
         'perfil': perfil,
         'titulo_do_dia': data_por_extenso(hoje),
-        'linha': linha_do_dia(registros_hoje),
+        'linha': linha_do_dia(registros_hoje, usuario=request.user, data=hoje),
         'registros_hoje': registros_hoje,
         'exclusoes_pendentes': set(
             SolicitacaoAjustePonto.objects.filter(
@@ -139,12 +148,12 @@ def painel(request):
         'restante_texto': formatar_timedelta(progresso['tempo_restante']),
         'extra_texto': formatar_timedelta(progresso['tempo_extra']),
         'acao_registrar': ACAO_REGISTRAR.get(proximo),
-        'jornada_texto': formatar_timedelta(JORNADA_DIARIA),
+        'jornada_texto': formatar_timedelta(configuracao_jornada(request.user, hoje)['carga']),
         'tolerancia_minutos': int(TOLERANCIA_SALDO.total_seconds() // 60),
         'hora_atual': timezone.localtime(agora),
         'ontem': ontem,
         'ontem_titulo': data_por_extenso(ontem),
-        'linha_ontem': linha_do_dia(registros_ontem, marcar_proxima=False),
+        'linha_ontem': linha_do_dia(registros_ontem, marcar_proxima=False, usuario=request.user, data=ontem),
         'registros_ontem': registros_ontem,
         'ontem_completo': resultado_ontem['completo'],
         'ontem_trabalhado': (
@@ -489,11 +498,6 @@ def _cartao_ponto_pdf(funcionarios, dados, inline):
         'logo': finders.find('ponto/logo.png'),
         'empresa_nome': EMPRESA_NOME,
         'empresa_endereco': EMPRESA_ENDERECO,
-        'horario': [
-            {'nome': nome.upper(), 'pares': HORARIO_DE_TRABALHO if indice in DIAS_UTEIS else ()}
-            for indice, nome in enumerate(DIAS_ABREVIADOS)
-        ],
-        'jornada': formatar_timedelta(JORNADA_DIARIA),
         'tolerancia': int(TOLERANCIA_SALDO.total_seconds() // 60),
     })
     response = HttpResponse(content_type='application/pdf')
@@ -757,7 +761,9 @@ def usuario_formulario(request, usuario_id=None):
             update_session_auth_hash(request, usuario)
         messages.success(request, 'Usuário atualizado.' if pessoa else 'Usuário cadastrado.')
         return redirect('usuarios')
-    return render(request, 'ponto/usuario_formulario.html', {'form': form, 'pessoa': pessoa})
+    return render(request, 'ponto/usuario_formulario.html', {
+        'form': form, 'pessoa': pessoa, 'vinculos': pessoa.perfil.jornadas.all() if pessoa else [],
+    })
 
 
 def _email_do_ambiente():
@@ -815,3 +821,57 @@ def configurar_email(request):
             'tem_senha': bool(configuracao.senha_criptografada if configuracao else settings.EMAIL_HOST_PASSWORD),
         },
     )
+
+
+@administrador_required
+@require_http_methods(['GET'])
+def jornadas(request):
+    return render(request, 'ponto/jornadas.html', {'jornadas': jornadas_para_listagem()})
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def jornada_formulario(request, jornada_id=None):
+    jornada = get_object_or_404(Jornada, pk=jornada_id) if jornada_id else None
+    if not jornada and request.GET.get('copiar'):
+        original = get_object_or_404(Jornada, pk=request.GET['copiar'])
+        jornada = Jornada(nome=f'Cópia de {original.nome}', semana=original.semana)
+    dados = request.POST if request.method == 'POST' else None
+    form = JornadaForm(dados, instance=jornada)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Jornada salva. Vincule no cadastro do colaborador para aplicar os horários.')
+        return redirect('jornadas')
+    return render(request, 'ponto/jornada_formulario.html', {'form': form, 'jornada': jornada})
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def feriados(request):
+    dados = request.POST if request.method == 'POST' else request.GET or {'ano': timezone.localdate().year}
+    form = AnoFeriadosForm(dados)
+    ano = timezone.localdate().year
+    if form.is_valid():
+        ano = form.cleaned_data['ano']
+        if request.method == 'POST':
+            criados = sincronizar_feriados_nacionais(ano)
+            messages.success(
+                request,
+                f'Calendário de {ano} sincronizado: {criados} novos feriados. Cadastros existentes preservados.'
+            )
+            return redirect(f"{reverse('feriados')}?ano={ano}")
+    return render(request, 'ponto/feriados.html', {
+        'form': form, 'ano': ano, 'feriados': Feriado.objects.filter(data__year=ano),
+    })
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def feriado_formulario(request, feriado_id=None):
+    feriado = get_object_or_404(Feriado, pk=feriado_id) if feriado_id else None
+    form = FeriadoForm(request.POST if request.method == 'POST' else None, instance=feriado)
+    if request.method == 'POST' and form.is_valid():
+        item = form.save()
+        messages.success(request, 'Feriado salvo.')
+        return redirect(f"{reverse('feriados')}?ano={item.data.year}")
+    return render(request, 'ponto/feriado_formulario.html', {'form': form})

@@ -3,10 +3,22 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 
 from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES
 from .email import cifrar_senha
-from .models import ConfiguracaoEmail, Funcao, HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
+from .models import (
+    ConfiguracaoEmail,
+    Feriado,
+    Funcao,
+    HistoricoAlteracaoPonto,
+    Jornada,
+    Perfil,
+    RegistroPonto,
+    SolicitacaoAjustePonto,
+)
+from .services import jornada_vigente, vincular_jornada
 
 
 class FuncionarioChoiceField(forms.ModelChoiceField):
@@ -101,6 +113,7 @@ class HistoricoFiltroForm(forms.Form):
         if funcionarios is not None:
             self.fields['funcionario'].queryset = funcionarios
 
+
 class RelatorioForm(forms.Form):
     funcionario = FuncionarioChoiceField(
         label='Colaborador', empty_label='Selecione um colaborador', queryset=User.objects.none(), required=False
@@ -163,12 +176,29 @@ class UsuarioAdministracaoForm(forms.ModelForm):
     last_name = forms.CharField(label='Sobrenome', max_length=150)
     email = forms.EmailField(label='E-mail')
     cpf = forms.CharField(
-        label='CPF', max_length=14, required=False,
+        label='CPF',
+        max_length=14,
+        required=False,
         widget=forms.TextInput(attrs={'inputmode': 'numeric', 'data-mascara': 'cpf', 'placeholder': '000.000.000-00'}),
     )
     papel = forms.ChoiceField(label='Papel', choices=Perfil.PAPEL_CHOICES)
     funcao = forms.ModelChoiceField(label='Função', queryset=Funcao.objects.all(), required=False)
     gestor = forms.ModelChoiceField(label='Gestor', queryset=Perfil.objects.none(), required=False)
+    jornada = forms.ModelChoiceField(
+        label='Jornada',
+        queryset=Jornada.objects.none(),
+        required=False,
+        empty_label='Manter regra anterior (7h45min)',
+    )
+    atualizar_jornada = forms.BooleanField(
+        label='Aplicar novamente os horários atuais da jornada selecionada',
+        required=False,
+    )
+    jornada_inicio = forms.DateField(
+        label='Válida a partir de',
+        required=False,
+        widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+    )
     senha = forms.CharField(
         label='Senha', widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}), required=False, strip=False
     )
@@ -188,6 +218,11 @@ class UsuarioAdministracaoForm(forms.ModelForm):
     def __init__(self, *args, administrador, **kwargs):
         super().__init__(*args, **kwargs)
         self.administrador = administrador
+        self.vinculo_atual = jornada_vigente(self.instance, timezone.localdate()) if self.instance.pk else None
+        atual_id = self.vinculo_atual.jornada_id if self.vinculo_atual else None
+        self.fields['jornada'].queryset = Jornada.objects.filter(Q(ativa=True) | Q(pk=atual_id))
+        self.initial['jornada'] = atual_id
+        self.initial['jornada_inicio'] = timezone.localdate()
         self.fields['gestor'].queryset = (
             Perfil.objects.filter(
                 papel=Perfil.PAPEL_GESTOR,
@@ -217,6 +252,12 @@ class UsuarioAdministracaoForm(forms.ModelForm):
 
     def clean(self):
         dados = super().clean()
+        atual_id = self.vinculo_atual.jornada_id if self.vinculo_atual else None
+        nova = dados.get('jornada')
+        if ((nova.pk if nova else None) != atual_id or dados.get('atualizar_jornada')) and not dados.get(
+            'jornada_inicio'
+        ):
+            self.add_error('jornada_inicio', 'Informe quando a nova jornada começa a valer.')
         if dados.get('senha') != dados.get('confirmar_senha'):
             self.add_error('confirmar_senha', 'As senhas não coincidem.')
         if self.instance.pk == self.administrador.pk:
@@ -246,6 +287,10 @@ class UsuarioAdministracaoForm(forms.ModelForm):
         for campo in ('cpf', 'papel', 'funcao', 'gestor'):
             setattr(perfil, campo, self.cleaned_data[campo])
         perfil.save()
+        atual_id = self.vinculo_atual.jornada_id if self.vinculo_atual else None
+        nova = self.cleaned_data['jornada']
+        if (nova.pk if nova else None) != atual_id or self.cleaned_data.get('atualizar_jornada'):
+            vincular_jornada(perfil, nova, self.cleaned_data['jornada_inicio'])
         return usuario
 
 
@@ -308,7 +353,8 @@ class TesteEmailForm(forms.Form):
 
 class FotoPerfilForm(forms.Form):
     foto = forms.ImageField(
-        label='Foto de perfil', widget=forms.FileInput(attrs={'accept': 'image/jpeg,image/png,image/webp'}),
+        label='Foto de perfil',
+        widget=forms.FileInput(attrs={'accept': 'image/jpeg,image/png,image/webp'}),
         help_text='JPEG, PNG ou WebP, até 5 MB. Fotos grandes são reduzidas automaticamente.',
     )
 
@@ -319,3 +365,69 @@ class FotoPerfilForm(forms.Form):
         if foto.image.format not in ('JPEG', 'PNG', 'WEBP'):
             raise forms.ValidationError('Escolha uma foto JPEG, PNG ou WebP.')
         return foto
+
+
+class JornadaForm(forms.ModelForm):
+    class Meta:
+        model = Jornada
+        fields = ['nome', 'ativa']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        nomes = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
+        rotulos = ['Entrada', 'Saída almoço', 'Volta almoço', 'Saída café', 'Volta café', 'Saída']
+        self.dias = []
+        for dia, nome in enumerate(nomes):
+            valores = self.instance.semana.get(str(dia), ['', '', '', '', '', ''])
+            campos = []
+            for indice, rotulo in enumerate(rotulos):
+                chave = f'dia_{dia}_{indice}'
+                self.fields[chave] = forms.TimeField(
+                    label=rotulo,
+                    required=False,
+                    input_formats=['%H:%M'],
+                    widget=forms.TimeInput(attrs={'type': 'time'}, format='%H:%M'),
+                    initial=valores[indice] or None,
+                )
+                campos.append(self[chave])
+            self.dias.append({'nome': nome, 'campos': campos})
+
+    def clean(self):
+        dados = super().clean()
+        semana = {}
+        for dia in range(7):
+            horas = [dados.get(f'dia_{dia}_{i}') for i in range(6)]
+            preenchidas = [h for h in horas if h is not None]
+            if not preenchidas:
+                continue
+            erro = None
+            if not horas[0] or not horas[5]:
+                erro = 'Preencha entrada e saída ou deixe o dia inteiro vazio para folga.'
+            elif bool(horas[1]) != bool(horas[2]) or bool(horas[3]) != bool(horas[4]):
+                erro = 'Preencha a saída e a volta de cada intervalo.'
+            elif any(a >= b for a, b in zip(preenchidas, preenchidas[1:], strict=False)):
+                erro = 'Os horários precisam estar em ordem, dentro do mesmo dia.'
+            if erro:
+                self.add_error(f'dia_{dia}_0', erro)
+            else:
+                semana[str(dia)] = [h.strftime('%H:%M') if h else '' for h in horas]
+        if not semana:
+            raise forms.ValidationError('Cadastre ao menos um dia de trabalho.')
+        self.semana = semana
+        return dados
+
+    def save(self, commit=True):
+        self.instance.semana = self.semana
+        return super().save(commit=commit)
+
+
+class FeriadoForm(forms.ModelForm):
+    class Meta:
+        model = Feriado
+        fields = ['data', 'nome', 'dispensa_expediente']
+        widgets = {'data': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
+        labels = {'dispensa_expediente': 'Dispensa expediente na empresa'}
+
+
+class AnoFeriadosForm(forms.Form):
+    ano = forms.IntegerField(label='Ano', min_value=2000, max_value=2099)

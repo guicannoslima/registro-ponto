@@ -48,6 +48,8 @@
                             <div class="menu-grupo__itens">
                                 {% if user.perfil.papel == 'admin' %}
                                     <a href="{% url 'usuarios' %}">Usuários</a>
+                                    <a href="{% url 'jornadas' %}">Jornadas</a>
+                                    <a href="{% url 'feriados' %}">Feriados</a>
                                     <a href="{% url 'configurar_email' %}">Envio de e-mails</a>
                                 {% endif %}
                                 <form method="post" action="{% url 'abrir_terminal' %}">{% csrf_token %}<button type="submit">Abrir terminal compartilhado</button><p>Encerra sua sessão e libera apenas o registro por rosto.</p></form>

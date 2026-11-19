@@ -99,3 +99,18 @@ O WhiteNoise serve os estáticos com `CompressedManifestStaticFilesStorage`, que
 `collectstatic` quando `DEBUG=False`; o entrypoint do Docker já roda esse comando.
 O e-mail usa o backend SMTP do Gmail na porta 587 com TLS, configurado pelas
 variáveis `EMAIL_*` ([Implantação](IMPLANTACAO.md#variáveis-de-ambiente)).
+
+## Jornadas e calendário
+
+`Jornada` guarda um modelo semanal (`semana`: dia 0–6 → seis horários, vazios quando
+não há intervalo). `VinculoJornada` associa perfil, modelo e início de vigência, com
+snapshot dos horários e nome. A relação protege o modelo contra exclusão; o snapshot
+preserva cálculos mesmo quando o modelo é editado. A restrição perfil/início impede dois
+vínculos na mesma data. `Feriado` tem data única, origem e dispensa de expediente.
+
+Serviços resolvem vigência, carga, sequência de batidas e sincronização idempotente.
+As novas telas só aceitam administrador. Formulários validam pares de intervalos e ordem
+estrita dentro do dia. A interface não vincula modelos inativos a novas pessoas.
+As regras anteriores de fim de semana são preservadas para perfis sem vínculo; para
+jornadas novas, dias vazios têm carga zero. Feriado com dispensa tem precedência sobre
+ambas as regras. [Operação e limites](USO.md#jornadas-e-feriados).

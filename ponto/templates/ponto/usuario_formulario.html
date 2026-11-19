@@ -11,6 +11,10 @@
             <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.cpf %}{% include 'ponto/_campo.html' with campo=form.funcao %}</div>
             <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.papel %}{% include 'ponto/_campo.html' with campo=form.gestor %}</div>
             <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.senha %}{% include 'ponto/_campo.html' with campo=form.confirmar_senha %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.jornada %}{% include 'ponto/_campo.html' with campo=form.jornada_inicio %}</div>
+            <p class="apoio pequeno">A jornada começa na data informada. Os dias anteriores mantêm a regra vigente na época. <a href="{% url 'jornadas' %}" class="link">Gerenciar jornadas</a></p>
+            <label class="opcao">{{ form.atualizar_jornada }} {{ form.atualizar_jornada.label }}</label>
+            {% if vinculos %}<details><summary>Histórico e jornadas agendadas</summary><ul>{% for vinculo in vinculos %}<li>{{ vinculo.inicio|date:'d/m/Y' }} — {{ vinculo.nome|default:'Regra anterior (7h45min)' }}</li>{% endfor %}</ul></details>{% endif %}
             <label class="opcao">{{ form.is_active }} Usuário ativo</label>{{ form.is_active.errors }}
             <p class="apoio pequeno">Colaboradores veem os próprios pontos; gestores veem sua equipe; administradores gerenciam usuários e configurações.</p>
             <div class="acoes"><button class="btn" type="submit">{% if pessoa %}Salvar alterações{% else %}Cadastrar usuário{% endif %}</button><a href="{% url 'usuarios' %}" class="btn btn--secundario">Cancelar</a></div>

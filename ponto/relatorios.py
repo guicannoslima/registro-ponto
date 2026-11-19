@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from .constants import JORNADA_DIARIA, TOLERANCIA_SALDO
 from .models import RegistroPonto
+from .services import configuracao_jornada
 
 
 def calcular_horas_dia(funcionario,data):
@@ -30,7 +31,7 @@ def calcular_horas_dia(funcionario,data):
             tempo_almoco = timedelta()
         
         tempo_trabalhado = tempo_total - tempo_almoco
-        esperado = JORNADA_DIARIA
+        esperado = configuracao_jornada(funcionario, data)['carga']
         diferenca = tempo_trabalhado - esperado
         if abs(diferenca) <= TOLERANCIA_SALDO:
             diferenca = timedelta()
@@ -135,8 +136,8 @@ def calcular_resumo(dias_calculados):
         'horas_extras': horas_extras,
     }
 
-def calcular_progresso(horarios, agora):
-    jornada = JORNADA_DIARIA
+def calcular_progresso(horarios, agora, jornada=JORNADA_DIARIA):
+    divisor = jornada.total_seconds() or 1
     tolerancia = TOLERANCIA_SALDO
 
     if RegistroPonto.ENTRADA not in horarios:
@@ -165,7 +166,7 @@ def calcular_progresso(horarios, agora):
 
     tempo_trabalhado = fim - entrada - almoco
 
-    percentual = (tempo_trabalhado.total_seconds()) / (jornada.total_seconds()) * 100
+    percentual = (tempo_trabalhado.total_seconds()) / divisor * 100
     percentual = int(min(100, max(0, percentual)))
 
     if RegistroPonto.SAIDA in horarios:
@@ -184,7 +185,7 @@ def calcular_progresso(horarios, agora):
     else:
         tempo_extra = max(excesso_bruto, timedelta())
     
-    percentual_extra = (tempo_extra.total_seconds()) / (jornada.total_seconds()) * 100
+    percentual_extra = (tempo_extra.total_seconds()) / divisor * 100
     percentual_extra = int(min(100, max(0, percentual_extra)))
 
     return {

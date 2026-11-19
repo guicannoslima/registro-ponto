@@ -151,3 +151,17 @@ ruff check <arquivos alterados>
 
 Para mudanças de tela, renderize a página com dados (banco de design) e compare com a prancha;
 para o PDF, gere o arquivo e converta com `pdftoppm` para conferir.
+
+## Revisão de 19/11 — jornadas e feriados
+
+Administração ganhou **Jornadas** e **Feriados**. Migrações `0011` e `0012` aplicadas
+no banco local; oito modelos semanais pré-carregados, sem atribuição automática.
+Cadastro/edição de usuário permite vincular por vigência, com snapshots e histórico.
+Sequência de batidas, painel e relatório usam a jornada individual. Jornadas dentro do
+mesmo dia; 12×36 e noturnas ainda fora do suporte. Regras anteriores permanecem para
+quem não foi vinculado, incluindo a divergência de carga já registrada nas pendências.
+Feriados civis nacionais de 2026 carregados (nove datas); setup Docker sincroniza o ano
+corrente localmente e a tela permite outros anos. Não existe sincronização com serviço
+externo. [Uso, fontes e limites](USO.md#jornadas-e-feriados).
+Validação: 43 testes distintos afetados aprovados, sem repetir a suíte completa;
+cinco telas em três resoluções no Chrome e checks de Django/migrações aprovados.

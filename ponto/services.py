@@ -1,6 +1,6 @@
 """Regras, consultas e preparação dos dados de negócio do registro de ponto."""
 
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from uuid import uuid4
 
@@ -15,33 +15,36 @@ from .constants import (
     DIAS_ABREVIADOS,
     DIAS_UTEIS,
     FACIAL_LIMIAR,
+    FERIADOS_NACIONAIS,
+    HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
     ROTULOS_CURTOS,
 )
 from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial
 from .facial import extrair_vetor, identificar
-from .models import CadastroFacial, Perfil, RegistroPonto
+from .models import CadastroFacial, Feriado, Jornada, Perfil, RegistroPonto, VinculoJornada
 from .permissoes import funcionarios_visiveis
 from .utils import hhmm
 
 
-def proximo_tipo(registros):
+def proximo_tipo(registros, tipos=None):
     """O primeiro tipo da ordem do dia ainda sem batida, ou None quando o dia está completo."""
     feitos = {r.tipo for r in registros}
-    for tipo in RegistroPonto.ORDEM_TIPOS:
+    for tipo in tipos if tipos is not None else RegistroPonto.ORDEM_TIPOS:
         if tipo not in feitos:
             return tipo
     return None
 
 
-def linha_do_dia(registros, marcar_proxima=True):
+def linha_do_dia(registros, marcar_proxima=True, usuario=None, data=None):
     """As 6 batidas na ordem do dia, cada uma com o registro (ou None) e se é a próxima.
 
     Para um dia que já passou, marcar_proxima=False deixa as batidas que faltaram só como pendentes.
     """
     por_tipo = {r.tipo: r for r in registros}
-    proximo = proximo_tipo(registros) if marcar_proxima else None
+    tipos = tipos_da_jornada(usuario, data or timezone.localdate()) if usuario else RegistroPonto.ORDEM_TIPOS
+    proximo = proximo_tipo(registros, tipos) if marcar_proxima else None
     nomes = dict(RegistroPonto.TIPO_CHOICES)
     return [
         {
@@ -51,7 +54,7 @@ def linha_do_dia(registros, marcar_proxima=True):
             'registro': por_tipo.get(tipo),
             'proxima': tipo == proximo,
         }
-        for tipo in RegistroPonto.ORDEM_TIPOS
+        for tipo in tipos
     ]
 
 
@@ -86,7 +89,8 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
     linhas = []
     for dia in item['relatorio']:
         data, horarios = dia['data'], dia['horarios']
-        util = data.weekday() in DIAS_UTEIS
+        configuracao = configuracao_jornada(item['funcionario'], data)
+        util = configuracao['util'] and not configuracao['feriado']
         normais = faltas = extras = carga = None
         observacao = ''
 
@@ -100,11 +104,16 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
                 normais = dia['tempo_trabalhado']
                 faltas = -diferenca
         elif horarios:
-            carga = JORNADA_DIARIA if util else None
+            carga = configuracao['carga'] if util else None
             observacao = 'Incompleto'
         elif util and data < hoje:
-            carga = faltas = JORNADA_DIARIA
+            carga = faltas = configuracao['carga']
             observacao = 'Falta'
+
+        if configuracao['feriado']:
+            observacao = 'Feriado'
+            if horarios and dia['status'] != 'Completo':
+                observacao += ' · Incompleto'
 
         for chave, valor in (('normais', normais), ('faltas', faltas), ('extras', extras), ('carga', carga)):
             if valor:
@@ -129,6 +138,21 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             }
         )
 
+    configuracao = configuracao_jornada(item['funcionario'], data_fim)
+    vinculo = jornada_vigente(item['funcionario'], data_fim)
+    item['horario'] = []
+    for indice, nome in enumerate(DIAS_ABREVIADOS):
+        horas = vinculo.semana.get(str(indice), []) if configuracao['personalizado'] else []
+        pares = []
+        if horas and horas[0]:
+            preenchidas = [h for h in horas if h]
+            pares = list(zip(preenchidas[::2], preenchidas[1::2], strict=True))
+        elif not configuracao['personalizado'] and indice in DIAS_UTEIS:
+            pares = HORARIO_DE_TRABALHO
+        if pares:
+            pares = list(pares) + [('', '')] * (3 - len(pares))
+        item['horario'].append({'nome': nome.upper(), 'pares': pares})
+    item['jornada_nome'] = configuracao['nome']
     item['cartao'] = {
         'linhas': linhas,
         'totais': {chave: hhmm(valor) or '00:00' for chave, valor in totais.items()},
@@ -142,7 +166,7 @@ def proximo_tipo_ponto(funcionario):
     registros = RegistroPonto.objects.filter(funcionario=funcionario, data_hora__date=hoje, ativo=True)
     batidas_registradas = registros.values_list('tipo', flat=True)
 
-    for tipo in RegistroPonto.ORDEM_TIPOS:
+    for tipo in tipos_da_jornada(funcionario, hoje):
         if tipo not in batidas_registradas:
             return tipo
 
@@ -284,3 +308,82 @@ def _gestor(usuario):
 
 def _pessoas(usuario):
     return (funcionarios_visiveis(usuario) | User.objects.filter(pk=usuario.pk)).filter(is_active=True)
+
+
+def sincronizar_feriados_nacionais(ano):
+    criados = 0
+    with transaction.atomic():
+        for mes, dia, nome in FERIADOS_NACIONAIS:
+            if (mes, dia) == (11, 20) and ano < 2024:
+                continue
+            _, criado = Feriado.objects.get_or_create(
+                data=date(ano, mes, dia),
+                defaults={'nome': nome, 'nacional': True},
+            )
+            criados += criado
+    return criados
+
+
+def duracao_jornada(horarios):
+    if not horarios or not horarios[0]:
+        return timedelta()
+
+    def instante(hora):
+        return datetime.combine(date(2000, 1, 1), datetime.strptime(hora, '%H:%M').time())
+
+    total = instante(horarios[5]) - instante(horarios[0])
+    if horarios[1] and horarios[2]:
+        total -= instante(horarios[2]) - instante(horarios[1])
+    # O café é remunerado, como na regra original do sistema.
+    return total
+
+
+def jornada_vigente(usuario, data):
+    return usuario.perfil.jornadas.filter(inicio__lte=data).first()
+
+
+def configuracao_jornada(usuario, data):
+    vinculo = jornada_vigente(usuario, data)
+    personalizado = bool(vinculo and vinculo.jornada_id)
+    horarios = vinculo.semana.get(str(data.weekday()), []) if personalizado else []
+    feriado = Feriado.objects.filter(data=data, dispensa_expediente=True).first()
+    carga = duracao_jornada(horarios) if personalizado else JORNADA_DIARIA
+    if feriado:
+        carga = timedelta()
+    return {
+        'carga': carga,
+        'horarios': horarios,
+        'personalizado': personalizado,
+        'nome': vinculo.nome if personalizado else 'Regra anterior (7h45min)',
+        'util': bool(horarios and horarios[0]) if personalizado else data.weekday() in DIAS_UTEIS,
+        'feriado': feriado,
+    }
+
+
+@transaction.atomic
+def vincular_jornada(perfil, jornada, inicio):
+    Perfil.objects.select_for_update().get(pk=perfil.pk)
+    VinculoJornada.objects.update_or_create(
+        perfil=perfil,
+        inicio=inicio,
+        defaults={
+            'jornada': jornada,
+            'nome': jornada.nome if jornada else '',
+            'semana': jornada.semana if jornada else {},
+        },
+    )
+
+
+def jornadas_para_listagem():
+    jornadas = list(Jornada.objects.all())
+    for jornada in jornadas:
+        jornada.carga_semanal = sum((duracao_jornada(h) for h in jornada.semana.values()), timedelta())
+    return jornadas
+
+
+def tipos_da_jornada(usuario, data):
+    vinculo = jornada_vigente(usuario, data)
+    if not vinculo or not vinculo.jornada_id:
+        return RegistroPonto.ORDEM_TIPOS
+    horarios = vinculo.semana.get(str(data.weekday())) or next(iter(vinculo.semana.values()), [])
+    return [tipo for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, horarios, strict=True) if hora]

@@ -303,3 +303,23 @@ em 1333×768 e 109×109 em 390×844. Confirmados foto dentro da prévia, ausênc
 rolagem no terminal e de erros JavaScript. Mantida a duração de 3 segundos; alteração
 somente de CSS. Nenhuma nova batida real foi gravada pela verificação de interface.
 `git diff --check` passou.
+
+## Jornadas e feriados — 19/11/2026
+
+Foram executados 40 testes afetados: `JornadasFeriadosTests`, `CartaoPontoTests` e
+`AdministracaoTests`, todos aprovados. A expectativa antiga do menu foi atualizada:
+o gestor tem Administração para abrir o terminal, mas não vê os novos cadastros.
+A suíte completa não foi repetida. As coberturas novas verificam modelos iniciais,
+validação de horários, vigência e snapshot, carga individual, sequência sem café,
+feriado sem falta e com extras, progresso com carga zero, permissões e inativação.
+Verificações adicionais cobrem sincronização pela tela, datas duplicadas e reaplicação.
+
+As cinco telas foram renderizadas com leitura do banco local e conferidas no Chrome
+headless a 1333, 768 e 390 px: sem transbordamento da página ou campos e sem erros JS.
+As capturas temporárias ficaram em `/tmp/ponto-jornadas-browser/`; nenhuma batida ou
+vínculo real foi criado nessa verificação. Pranchas em [design](../design/README.md#jornadas-e-feriados).
+
+Resultado final: 43 testes distintos afetados aprovados — os 40 acima e os três casos
+adicionais de sincronização/cadastro/reaplicação; a última execução isolada teve 15 testes
+em `JornadasFeriadosTests`, todos aprovados. Django check e verificação de migrações
+passaram. Ruff sem novos avisos; os avisos antigos de models, views e relatórios permanecem.

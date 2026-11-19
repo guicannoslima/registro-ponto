@@ -32,7 +32,7 @@
                     <a href="?aba={{ aba }}" class="aba" role="tab" id="aba-{{ aba }}" aria-controls="painel-{{ aba }}"
                        aria-selected="{% if aba == aba_ativa %}true{% else %}false{% endif %}"
                        tabindex="{% if aba == aba_ativa %}0{% else %}-1{% endif %}">
-                        {% if aba == 'hoje' %}Hoje <span class="aba__contagem">{{ registros_hoje|length }} de 6</span>
+                        {% if aba == 'hoje' %}Hoje <span class="aba__contagem">{{ registros_hoje|length }} de {{ linha|length }}</span>
                         {% elif aba == 'ontem' %}Ontem
                         {% else %}Sua equipe <span class="aba__contagem">{{ equipe_linhas|length }}</span>{% endif %}
                     </a>

@@ -757,10 +757,13 @@ class AdministracaoTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get(reverse('usuarios')).status_code, 302)
 
-    def test_menu_mostra_administracao_so_ao_administrador(self):
+    def test_menu_restringe_cadastros_ao_administrador(self):
         self.assertContains(self.client.get(reverse('painel')), '<summary>Administração</summary>', html=True)
         self.client.force_login(self.gestor)
-        self.assertNotContains(self.client.get(reverse('painel')), '<summary>Administração</summary>', html=True)
+        resposta = self.client.get(reverse('painel'))
+        self.assertContains(resposta, '<summary>Administração</summary>', html=True)
+        for rota in ('usuarios', 'jornadas', 'feriados', 'configurar_email'):
+            self.assertNotContains(resposta, f'href="{reverse(rota)}"')
         self.client.force_login(self.funcionario)
         resposta = self.client.get(reverse('painel'))
         self.assertNotContains(resposta, '<summary>Gestão</summary>', html=True)
@@ -1069,3 +1072,198 @@ class RelatorioPermissoesTests(TestCase):
                     pessoas, filtro = gerar_pdf.call_args.args
                     self.assertSetEqual(set(pessoas.values_list('pk', flat=True)), permitidos)
                     self.assertEqual(bool(filtro.get('gerar_todos')), usuario != self.pessoa)
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class JornadasFeriadosTests(TestCase):
+    def setUp(self):
+        from .models import Jornada
+
+        self.admin = User.objects.create_superuser('admin_jornada', 'admin@example.com', 'senha-forte-123')
+        self.pessoa = User.objects.create_user('pessoa_jornada')
+        self.jornada = Jornada.objects.get(nome='40h · Seg–sex · 08h')
+        self.segunda = date(2026, 11, 16)
+        self.client.force_login(self.admin)
+
+    def vincular(self, inicio=None):
+        from .services import vincular_jornada
+
+        vincular_jornada(self.pessoa.perfil, self.jornada, inicio or self.segunda)
+
+    def test_modelos_iniciais_e_cargas(self):
+        from .services import jornadas_para_listagem
+
+        cargas = {j.nome: j.carga_semanal for j in jornadas_para_listagem()}
+        self.assertEqual(len(cargas), 8)
+        for nome, carga in cargas.items():
+            self.assertEqual(carga, timedelta(hours=int(nome.split('h')[0])))
+
+    def test_telas_administracao_restritas(self):
+        for nome in ('jornadas', 'jornada_criar', 'feriados', 'feriado_criar'):
+            self.assertEqual(self.client.get(reverse(nome)).status_code, 200)
+        self.client.force_login(self.pessoa)
+        for nome in ('jornadas', 'jornada_criar', 'feriados', 'feriado_criar'):
+            self.assertEqual(self.client.get(reverse(nome)).status_code, 403)
+            self.assertEqual(self.client.post(reverse(nome), {}).status_code, 403)
+
+    def test_form_valida_ordem_intervalos_e_folgas(self):
+        from .forms import JornadaForm
+
+        dados = {'nome': 'Teste', 'ativa': 'on', 'dia_0_0': '08:00', 'dia_0_5': '17:00'}
+        for alteracoes in ({'dia_0_5': '07:00'}, {'dia_0_1': '12:00'}, {'dia_0_0': ''}):
+            form = JornadaForm(dados | alteracoes)
+            self.assertFalse(form.is_valid())
+        form = JornadaForm(dados | {'dia_0_1': '12:00', 'dia_0_2': '13:00'})
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.save().semana, {'0': ['08:00', '12:00', '13:00', '', '', '17:00']})
+
+    def test_jornada_vigente_preserva_periodo_anterior_e_snapshot(self):
+        from .services import configuracao_jornada
+
+        self.vincular()
+        self.assertEqual(
+            configuracao_jornada(self.pessoa, self.segunda - timedelta(days=1))['carga'], timedelta(hours=7, minutes=45)
+        )
+        self.assertEqual(configuracao_jornada(self.pessoa, self.segunda)['carga'], timedelta(hours=8))
+        self.jornada.semana = {'0': ['09:00', '', '', '', '', '12:00']}
+        self.jornada.save()
+        self.assertEqual(configuracao_jornada(self.pessoa, self.segunda)['carga'], timedelta(hours=8))
+        self.assertEqual(configuracao_jornada(self.pessoa, date(2026, 11, 21))['carga'], timedelta())
+
+    def test_batida_pula_intervalos_nao_previstos(self):
+        from .services import registrar_batida
+
+        self.vincular()
+        with patch('ponto.services.timezone.now', return_value=_momento(self.segunda, 8)):
+            self.assertEqual(registrar_batida(self.pessoa).tipo, RegistroPonto.ENTRADA)
+        _batida(self.pessoa, RegistroPonto.SAIDA_ALMOCO, _momento(self.segunda, 12))
+        _batida(self.pessoa, RegistroPonto.VOLTA_ALMOCO, _momento(self.segunda, 13))
+        with patch('ponto.services.timezone.now', return_value=_momento(self.segunda, 17)):
+            self.assertEqual(registrar_batida(self.pessoa).tipo, RegistroPonto.SAIDA)
+
+    def test_calculo_e_pdf_usam_carga_individual(self):
+        from .relatorios import calcular_horas_dia
+
+        self.vincular()
+        for tipo, hora in zip(
+            (RegistroPonto.ENTRADA, RegistroPonto.SAIDA_ALMOCO, RegistroPonto.VOLTA_ALMOCO, RegistroPonto.SAIDA),
+            (8, 12, 13, 17),
+            strict=True,
+        ):
+            _batida(self.pessoa, tipo, _momento(self.segunda, hora))
+        resultado = calcular_horas_dia(self.pessoa, self.segunda)
+        self.assertEqual(resultado['diferenca'], timedelta())
+        item = montar_relatorio(None, self.pessoa, self.segunda, self.segunda, False)[0]
+        cartao = preparar_cartao_ponto(item, self.segunda, self.segunda)
+        self.assertEqual(cartao['cartao']['totais']['carga'], '08:00')
+        self.assertEqual(cartao['horario'][0]['pares'][0], ('08:00', '12:00'))
+
+    def test_sincronizacao_idempotente_preserva_ajustes_e_nao_importa_facultativos(self):
+        from .models import Feriado
+        from .services import sincronizar_feriados_nacionais
+
+        self.assertEqual(sincronizar_feriados_nacionais(2026), 9)
+        item = Feriado.objects.get(data=date(2026, 11, 20))
+        item.nome = 'Empresa funciona'
+        item.dispensa_expediente = False
+        item.save()
+        self.assertEqual(sincronizar_feriados_nacionais(2026), 0)
+        item.refresh_from_db()
+        self.assertEqual(item.nome, 'Empresa funciona')
+        self.assertFalse(item.dispensa_expediente)
+        self.assertFalse(Feriado.objects.filter(data=date(2026, 2, 17)).exists())
+
+    def test_feriado_sem_ponto_nao_gera_falta(self):
+        from .models import Feriado
+
+        self.vincular()
+        Feriado.objects.create(data=self.segunda, nome='Feriado local')
+        item = montar_relatorio(None, self.pessoa, self.segunda, self.segunda, False)[0]
+        cartao = preparar_cartao_ponto(item, self.segunda, self.segunda)['cartao']
+        self.assertEqual(cartao['totais']['faltas'], '00:00')
+        self.assertEqual(cartao['linhas'][0]['observacao'], 'Feriado')
+
+    def test_vinculo_no_cadastro_do_colaborador(self):
+        dados = {
+            'username': self.pessoa.username,
+            'first_name': 'Pessoa',
+            'last_name': 'Teste',
+            'email': 'pessoa@example.com',
+            'papel': Perfil.PAPEL_FUNCIONARIO,
+            'jornada': self.jornada.pk,
+            'jornada_inicio': '2026-11-16',
+            'is_active': 'on',
+        }
+        resposta = self.client.post(reverse('usuario_editar', args=[self.pessoa.pk]), dados)
+        self.assertRedirects(resposta, reverse('usuarios'))
+        self.assertEqual(self.pessoa.perfil.jornadas.get().jornada, self.jornada)
+        self.client.post(reverse('usuario_editar', args=[self.pessoa.pk]), dados)
+        self.assertEqual(self.pessoa.perfil.jornadas.count(), 1)
+
+    def test_reaplicar_jornada_e_agendar_preserva_vigencia(self):
+        from .services import configuracao_jornada, vincular_jornada
+
+        self.vincular()
+        outra = self.jornada.__class__.objects.get(nome='40h · Seg–sex · 09h')
+        vincular_jornada(self.pessoa.perfil, outra, self.segunda + timedelta(days=7))
+        self.assertEqual(configuracao_jornada(self.pessoa, self.segunda)['horarios'][0], '08:00')
+        self.assertEqual(configuracao_jornada(self.pessoa, self.segunda + timedelta(days=7))['horarios'][0], '09:00')
+
+    def test_feriado_com_batida_completa_e_progresso_sem_divisao_por_zero(self):
+        from .models import Feriado
+        from .relatorios import calcular_horas_dia, calcular_progresso
+
+        self.vincular()
+        Feriado.objects.create(data=self.segunda, nome='Feriado local')
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(self.segunda, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(self.segunda, 12))
+        resultado = calcular_horas_dia(self.pessoa, self.segunda)
+        self.assertEqual(resultado['diferenca'], timedelta(hours=4))
+        progresso = calcular_progresso(resultado['horarios'], _momento(self.segunda, 12), timedelta())
+        self.assertEqual(progresso['percentual'], 100)
+
+    def test_jornada_inativa_nao_aceita_novo_vinculo(self):
+        from .forms import UsuarioAdministracaoForm
+
+        self.jornada.ativa = False
+        self.jornada.save()
+        form = UsuarioAdministracaoForm(instance=self.pessoa, administrador=self.admin)
+        self.assertNotIn(self.jornada, form.fields['jornada'].queryset)
+        self.vincular()
+        form = UsuarioAdministracaoForm(instance=self.pessoa, administrador=self.admin)
+        self.assertIn(self.jornada, form.fields['jornada'].queryset)
+
+    def test_sincronizacao_pela_tela_valida_ano(self):
+        from .models import Feriado
+
+        resposta = self.client.post(reverse('feriados'), {'ano': 2027})
+        self.assertRedirects(resposta, reverse('feriados') + '?ano=2027')
+        self.assertEqual(Feriado.objects.filter(data__year=2027).count(), 9)
+        resposta = self.client.post(reverse('feriados'), {'ano': 'inválido'})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context['form'].errors)
+        self.assertEqual(Feriado.objects.count(), 9)
+
+    def test_cadastro_feriado_e_data_duplicada(self):
+        dados = {'data': '2027-03-26', 'nome': 'Feriado local', 'dispensa_expediente': 'on'}
+        self.assertRedirects(self.client.post(reverse('feriado_criar'), dados), reverse('feriados') + '?ano=2027')
+        resposta = self.client.post(reverse('feriado_criar'), dados)
+        self.assertEqual(resposta.status_code, 200)
+        self.assertTrue(resposta.context['form'].errors)
+
+    def test_reaplicar_no_formulario_e_mudar_email_nao_reaplica(self):
+        self.vincular()
+        dados = {
+            'username': self.pessoa.username,
+            'first_name': 'Pessoa',
+            'last_name': 'Teste',
+            'email': 'pessoa@example.com',
+            'papel': Perfil.PAPEL_FUNCIONARIO,
+            'jornada': self.jornada.pk,
+            'jornada_inicio': '2026-11-20',
+            'is_active': 'on',
+        }
+        self.client.post(reverse('usuario_editar', args=[self.pessoa.pk]), dados)
+        self.assertEqual(self.pessoa.perfil.jornadas.count(), 1)
+        self.client.post(reverse('usuario_editar', args=[self.pessoa.pk]), dados | {'atualizar_jornada': 'on'})
+        self.assertEqual(self.pessoa.perfil.jornadas.count(), 2)

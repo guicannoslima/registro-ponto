@@ -132,3 +132,17 @@ e os demais arquivos de mídia continuam ignorados pelo Git.
 `docker compose config --quiet` e o build foram validados. O contêiner de verificação
 carregou os modelos sem rede e confirmou suporte WebP; não iniciou banco nem aplicação
 de produção.
+
+## Setup de jornadas e feriados
+
+A migração `0012` inclui oito modelos semanais sem vincular automaticamente os colaboradores.
+O entrypoint Docker executa `sincronizar_feriados` após `migrate`, carregando o ano corrente
+sem duplicar datas nem sobrescrever ajustes. Não faz requisição externa. O comando também
+pode ser agendado pelo operador no início de cada ano:
+
+```bash
+python manage.py sincronizar_feriados --ano 2027
+```
+
+A tela **Administração → Feriados** carrega qualquer ano entre 2000 e 2099.
+Veja as regras e limitações em [Jornadas e feriados](USO.md#jornadas-e-feriados).

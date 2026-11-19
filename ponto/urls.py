@@ -4,6 +4,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('administracao/jornadas/', views.jornadas, name='jornadas'),
+    path('administracao/jornadas/nova/', views.jornada_formulario, name='jornada_criar'),
+    path('administracao/jornadas/<int:jornada_id>/', views.jornada_formulario, name='jornada_editar'),
+    path('administracao/feriados/', views.feriados, name='feriados'),
+    path('administracao/feriados/novo/', views.feriado_formulario, name='feriado_criar'),
+    path('administracao/feriados/<int:feriado_id>/', views.feriado_formulario, name='feriado_editar'),
     path('perfil/', views.meu_perfil, name='meu_perfil'),
     path('perfil/foto/<int:usuario_id>/', views.foto_perfil, name='foto_perfil'),
     path('administracao/usuarios/', views.usuarios, name='usuarios'),

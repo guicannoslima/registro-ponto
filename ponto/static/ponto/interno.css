@@ -493,7 +493,7 @@
 
 .linha-dia {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--batidas-dia, 6), minmax(0, 1fr));
     margin: 0;
     padding: 0;
     list-style: none;
@@ -1329,3 +1329,13 @@ body:has([data-camera][data-modo="terminal"]) > .principal-interno {
     .principal-interno [data-modo="terminal"] .camera-confirmacao .avatar-generico svg { width: 40px; height: 40px; }
     .principal-interno [data-modo="terminal"] .camera-confirmacao .avatar-generico__nome { font-size: 14px; }
 }
+
+/* Jornadas semanais: campos alinhados no computador e agrupados por dia no celular. */
+.principal-interno .jornada-dia { border: 1px solid var(--linha); border-radius: 8px; padding: 16px; min-width: 0; }
+.principal-interno .jornada-dia legend { font-weight: 650; padding: 0 8px; }
+.principal-interno .jornada-horarios { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.principal-interno .jornada-horarios label { font-size: 14px; }
+.principal-interno .jornada-horarios input { min-width: 0; width: 100%; box-sizing: border-box; }
+@media (max-width: 1000px) { .principal-interno .jornada-horarios { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .principal-interno .jornada-horarios { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.principal-interno .jornada-horarios .campo { display: flex; flex-direction: column; justify-content: flex-end; }

@@ -92,3 +92,17 @@ AVISO_PONTO_MS = 6000
 TERMINAL_INATIVIDADE_MS = 30_000
 TERMINAL_MANUTENCAO_MS = 5 * 60 * 1000
 TERMINAL_SESSAO_SEGUNDOS = 30 * 24 * 60 * 60
+
+
+# Feriados civis nacionais. Datas religiosas dependem da legislação local.
+FERIADOS_NACIONAIS = (
+    (1, 1, 'Confraternização Universal'),
+    (4, 21, 'Tiradentes'),
+    (5, 1, 'Dia do Trabalho'),
+    (9, 7, 'Independência do Brasil'),
+    (10, 12, 'Nossa Senhora Aparecida'),
+    (11, 2, 'Finados'),
+    (11, 15, 'Proclamação da República'),
+    (11, 20, 'Dia Nacional de Zumbi e da Consciência Negra'),
+    (12, 25, 'Natal'),
+)

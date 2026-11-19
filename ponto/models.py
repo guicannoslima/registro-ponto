@@ -2,6 +2,47 @@ from django.conf import settings
 from django.db import models
 
 
+class Jornada(models.Model):
+    nome = models.CharField(max_length=120, unique=True)
+    semana = models.JSONField(default=dict)
+    ativa = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
+class VinculoJornada(models.Model):
+    perfil = models.ForeignKey('Perfil', on_delete=models.CASCADE, related_name='jornadas')
+    jornada = models.ForeignKey(Jornada, on_delete=models.PROTECT, null=True, blank=True)
+    inicio = models.DateField()
+    # Cópia dos horários contratados: editar o modelo não reescreve o histórico.
+    semana = models.JSONField(default=dict)
+    nome = models.CharField(max_length=120, blank=True)
+
+    class Meta:
+        ordering = ['-inicio']
+        constraints = [models.UniqueConstraint(fields=['perfil', 'inicio'], name='jornada_por_inicio')]
+
+    def __str__(self):
+        return f'{self.perfil} — {self.nome} desde {self.inicio:%d/%m/%Y}'
+
+
+class Feriado(models.Model):
+    data = models.DateField(unique=True)
+    nome = models.CharField(max_length=150)
+    nacional = models.BooleanField(default=False, editable=False)
+    dispensa_expediente = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['data']
+
+    def __str__(self):
+        return f'{self.data:%d/%m/%Y} — {self.nome}'
+
+
 class Funcao(models.Model):
     
     nome = models.CharField(max_length=50, unique=True)

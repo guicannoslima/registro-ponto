@@ -318,3 +318,46 @@ No registro pessoal, a mensagem **PONTO REGISTRADO - PRIMEIRO NOME** aparece som
 na confirmação de 3 segundos, sem repetição acima de **Retomar câmera**.
 A foto na confirmação ocupa uma área maior, até 512 × 512 pixels, ajustando-se à largura
 e à altura disponíveis para manter a mensagem e a imagem dentro da prévia.
+
+## Jornadas e feriados
+
+**Implementado em 19/11/2026.** Em **Administração → Jornadas**, o administrador cadastra,
+edita, copia ou desativa modelos semanais. Informe entrada e saída; almoço e café são
+opcionais. Deixe o dia inteiro vazio para folga. O almoço é descontado e o café remunerado,
+como na regra anterior. A carga é calculada pelos horários, sem um segundo valor manual.
+
+O setup inclui oito exemplos: 40h com entrada às 08h ou 09h; 44h com sábado de 4h;
+44h com compensação de sábado; 36h, 30h, 26h e 20h semanais. São sugestões editáveis,
+não uma relação exaustiva de jornadas nem uma validação de contrato ou convenção coletiva.
+A referência para cargas e modalidades é a [orientação do Ministério do Trabalho](https://www.gov.br/trabalho-e-emprego/pt-br/acesso-a-informacao/perguntas-frequentes/jornada-de-trabalho/quais-sao-as-possibilidades-de).
+Esta versão atende horários dentro do mesmo dia; não atende plantões 12×36 ou virada noturna.
+
+Para vincular, abra **Administração → Usuários → Editar**, escolha **Jornada** e
+**Válida a partir de**. O vínculo guarda uma cópia dos horários e a data de início;
+os dias anteriores continuam com sua regra. Editar um modelo não altera vínculos salvos.
+Para reaplicar os horários editados, marque **Aplicar novamente os horários atuais da jornada
+selecionada** e informe a vigência. O histórico mostra também vínculos futuros.
+Inativar impede novos vínculos, mantendo os existentes. Sem jornada, vale a regra anterior
+(7h45min e seis batidas); a divergência antiga entre essa carga e o horário impresso permanece
+pendente para quem ainda usa essa regra. Novas jornadas têm carga e horários coerentes.
+
+Painel, sequência automática de batidas e relatórios usam a jornada vigente. Uma jornada
+sem café pede quatro batidas; sem intervalos, duas. No PDF, o quadro contratual mostra
+os horários vigentes no último dia do período; os cálculos de cada dia seguem sua vigência.
+
+Em **Administração → Feriados**, selecione o ano e clique em **Sincronizar nacionais**.
+O calendário é local, sem chamada a API: inclui as nove datas civis nacionais atuais,
+com 20 de novembro a partir de 2024. Repetir a operação não duplica nem sobrescreve
+ajustes manuais. Mudanças futuras na legislação exigem atualizar o calendário do sistema.
+As referências são as Leis [662/1949](https://www.planalto.gov.br/ccivil_03/leis/l0662.htm),
+[6.802/1980](https://www.planalto.gov.br/ccivil_03/leis/l6802.htm) e
+[14.759/2023](https://www.planalto.gov.br/ccivil_03/_ato2023-2026/2023/lei/l14759.htm).
+
+Cadastre feriados estaduais, municipais e datas adotadas pela empresa em **Cadastrar feriado**.
+Carnaval e Corpus Christi não são importados como feriados nacionais. Datas religiosas,
+incluindo Sexta-feira da Paixão, dependem de confirmação local, conforme a
+[Lei 9.093/1995](https://www.planalto.gov.br/ccivil_03/leis/l9093.htm).
+Com **Dispensa expediente na empresa**, a carga prevista é zero, não gera falta sem batida
+e trabalho completo aparece como extra no saldo. Não há cálculo de adicional salarial,
+feriado parcial ou calendário diferente por unidade. Desmarque a dispensa quando houver
+expediente normal. O calendário se aplica a todos, inclusive aos usuários sem jornada vinculada.
