@@ -107,3 +107,9 @@ na largura do layout e estado facial em faixa verde. O terminal passou para Admi
 com acesso mantido aos gestores; Meu perfil fica por último em Meu ponto; o atalho duplicado
 de Cadastrar usuário saiu do menu. O CPF com máscara está indicado na prancha de cadastro.
 Prévias em `previas/ajustes/` e na prancha atualizada em `previas/administracao/`.
+
+## Avisos da câmera
+
+A página **Avisos da câmera**, desenhada antes do código, mostra o aviso persistente e
+destacado de rosto ainda não cadastrado e a confirmação verde do cadastro por 3 segundos.
+Prévias em `previas/avisos/`. A ausência de webcam não esconde o aviso de cadastro.

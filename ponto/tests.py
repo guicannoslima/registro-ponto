@@ -464,6 +464,7 @@ class FluxosFaciaisTests(TestCase):
         resposta = self.client.post(reverse('ponto_facial'), {'foto': foto()})
         self.assertEqual(resposta.status_code, 400)
         self.assertFalse(resposta.json()['continuar'])
+        self.assertTrue(resposta.json()['cadastro_necessario'])
         self.assertFalse(RegistroPonto.objects.exists())
 
     def test_funcionario_nao_cadastra_nem_abre_terminal(self):
@@ -868,6 +869,21 @@ class FotoPerfilTests(TestCase):
         self.assertTrue(resposta.context['form'].errors)
         self.pessoa.perfil.refresh_from_db()
         self.assertFalse(self.pessoa.perfil.foto)
+
+    def test_foto_acima_de_16_milhoes_de_pixels_e_reduzida_sem_rejeicao(self):
+        for formato in ('JPEG', 'PNG', 'WEBP'):
+            with self.subTest(formato=formato):
+                buffer = BytesIO()
+                with Image.new('RGB', (5000, 4000), (40, 100, 180)) as grande:
+                    grande.save(buffer, formato)
+                arquivo = SimpleUploadedFile(f'grande.{formato.lower()}', buffer.getvalue())
+                with self.captureOnCommitCallbacks(execute=True):
+                    resposta = self.client.post(reverse('meu_perfil'), {'foto': arquivo})
+                self.assertRedirects(resposta, reverse('meu_perfil'))
+                self.pessoa.perfil.refresh_from_db()
+                with self.pessoa.perfil.foto.open('rb') as conteudo, Image.open(conteudo) as imagem:
+                    self.assertEqual(imagem.format, 'WEBP')
+                    self.assertEqual(imagem.size, (512, 512))
 
     def test_png_e_webp_sao_convertidos_para_webp_sem_metadados(self):
         for formato in ('PNG', 'WEBP'):

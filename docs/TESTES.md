@@ -1,6 +1,6 @@
 # Testes
 
-**Implementado:** 87 testes reunidos em `ponto/tests.py`: perfil
+**Implementado:** 88 testes reunidos em `ponto/tests.py`: perfil
 automático, apresentação, views e fluxos faciais. As regras de cálculo de horas ainda
 não têm testes próprios; a cobertura de permissões inclui os fluxos faciais e os relatórios.
 
@@ -187,3 +187,20 @@ temporários foram removidos ao encerrar a validação.
 passaram. Ruff passou em forms, services e testes; views conserva os dois avisos de linha
 longa anteriores a esta revisão. A imagem Docker foi construída, e um contêiner descartável
 sem rede confirmou SHA-256, carregamento dos dois modelos OpenCV e suporte WebP.
+
+### Avisos da câmera e redução de fotos grandes — 19/11/2026
+
+**Verificado:** 13 testes focados passaram: `FotoPerfilTests` e os três casos de telas,
+ausência de cadastro e substituição/remoção em `FluxosFaciaisTests`. Fotos reais geradas
+com 5000 × 4000 pixels, em JPEG, PNG e WebP, foram aceitas e reduzidas para WebP de
+512 × 512. Mantidos os limites de arquivo e as proteções do decodificador. A suíte agora
+contém 88 testes; os demais não foram repetidos.
+
+No Chrome em 1333 e 390 px, com HTML renderizado pelo Django, câmera e respostas de API
+simuladas, o aviso de cadastro ausente permaneceu visível mesmo sem câmera. A confirmação
+verde do cadastro apareceu por 3001 ms; depois, seleção e retomada da câmera foram
+liberadas. Conferidos ausência de recorte e de erros JavaScript. Não foram cadastrados
+rostos reais nesse teste de interface.
+
+No banco local, a conta solicitada `tech_leader` foi conferida com papel Gestor, função
+Tech Leader e somente Rafael na equipe. Sem privilégios de administrador ou superusuário.

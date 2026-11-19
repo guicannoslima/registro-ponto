@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 
-from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES, FOTO_PERFIL_MAX_PIXELS
+from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES
 from .email import cifrar_senha
 from .models import ConfiguracaoEmail, Funcao, HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
 
@@ -309,7 +309,7 @@ class TesteEmailForm(forms.Form):
 class FotoPerfilForm(forms.Form):
     foto = forms.ImageField(
         label='Foto de perfil', widget=forms.FileInput(attrs={'accept': 'image/jpeg,image/png,image/webp'}),
-        help_text='JPEG, PNG ou WebP, até 5 MB e 16 milhões de pixels.',
+        help_text='JPEG, PNG ou WebP, até 5 MB. Fotos grandes são reduzidas automaticamente.',
     )
 
     def clean_foto(self):
@@ -318,6 +318,4 @@ class FotoPerfilForm(forms.Form):
             raise forms.ValidationError('Escolha uma foto de até 5 MB.')
         if foto.image.format not in ('JPEG', 'PNG', 'WEBP'):
             raise forms.ValidationError('Escolha uma foto JPEG, PNG ou WebP.')
-        if foto.image.width * foto.image.height > FOTO_PERFIL_MAX_PIXELS:
-            raise forms.ValidationError('Escolha uma foto com até 16 milhões de pixels.')
         return foto

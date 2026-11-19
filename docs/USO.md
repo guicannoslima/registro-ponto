@@ -267,10 +267,16 @@ a ação vinculada à pessoa escolhida. Enquanto a consulta está em andamento o
 a tela não permite cadastrar, substituir ou remover com base em um estado desconhecido.
 A câmera continua abrindo automaticamente; remover um cadastro não exige câmera ligada.
 
+Ao concluir a captura, **Rosto cadastrado para [nome]** aparece em um cartão verde sobre a
+prévia durante 3 segundos. Depois, a seleção e a retomada da câmera ficam disponíveis.
+Na tela de registro pessoal, quem ainda não tem cadastro vê um aviso destacado no topo;
+ele permanece visível mesmo se a câmera não abrir.
+
 ## Foto de perfil e confirmação do ponto
 
 Abra **Meu ponto → Meu perfil**, escolha um arquivo JPEG, PNG ou WebP de até 5 MB e
-use **Salvar foto**. A foto é enquadrada em 512 × 512 pixels e salva em WebP. **Remover foto de perfil**
+use **Salvar foto**. Fotos grandes, inclusive acima de 16 milhões de pixels, são reduzidas
+automaticamente. A foto é enquadrada em 512 × 512 pixels e salva em WebP. **Remover foto de perfil**
 volta à imagem genérica com seu nome. Cada colaborador escolhe sua própria foto.
 
 Essa foto é usada na confirmação da batida; o cadastro facial para identificação

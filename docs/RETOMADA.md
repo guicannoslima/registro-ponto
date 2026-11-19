@@ -33,6 +33,9 @@ em toda a largura do cartão; busca de usuários alinhada; CPF com máscara; exc
 batida ocupa a largura do layout. O build Docker inclui os dois modelos públicos de IA,
 verificados por SHA-256, sem versionar os binários. Relatórios usam a consulta de escopo
 de `services.py`: administrador vê todos; gestor, subordinados; colaborador, apenas a si.
+Em 19/11, o aviso de rosto sem cadastro passou a ocupar uma faixa destacada no topo;
+a confirmação de cadastro facial usa o cartão verde por 3 segundos. Fotos acima de
+16 milhões de pixels são reduzidas automaticamente para WebP de 512 × 512.
 O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 ([uso e limitações](USO.md#registro-por-reconhecimento-facial)).
 
@@ -46,7 +49,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 87 testes em `ponto/tests.py`; 16 focados passaram nesta revisão, sem repetir a suíte completa de 82 já validada antes ([Testes](TESTES.md)) |
+| Testes | 88 testes em `ponto/tests.py`; 13 focados passaram na revisão de 19/11, sem repetir a suíte completa ([Testes](TESTES.md)) |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | 2 vCPU e 2 GB para 20 pessoas simultâneas ([Capacidade](CAPACIDADE.md)) |
@@ -81,6 +84,9 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 - `.env` de desenvolvimento aponta para `postgres:postgres@localhost:5432/registro_ponto`.
 - Banco `registro_ponto` (desenvolvimento do usuário): `admin`, e os colaboradores de teste
   `marina` e `rafael` (senha `teste-ponto-123`), com batidas de 26/10 a 18/11/2026.
+- Conta `tech_leader` criada a pedido do usuário em 19/11: nome e função **Tech Leader**,
+  papel **Gestor**, com **Rafael Lima** como subordinado. Senha inicial entregue na conversa;
+  não registrada no repositório. Sem e-mail informado e sem acesso administrativo.
 - Banco `registro_ponto_design`: dados fictícios usados para capturar as telas (`ana` gestora;
   `bruno`, `carla`, `diego`, `elisa` colaboradores; senha `senha-forte-123`). Para usar:
   `DB_NAME=registro_ponto_design python manage.py runserver 127.0.0.1:8766`. Pode ser apagado.

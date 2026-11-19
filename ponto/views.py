@@ -606,7 +606,9 @@ def cadastro_facial(request):
         except ErroFacial as exc:
             return _erro(exc)
         return JsonResponse(resultado)
-    return render(request, 'ponto/camera.html', {'modo': 'cadastro', 'pessoas': pessoas})
+    return render(request, 'ponto/camera.html', {
+        'modo': 'cadastro', 'pessoas': pessoas, 'confirmacao_ms': CONFIRMACAO_PONTO_MS,
+    })
 
 
 @login_required

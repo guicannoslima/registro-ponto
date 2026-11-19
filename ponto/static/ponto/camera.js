@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('camera-form');
     const video = document.getElementById('camera-video');
     const aviso = document.getElementById('camera-mensagem');
+    const avisoCadastro = document.getElementById('camera-cadastro-aviso');
     const ligar = document.getElementById('camera-ligar');
     const capturar = document.getElementById('camera-capturar');
     const parar = document.getElementById('camera-parar');
@@ -30,15 +31,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const atualizarControles = () => {
         const consultado = !pessoa || (cadastroAtual && String(cadastroAtual.funcionario_id) === pessoa.value);
+        const bloqueado = ocupado || confirmando;
         if (capturar) {
-            capturar.disabled = ocupado || !stream || !consultado;
+            capturar.disabled = bloqueado || !stream || !consultado;
             capturar.textContent = cadastroAtual?.cadastrado ? 'Substituir rosto' : 'Cadastrar rosto';
         }
         if (excluir) {
             excluir.hidden = !consultado || !cadastroAtual?.cadastrado;
-            excluir.disabled = ocupado || !consultado;
+            excluir.disabled = bloqueado || !consultado;
         }
-        if (pessoa) pessoa.disabled = ocupado;
+        if (pessoa) pessoa.disabled = bloqueado;
     };
     const aplicarEstado = (dados) => {
         if (!pessoa || String(dados.funcionario_id) !== pessoa.value) return;
@@ -88,23 +90,27 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmando = false;
         if (confirmacao) {
             confirmacao.hidden = true;
-            fotoConfirmacao.removeAttribute('src');
+            fotoConfirmacao?.removeAttribute('src');
         }
         aviso.hidden = false;
         ligar.disabled = ocupado || abrindo;
+        atualizarControles();
     };
     const mostrarConfirmacao = async (dados) => {
         if (!confirmacao || dados.repetido) return;
         const versao = ++versaoConfirmacao;
         confirmando = true;
+        atualizarControles();
         ligar.disabled = true;
         document.getElementById('camera-confirmacao-titulo').textContent = dados.mensagem;
-        genericaConfirmacao.querySelector('.avatar-generico__nome').textContent = dados.confirmacao.nome;
-        fotoConfirmacao.alt = `Foto de ${dados.confirmacao.nome}`;
-        fotoConfirmacao.hidden = true;
-        genericaConfirmacao.hidden = false;
+        if (dados.confirmacao) {
+            genericaConfirmacao.querySelector('.avatar-generico__nome').textContent = dados.confirmacao.nome;
+            fotoConfirmacao.alt = `Foto de ${dados.confirmacao.nome}`;
+            fotoConfirmacao.hidden = true;
+            genericaConfirmacao.hidden = false;
+        }
         aviso.hidden = true;
-        if (dados.confirmacao.foto_url) {
+        if (dados.confirmacao?.foto_url) {
             fotoConfirmacao.src = dados.confirmacao.foto_url;
             const carregou = await Promise.race([
                 fotoConfirmacao.decode().then(() => true).catch(() => false),
@@ -121,6 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (terminal) {
                 mensagem('Aguardando próximo colaborador.');
                 agendar(0);
+            } else if (!automatico) {
+                mensagem('Selecione um colaborador para cadastrar ou atualizar o rosto.');
             }
         }, Number(pagina.dataset.confirmacaoMs));
     };
@@ -178,13 +186,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!foto) throw new Error('A captura falhou. Tente novamente.');
             dados.append('foto', foto, 'camera.jpg');
             const resultado = await enviar(dados);
+            if (resultado.dados.cadastro_necessario) {
+                avisoCadastro.textContent = resultado.dados.erro;
+                avisoCadastro.hidden = false;
+            }
             if (resultado.ok && pessoa) aplicarEstado(resultado.dados);
             if (tentativa !== geracao) return;
             mensagem(resultado.dados.repetido ? 'Aguardando próximo colaborador.'
                 : resultado.dados.mensagem || resultado.dados.erro, !resultado.ok);
             if (resultado.ok) {
+                avisoCadastro.hidden = true;
                 if (!terminal) desligar();
-                if (automatico) await mostrarConfirmacao(resultado.dados);
+                await mostrarConfirmacao(resultado.dados);
             } else if (automatico && !resultado.dados.continuar) {
                 desligar();
             }

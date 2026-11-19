@@ -19,8 +19,14 @@ def _limitar_captura(request):
 
 
 def _erro(exc, continuar=True):
+    dados = {
+        'erro': str(exc),
+        'continuar': continuar and not isinstance(exc, (FacialIndisponivel, CadastroFacialAusente)),
+    }
+    if isinstance(exc, CadastroFacialAusente):
+        dados['cadastro_necessario'] = True
     return JsonResponse(
-        {'erro': str(exc), 'continuar': continuar and not isinstance(exc, (FacialIndisponivel, CadastroFacialAusente))},
+        dados,
         status=503 if isinstance(exc, FacialIndisponivel) else 400,
     )
 

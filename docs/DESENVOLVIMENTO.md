@@ -163,7 +163,9 @@ novamente a senha SMTP. A migração `0008` cria a tabela, sem gravar credenciai
 ## Foto de perfil e confirmação visual
 
 `Perfil.foto` guarda a foto escolhida pelo colaborador, com a migração `0010`. O formulário
-valida JPEG, PNG ou WebP, até 5 MB e 16 milhões de pixels. `salvar_foto_perfil` normaliza
+valida JPEG, PNG ou WebP, até 5 MB. Fotos acima de 16 milhões de pixels também são aceitas
+e reduzidas; as proteções do decodificador contra imagens excessivas permanecem ativas.
+`salvar_foto_perfil` usa a redução de leitura JPEG quando disponível e normaliza
 orientação e enquadramento para WebP de 512 × 512, qualidade 85 e método 6, sem metadados,
 usando nome aleatório, e remove o arquivo
 anterior após confirmar a alteração no banco. Os arquivos ficam em `MEDIA_ROOT` (`media/`,

@@ -9,6 +9,7 @@
             <p class="apoio">{% if modo == 'cadastro' %}O gestor acompanha a captura e confirma a pessoa selecionada.{% else %}A câmera abre automaticamente. Posicione seu rosto para registrar o ponto.{% endif %}</p>
         </div>
     </header>
+    <div id="camera-cadastro-aviso" class="aviso aviso--atencao camera-cadastro-aviso" role="alert"{% if modo != 'pessoal' or tem_cadastro %} hidden{% endif %}>Peça ao gestor para cadastrar seu rosto antes de usar a câmera.</div>
     <div class="grade camera-grade">
         <section class="cartao-interno camera-conteudo">
             <form method="post" enctype="multipart/form-data" id="camera-form">
@@ -23,15 +24,15 @@
                 <div class="camera-previa">
                     <video id="camera-video" autoplay playsinline muted hidden aria-label="Prévia da câmera"></video>
                     <p id="camera-desligada">Câmera desligada</p>
-                    {% if modo != 'cadastro' %}
-                        <div id="camera-confirmacao" class="camera-confirmacao" role="status" aria-live="polite" aria-atomic="true" hidden>
-                            <h2 id="camera-confirmacao-titulo"></h2>
+                    <div id="camera-confirmacao" class="camera-confirmacao" role="status" aria-live="polite" aria-atomic="true" hidden>
+                        <h2 id="camera-confirmacao-titulo"></h2>
+                        {% if modo != 'cadastro' %}
                             <img id="camera-confirmacao-foto" alt="" hidden>
                             <div id="camera-confirmacao-generica">{% include 'ponto/_avatar_generico.html' %}</div>
-                        </div>
-                    {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
-                <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="apoio">{% if modo == 'pessoal' and not tem_cadastro %}Peça ao gestor para cadastrar seu rosto antes de usar a câmera.{% else %}Abrindo câmera. Autorize o acesso no navegador quando solicitado.{% endif %}</p>
+                <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="apoio">Abrindo câmera. Autorize o acesso no navegador quando solicitado.</p>
                 <button id="camera-ligar" type="button" class="btn btn--secundario btn--largo" hidden>Retomar câmera</button>
                 {% if modo == 'cadastro' %}<button id="camera-capturar" type="submit" class="btn btn--largo" disabled>Cadastrar rosto</button>{% endif %}
                 <button id="camera-parar" type="button" class="btn btn--secundario btn--largo" hidden>Pausar câmera</button>

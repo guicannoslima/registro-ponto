@@ -248,6 +248,7 @@ def salvar_foto_perfil(usuario, arquivo=None, *, remover=False):
     else:
         arquivo.seek(0)
         with Image.open(arquivo) as original:
+            original.draft('RGB', (1024, 1024))
             imagem = ImageOps.fit(ImageOps.exif_transpose(original).convert('RGB'), (512, 512))
             conteudo = BytesIO()
             imagem.save(conteudo, 'WEBP', quality=85, method=6)
