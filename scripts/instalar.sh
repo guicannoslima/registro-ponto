@@ -283,7 +283,7 @@ fi
 sudo ln -sf /etc/nginx/sites-available/registro-ponto /etc/nginx/sites-enabled/registro-ponto
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
-sudo systemctl enable nginx
+sudo systemctl enable --now nginx
 sudo systemctl reload nginx
 
 # ---------------------------------------------------------------- backup e rotinas
