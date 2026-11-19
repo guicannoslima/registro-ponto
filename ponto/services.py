@@ -1,5 +1,6 @@
 """Regras, consultas e preparação dos dados de negócio do registro de ponto."""
 
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from io import BytesIO
 from uuid import uuid4
@@ -20,12 +21,13 @@ from .constants import (
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
     ROTULOS_CURTOS,
+    TOLERANCIA_SALDO,
 )
 from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial
 from .facial import extrair_vetor, identificar
-from .models import CadastroFacial, Feriado, Jornada, Perfil, RegistroPonto, VinculoJornada
+from .models import CadastroFacial, Feriado, Folga, Jornada, Perfil, RegistroPonto, VinculoJornada
 from .permissoes import funcionarios_visiveis
-from .utils import hhmm
+from .utils import formatar_timedelta, hhmm
 
 
 def proximo_tipo(registros, tipos=None):
@@ -90,7 +92,7 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
     for dia in item['relatorio']:
         data, horarios = dia['data'], dia['horarios']
         configuracao = configuracao_jornada(item['funcionario'], data)
-        util = configuracao['util'] and not configuracao['feriado']
+        util = configuracao['util'] and not configuracao['feriado'] and not configuracao['folga']
         normais = faltas = extras = carga = None
         observacao = ''
 
@@ -110,8 +112,12 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             carga = faltas = configuracao['carga']
             observacao = 'Falta'
 
-        if configuracao['feriado']:
-            observacao = 'Feriado'
+        folga = configuracao['folga']
+        if folga or configuracao['feriado']:
+            if folga:
+                observacao = 'Folga comp.' if folga.tipo == Folga.COMPENSACAO else 'Folga'
+            else:
+                observacao = 'Feriado'
             if horarios and dia['status'] != 'Completo':
                 observacao += ' · Incompleto'
 
@@ -342,22 +348,179 @@ def jornada_vigente(usuario, data):
     return usuario.perfil.jornadas.filter(inicio__lte=data).first()
 
 
-def configuracao_jornada(usuario, data):
-    vinculo = jornada_vigente(usuario, data)
+def configuracao_jornada(usuario, data, vinculos=None, feriados=None, folgas=None):
+    """Carga e situação de um dia para a pessoa.
+
+    vinculos (ordenados do mais recente), feriados e folgas ({data: objeto}) podem vir pré-carregados para
+    cálculos de muitos dias, como o banco de horas; sem eles, cada um é consultado no banco.
+    """
+    if vinculos is None:
+        vinculo = jornada_vigente(usuario, data)
+    else:
+        vinculo = next((v for v in vinculos if v.inicio <= data), None)
+    if feriados is None:
+        feriado = Feriado.objects.filter(data=data, dispensa_expediente=True).first()
+    else:
+        feriado = feriados.get(data)
+    if folgas is None:
+        folga = Folga.objects.filter(funcionario=usuario, data=data, ativa=True).select_related('lancada_por').first()
+    else:
+        folga = folgas.get(data)
+
     personalizado = bool(vinculo and vinculo.jornada_id)
     horarios = vinculo.semana.get(str(data.weekday()), []) if personalizado else []
-    feriado = Feriado.objects.filter(data=data, dispensa_expediente=True).first()
-    carga = duracao_jornada(horarios) if personalizado else JORNADA_DIARIA
-    if feriado:
-        carga = timedelta()
+    util = bool(horarios and horarios[0]) if personalizado else data.weekday() in DIAS_UTEIS
+    # Fora dos dias úteis a carga é zero: o que for trabalhado conta como hora extra.
+    jornada_do_dia = (duracao_jornada(horarios) if personalizado else JORNADA_DIARIA) if util else timedelta()
+    # Sem a folga: é o que uma compensação nesta data abate do banco de horas.
+    carga_sem_folga = timedelta() if feriado else jornada_do_dia
     return {
-        'carga': carga,
+        'carga': timedelta() if folga else carga_sem_folga,
+        'carga_sem_folga': carga_sem_folga,
         'horarios': horarios,
         'personalizado': personalizado,
         'nome': vinculo.nome if personalizado else 'Regra anterior (7h45min)',
-        'util': bool(horarios and horarios[0]) if personalizado else data.weekday() in DIAS_UTEIS,
+        'util': util,
         'feriado': feriado,
+        'folga': folga,
     }
+
+
+def tempo_trabalhado(horarios):
+    """Da entrada à saída, sem o almoço. O café é remunerado, como na regra original do sistema."""
+    total = horarios[RegistroPonto.SAIDA] - horarios[RegistroPonto.ENTRADA]
+    if RegistroPonto.SAIDA_ALMOCO in horarios and RegistroPonto.VOLTA_ALMOCO in horarios:
+        total -= horarios[RegistroPonto.VOLTA_ALMOCO] - horarios[RegistroPonto.SAIDA_ALMOCO]
+    return total
+
+
+def saldo_do_dia(trabalhado, carga):
+    diferenca = trabalhado - carga
+    return timedelta() if abs(diferenca) <= TOLERANCIA_SALDO else diferenca
+
+
+def saldo_banco_horas(funcionario):
+    """Banco de horas acumulado desde a primeira batida, como nos sistemas de RH.
+
+    Cada dia completo soma a diferença entre o trabalhado e a carga (com a tolerância); dia de carga prevista
+    já passado sem nenhuma batida desconta a carga inteira. Feriados e folgas têm carga zero, então o trabalho
+    nesses dias vira crédito. Folgas de compensação abatem as horas registradas no lançamento, inclusive as
+    agendadas. Dias com batidas, mas sem entrada ou saída, ficam fora até o ajuste.
+    """
+    hoje = timezone.localdate()
+    por_dia = defaultdict(dict)
+    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=hoje)
+    for registro in registros.only('tipo', 'data_hora'):
+        por_dia[timezone.localtime(registro.data_hora).date()][registro.tipo] = registro.data_hora
+
+    folgas_ativas = list(Folga.objects.filter(funcionario=funcionario, ativa=True))
+    saldo = -sum((f.horas_abatidas or timedelta() for f in folgas_ativas), timedelta())
+    if not por_dia:
+        return saldo
+
+    inicio = min(por_dia)
+    vinculos = list(funcionario.perfil.jornadas.all())
+    feriados = {f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, hoje))}
+    folgas = {f.data: f for f in folgas_ativas}
+    dia = inicio
+    while dia <= hoje:
+        carga = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)['carga']
+        horarios = por_dia.get(dia, {})
+        if RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios:
+            saldo += saldo_do_dia(tempo_trabalhado(horarios), carga)
+        elif not horarios and dia < hoje:
+            saldo -= carga
+        dia += timedelta(days=1)
+    return saldo
+
+
+def aviso_do_dia(usuario, data, configuracao=None):
+    """Aviso do painel para um dia sem expediente previsto (folga, feriado ou folga semanal), ou None."""
+    configuracao = configuracao or configuracao_jornada(usuario, data)
+    folga, feriado = configuracao['folga'], configuracao['feriado']
+    if folga:
+        quem = folga.lancada_por.get_full_name() if folga.lancada_por else 'sua gestão'
+        if folga.tipo == Folga.COMPENSACAO:
+            abatidas = formatar_timedelta(folga.horas_abatidas or timedelta())
+            return {
+                'classe': 'compensacao', 'selo': 'Compensação', 'classe_selo': 'atencao',
+                'titulo': f'Folga compensatória lançada por {quem}',
+                'texto': f'Abate {abatidas} do seu banco de horas, que fica em '
+                         f'{formatar_timedelta(saldo_banco_horas(usuario))}. Motivo: {folga.motivo}',
+                'subtitulo': 'Folga compensatória: a jornada de hoje é abatida do seu banco de horas.',
+                'jornada': f'Folga · abate {abatidas}',
+            }
+        return {
+            'classe': 'folga', 'selo': 'Folga', 'classe_selo': 'sucesso',
+            'titulo': f'Folga lançada por {quem}',
+            'texto': f'Dia livre, sem desconto no banco de horas. Motivo: {folga.motivo}',
+            'subtitulo': 'Hoje não há expediente previsto.',
+            'jornada': 'Folga',
+        }
+    if feriado:
+        return {
+            'classe': 'feriado', 'selo': 'Feriado', 'classe_selo': 'info',
+            'titulo': f'Feriado: {feriado.nome}',
+            'texto': 'Sem expediente previsto. Se você trabalhar, as horas entram como hora extra.',
+            'subtitulo': 'Hoje não há expediente previsto.',
+            'jornada': 'Sem expediente',
+        }
+    if not configuracao['util']:
+        if configuracao['personalizado']:
+            texto = f'Sua jornada {configuracao["nome"]} não prevê trabalho neste dia.'
+        else:
+            texto = 'Não há expediente previsto aos sábados e domingos.'
+        return {
+            'classe': 'folga', 'selo': 'Folga', 'classe_selo': 'sucesso',
+            'titulo': 'Folga semanal',
+            'texto': f'{texto} Se você trabalhar, as horas entram como hora extra.',
+            'subtitulo': 'Hoje não há expediente previsto na sua jornada.',
+            'jornada': 'Folga',
+        }
+    return None
+
+
+def motivo_sem_expediente(configuracao, data):
+    """Por que o dia não tem expediente previsto, em texto curto, ou None se tiver."""
+    if configuracao['carga_sem_folga']:
+        return None
+    if configuracao['feriado']:
+        return f'feriado ({configuracao["feriado"].nome})'
+    if configuracao['personalizado']:
+        return f'folga semanal da jornada {configuracao["nome"]}'
+    return 'sábado' if data.weekday() == 5 else 'domingo'
+
+
+def situacao_sem_batida(configuracao):
+    """Selo de quem não bateu ponto no dia: Feriado ou Folga quando não há expediente previsto."""
+    if configuracao['feriado'] and not configuracao['folga']:
+        return 'Feriado', 'info'
+    if configuracao['folga'] or not configuracao['util']:
+        return 'Folga', 'sucesso'
+    return 'Sem entrada', 'neutro'
+
+
+@transaction.atomic
+def lancar_folgas(funcionarios, data, tipo, motivo, responsavel):
+    folgas = []
+    for funcionario in funcionarios:
+        configuracao = configuracao_jornada(funcionario, data)
+        folgas.append(Folga.objects.create(
+            funcionario=funcionario,
+            data=data,
+            tipo=tipo,
+            horas_abatidas=configuracao['carga_sem_folga'] if tipo == Folga.COMPENSACAO else None,
+            motivo=motivo,
+            lancada_por=responsavel,
+        ))
+    return folgas
+
+
+def cancelar_folga(folga, responsavel):
+    folga.ativa = False
+    folga.cancelada_por = responsavel
+    folga.cancelada_em = timezone.now()
+    folga.save(update_fields=['ativa', 'cancelada_por', 'cancelada_em'])
 
 
 @transaction.atomic
@@ -387,3 +550,39 @@ def tipos_da_jornada(usuario, data):
         return RegistroPonto.ORDEM_TIPOS
     horarios = vinculo.semana.get(str(data.weekday())) or next(iter(vinculo.semana.values()), [])
     return [tipo for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, horarios, strict=True) if hora]
+
+
+def saldos_do_banco(funcionarios):
+    """Saldo do banco de horas de cada pessoa, já formatado: {pk: texto}."""
+    return {pessoa.pk: formatar_timedelta(saldo_banco_horas(pessoa)) for pessoa in funcionarios}
+
+
+def efeito_da_folga(funcionarios, dados):
+    """Saldo do banco de horas antes e depois da folga, para cada colaborador escolhido no formulário.
+
+    dados é o GET ou POST do lançamento: pessoas (entre as visíveis em funcionarios), data e tipo.
+    """
+    try:
+        data = date.fromisoformat(dados.get('data') or '')
+    except ValueError:
+        data = None
+    escolhidos = funcionarios.filter(pk__in=[i for i in dados.getlist('funcionarios') if i.isdigit()])
+    compensacao = dados.get('tipo') == Folga.COMPENSACAO
+    linhas = []
+    for pessoa in escolhidos:
+        saldo = saldo_banco_horas(pessoa)
+        abatidas = configuracao_jornada(pessoa, data)['carga_sem_folga'] if data and compensacao else timedelta()
+        depois = saldo - abatidas
+        linhas.append({
+            'pessoa': pessoa,
+            'antes': formatar_timedelta(saldo),
+            'depois': formatar_timedelta(depois),
+            'abatidas': formatar_timedelta(abatidas),
+            'negativo': depois < timedelta(),
+        })
+    return {
+        'efeito': linhas,
+        'efeito_data': data,
+        'efeito_compensacao': compensacao,
+        'efeito_insuficiente': [linha['pessoa'].get_full_name() for linha in linhas if linha['negativo']],
+    }

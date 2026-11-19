@@ -361,3 +361,34 @@ Com **Dispensa expediente na empresa**, a carga prevista é zero, não gera falt
 e trabalho completo aparece como extra no saldo. Não há cálculo de adicional salarial,
 feriado parcial ou calendário diferente por unidade. Desmarque a dispensa quando houver
 expediente normal. O calendário se aplica a todos, inclusive aos usuários sem jornada vinculada.
+
+Na regra anterior (sem jornada vinculada), sábado e domingo têm carga zero: horas trabalhadas
+nesses dias contam só como extra, sem gerar saldo negativo.
+
+## Folgas e banco de horas
+
+**Implementado em 19/11/2026.** Em **Gestão → Folgas**, o gestor vê as folgas da equipe e usa
+**Lançar folga** para escolher um ou mais colaboradores, a data, o tipo e o motivo. O
+administrador lança para todos. Uma pessoa tem no máximo uma folga ativa por dia, e não se lança
+folga em data que já não tem expediente (feriado, folga semanal da jornada ou fim de semana na
+regra anterior): a mensagem informa o motivo.
+
+- **Dispensa:** dia livre, carga zero, sem falta e sem desconto no banco de horas.
+- **Compensação:** carga zero no dia, e a jornada prevista na data (guardada no lançamento)
+  sai do banco de horas.
+
+O quadro **Efeito no banco de horas** mostra o saldo de cada pessoa antes e depois. Saldo
+insuficiente é aceito: a diferença fica negativa até ser compensada. **Cancelar** desfaz o
+efeito e guarda quem cancelou e quando.
+
+O banco de horas acumula desde a primeira batida da pessoa, como nos sistemas de RH: cada dia
+completo soma a diferença entre o trabalhado e a carga (com a tolerância de 10 minutos); dia
+com carga prevista já passado sem nenhuma batida desconta a carga inteira; trabalho em feriado,
+folga ou fim de semana vira crédito; compensações abatem as horas lançadas, inclusive as
+agendadas. Dias com batidas, mas sem entrada ou saída, ficam fora até o ajuste. Não há
+adicional de 50% ou 100%, prazo de validade das horas nem fechamento por período.
+
+No painel, feriado, folga semanal da jornada e folga lançada aparecem como aviso acima do dia,
+com a jornada do dia como "Sem expediente" ou "Folga"; o botão de registrar continua disponível.
+Na aba Sua equipe e na tela Equipe, quem não bateu ponto aparece como Feriado ou Folga. No
+cartão ponto em PDF, a linha mostra **Folga** ou **Folga comp.** e não gera falta.

@@ -11,6 +11,7 @@ from .email import cifrar_senha
 from .models import (
     ConfiguracaoEmail,
     Feriado,
+    Folga,
     Funcao,
     HistoricoAlteracaoPonto,
     Jornada,
@@ -18,7 +19,7 @@ from .models import (
     RegistroPonto,
     SolicitacaoAjustePonto,
 )
-from .services import jornada_vigente, vincular_jornada
+from .services import configuracao_jornada, jornada_vigente, motivo_sem_expediente, vincular_jornada
 
 
 class FuncionarioChoiceField(forms.ModelChoiceField):
@@ -431,3 +432,63 @@ class FeriadoForm(forms.ModelForm):
 
 class AnoFeriadosForm(forms.Form):
     ano = forms.IntegerField(label='Ano', min_value=2000, max_value=2099)
+
+
+class FuncionariosMultipleChoiceField(forms.ModelMultipleChoiceField):
+    def label_from_instance(self, obj):
+        return obj.get_full_name() or obj.username
+
+
+class FolgaForm(forms.Form):
+    funcionarios = FuncionariosMultipleChoiceField(
+        label='Colaboradores',
+        queryset=User.objects.none(),
+        widget=forms.CheckboxSelectMultiple,
+        error_messages={'required': 'Escolha pelo menos um colaborador.'},
+    )
+    data = forms.DateField(
+        label='Data',
+        widget=forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d'),
+        error_messages={'required': 'Informe a data da folga.'},
+    )
+    tipo = forms.ChoiceField(
+        label='Tipo de folga',
+        choices=Folga.TIPO_CHOICES,
+        widget=forms.RadioSelect,
+        initial=Folga.DISPENSA,
+    )
+    motivo = campo_motivo('Motivo', 'Informe o motivo da folga.')
+    motivo.help_text = 'O motivo aparece no painel do colaborador.'
+
+    def __init__(self, *args, funcionarios=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if funcionarios is not None:
+            self.fields['funcionarios'].queryset = funcionarios
+
+    def clean(self):
+        dados = super().clean()
+        pessoas, data = dados.get('funcionarios'), dados.get('data')
+        if not pessoas or not data:
+            return dados
+        repetidas = Folga.objects.filter(funcionario__in=pessoas, data=data, ativa=True)
+        if repetidas.exists():
+            nomes = ', '.join(sorted(f.funcionario.get_full_name() for f in repetidas.select_related('funcionario')))
+            raise forms.ValidationError(f'Já existe folga em {data:%d/%m/%Y} para: {nomes}.')
+        # Feriado ou folga semanal já são dias livres: folga ali não teria efeito.
+        motivos = {}
+        for pessoa in pessoas:
+            motivo = motivo_sem_expediente(configuracao_jornada(pessoa, data), data)
+            if motivo:
+                motivos[pessoa.get_full_name() or pessoa.username] = motivo
+        if motivos:
+            if len(set(motivos.values())) == 1:
+                motivo = next(iter(motivos.values()))
+                quem = ', '.join(sorted(motivos))
+                raise forms.ValidationError(
+                    f'{data:%d/%m/%Y} é {motivo} e já não tem expediente para {quem}. Escolha outra data.'
+                )
+            detalhes = '; '.join(f'{nome}: {motivo}' for nome, motivo in sorted(motivos.items()))
+            raise forms.ValidationError(
+                f'{data:%d/%m/%Y} já não tem expediente previsto ({detalhes}). Escolha outra data.'
+            )
+        return dados

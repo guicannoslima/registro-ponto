@@ -43,6 +43,46 @@ class Feriado(models.Model):
         return f'{self.data:%d/%m/%Y} — {self.nome}'
 
 
+class Folga(models.Model):
+    """Folga avulsa lançada pelo gestor para um colaborador em uma data."""
+
+    DISPENSA = 'dispensa'
+    COMPENSACAO = 'compensacao'
+    TIPO_CHOICES = [
+        (DISPENSA, 'Dispensa'),
+        (COMPENSACAO, 'Compensação'),
+    ]
+
+    funcionario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, verbose_name='colaborador', on_delete=models.CASCADE, related_name='folgas'
+    )
+    data = models.DateField()
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES)
+    # Jornada do dia no lançamento: é o que a compensação abate do banco de horas.
+    horas_abatidas = models.DurationField(null=True, blank=True)
+    motivo = models.CharField(max_length=150)
+    lancada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='folgas_lancadas'
+    )
+    criada_em = models.DateTimeField(auto_now_add=True)
+    ativa = models.BooleanField(default=True)
+    cancelada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='folgas_canceladas'
+    )
+    cancelada_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-data', 'funcionario__first_name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['funcionario', 'data'], condition=models.Q(ativa=True), name='uma_folga_ativa_por_dia'
+            )
+        ]
+
+    def __str__(self):
+        return f'{self.funcionario} — {self.get_tipo_display()} em {self.data:%d/%m/%Y}'
+
+
 class Funcao(models.Model):
     
     nome = models.CharField(max_length=50, unique=True)

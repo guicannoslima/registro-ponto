@@ -1,0 +1,74 @@
+{% extends 'ponto/base_interna.html' %}
+
+{% block title %}Lançar folga - Registro de Ponto{% endblock %}
+
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina titulo-pagina--voltar">
+        {% url 'folgas' as url_folgas %}
+        {% include 'ponto/_voltar.html' with url=url_folgas destino='Folgas' %}
+        <div class="titulo-pagina__texto">
+            <h1>Lançar folga</h1>
+            <p class="apoio">A folga zera a carga do dia. Na compensação, a jornada do dia sai do banco de horas.</p>
+        </div>
+    </header>
+
+    <div class="grade">
+        <section class="cartao-interno" aria-label="Dados da folga">
+            <form method="post" action="{% url 'folga_lancar' %}" class="campos" novalidate data-folga>
+                {% csrf_token %}
+                {% include 'ponto/_erros_formulario.html' %}
+
+                <fieldset class="campo{% if form.funcionarios.errors %} campo--erro{% endif %}">
+                    <legend>{{ form.funcionarios.label }} (obrigatório)</legend>
+                    <div class="lista-pessoas">
+                        {% for opcao, saldo in opcoes %}
+                            <label for="{{ opcao.id_for_label }}">
+                                {{ opcao.tag }} {{ opcao.choice_label }}
+                                <span class="numero lista-pessoas__saldo">banco {{ saldo }}</span>
+                            </label>
+                        {% empty %}
+                            <p class="apoio">Nenhuma pessoa na sua equipe.</p>
+                        {% endfor %}
+                    </div>
+                    {% if form.funcionarios.errors %}
+                        <ul class="errorlist">{% for erro in form.funcionarios.errors %}<li>{{ erro }}</li>{% endfor %}</ul>
+                    {% endif %}
+                </fieldset>
+
+                <div class="campos-linha">
+                    {% include 'ponto/_campo.html' with campo=form.data %}
+                </div>
+
+                <fieldset class="campo{% if form.tipo.errors %} campo--erro{% endif %}">
+                    <legend>{{ form.tipo.label }} (obrigatório)</legend>
+                    <div class="tipos-folga">
+                        {% for opcao in form.tipo %}
+                            <label class="tipo-folga" for="{{ opcao.id_for_label }}">
+                                {{ opcao.tag }}
+                                <span>
+                                    <strong>{{ opcao.choice_label }}</strong>
+                                    <span class="apoio">
+                                        {% if opcao.data.value == 'compensacao' %}Abate a jornada do dia do banco de horas.
+                                        {% else %}Dia livre sem desconto. Não mexe no banco de horas.{% endif %}
+                                    </span>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </fieldset>
+
+                {% include 'ponto/_campo.html' with campo=form.motivo %}
+                <div class="acoes">
+                    <button type="submit" class="btn">Lançar folga</button>
+                    <a href="{% url 'folgas' %}" class="btn btn--secundario">Cancelar</a>
+                </div>
+            </form>
+        </section>
+
+        <aside class="cartao-interno" id="efeito-folga" aria-live="polite" data-url="{% url 'folga_lancar' %}">
+            {% include 'ponto/_efeito_folga.html' %}
+        </aside>
+    </div>
+</div>
+{% endblock %}

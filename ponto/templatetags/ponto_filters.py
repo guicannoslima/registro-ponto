@@ -1,5 +1,6 @@
 from django.template.library import Library
-from ponto.relatorios import formatar_timedelta
+
+from ponto.utils import formatar_timedelta
 
 register = Library()
 

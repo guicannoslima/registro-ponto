@@ -43,6 +43,7 @@ from .forms import (
     CadastroForm,
     ConfiguracaoEmailForm,
     FeriadoForm,
+    FolgaForm,
     FotoPerfilForm,
     HistoricoFiltroForm,
     JornadaForm,
@@ -58,6 +59,7 @@ from .forms import (
 from .models import (
     ConfiguracaoEmail,
     Feriado,
+    Folga,
     HistoricoAlteracaoPonto,
     Jornada,
     Perfil,
@@ -65,12 +67,16 @@ from .models import (
     SolicitacaoAjustePonto,
 )
 from .permissoes import funcionarios_visiveis
-from .relatorios import calcular_horas_dia, calcular_progresso, formatar_timedelta, montar_relatorio
+from .relatorios import calcular_horas_dia, calcular_progresso, montar_relatorio
 from .services import (
     _gestor,
+    aviso_do_dia,
+    cancelar_folga,
     configuracao_jornada,
+    efeito_da_folga,
     estado_cadastro_facial,
     jornadas_para_listagem,
+    lancar_folgas,
     linha_do_dia,
     obter_foto_perfil,
     pessoas_para_cadastro_facial,
@@ -79,14 +85,24 @@ from .services import (
     registrar_batida,
     registrar_ponto_facial,
     remover_cadastro_facial,
+    saldos_do_banco,
     salvar_cadastro_facial,
     salvar_foto_perfil,
     sincronizar_feriados_nacionais,
     situacao,
+    situacao_sem_batida,
     tem_cadastro_facial,
     tipos_da_jornada,
 )
-from .utils import _erro, _limitar_captura, _presenca_facial, _resposta_registro_facial, data_por_extenso, rotulo_do_dia
+from .utils import (
+    _erro,
+    _limitar_captura,
+    _presenca_facial,
+    _resposta_registro_facial,
+    data_por_extenso,
+    formatar_timedelta,
+    rotulo_do_dia,
+)
 
 
 def _registros_do_dia(usuario, data):
@@ -101,13 +117,12 @@ def _linhas_da_equipe(gestor, hoje, agora):
     equipe_visivel = funcionarios_visiveis(gestor).select_related('perfil__funcao')
     for usuario in equipe_visivel.order_by('first_name', 'last_name'):
         registros = _registros_do_dia(usuario, hoje)
-        progresso = calcular_progresso(
-            calcular_horas_dia(usuario, hoje)['horarios'], agora, configuracao_jornada(usuario, hoje)['carga']
-        )
+        configuracao = configuracao_jornada(usuario, hoje)
+        progresso = calcular_progresso(calcular_horas_dia(usuario, hoje)['horarios'], agora, configuracao['carga'])
         linhas.append({
             'usuario': usuario,
             'linha': linha_do_dia(registros, usuario=usuario, data=hoje),
-            'situacao': situacao(registros),
+            'situacao': situacao(registros) if registros else situacao_sem_batida(configuracao),
             'ultima': registros[-1] if registros else None,
             'trabalhado': formatar_timedelta(progresso['tempo_trabalhado']) if registros else None,
         })
@@ -121,9 +136,8 @@ def painel(request):
     agora = timezone.now()
 
     registros_hoje = _registros_do_dia(request.user, hoje)
-    progresso = calcular_progresso(
-        calcular_horas_dia(request.user, hoje)['horarios'], agora, configuracao_jornada(request.user, hoje)['carga']
-    )
+    configuracao = configuracao_jornada(request.user, hoje)
+    progresso = calcular_progresso(calcular_horas_dia(request.user, hoje)['horarios'], agora, configuracao['carga'])
     feitos = {r.tipo for r in registros_hoje}
     proximo = next((t for t in tipos_da_jornada(request.user, hoje) if t not in feitos), None)
 
@@ -148,7 +162,9 @@ def painel(request):
         'restante_texto': formatar_timedelta(progresso['tempo_restante']),
         'extra_texto': formatar_timedelta(progresso['tempo_extra']),
         'acao_registrar': ACAO_REGISTRAR.get(proximo),
-        'jornada_texto': formatar_timedelta(configuracao_jornada(request.user, hoje)['carga']),
+        'jornada_texto': formatar_timedelta(configuracao['carga']),
+        'aviso': aviso_do_dia(request.user, hoje, configuracao),
+        'aviso_ontem': aviso_do_dia(request.user, ontem),
         'tolerancia_minutos': int(TOLERANCIA_SALDO.total_seconds() // 60),
         'hora_atual': timezone.localtime(agora),
         'ontem': ontem,
@@ -723,6 +739,18 @@ def foto_perfil(request, usuario_id):
     return resposta
 
 
+def gestor_required(view):
+    @login_required
+    @wraps(view)
+    def protegida(request, *args, **kwargs):
+        if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
+            messages.error(request, 'Somente gestores podem acessar esta página.')
+            return redirect('painel')
+        return view(request, *args, **kwargs)
+
+    return protegida
+
+
 def administrador_required(view):
     @login_required
     @wraps(view)
@@ -875,3 +903,62 @@ def feriado_formulario(request, feriado_id=None):
         messages.success(request, 'Feriado salvo.')
         return redirect(f"{reverse('feriados')}?ano={item.data.year}")
     return render(request, 'ponto/feriado_formulario.html', {'form': form})
+
+
+@gestor_required
+@require_http_methods(['GET'])
+def folgas(request):
+    lista = Folga.objects.filter(
+        funcionario__in=funcionarios_visiveis(request.user), ativa=True
+    ).select_related('funcionario', 'lancada_por')
+    pagina = Paginator(lista, USUARIOS_POR_PAGINA).get_page(request.GET.get('pagina'))
+    return render(request, 'ponto/folgas.html', {'pagina': pagina})
+
+
+@gestor_required
+@require_http_methods(['GET', 'POST'])
+def folga_lancar(request):
+    funcionarios = funcionarios_visiveis(request.user).order_by('first_name', 'last_name')
+    dados = request.POST if request.method == 'POST' else request.GET
+
+    if request.GET.get('parcial'):
+        return render(request, 'ponto/_efeito_folga.html', efeito_da_folga(funcionarios, request.GET))
+
+    if request.method == 'POST':
+        form = FolgaForm(request.POST, funcionarios=funcionarios)
+        if form.is_valid():
+            criadas = lancar_folgas(
+                form.cleaned_data['funcionarios'],
+                form.cleaned_data['data'],
+                form.cleaned_data['tipo'],
+                form.cleaned_data['motivo'],
+                request.user,
+            )
+            quantidade = len(criadas)
+            messages.success(
+                request,
+                f'Folga lançada para {quantidade} colaborador{"es" if quantidade > 1 else ""} '
+                f'em {form.cleaned_data["data"]:%d/%m/%Y}.',
+            )
+            return redirect('folgas')
+    else:
+        form = FolgaForm(funcionarios=funcionarios, initial={'data': timezone.localdate()})
+
+    saldos = saldos_do_banco(funcionarios)
+    opcoes = [(opcao, saldos.get(opcao.data['value'].value)) for opcao in form['funcionarios']]
+    contexto = {'form': form, 'opcoes': opcoes}
+    contexto.update(efeito_da_folga(funcionarios, dados))
+    return render(request, 'ponto/folga_lancar.html', contexto)
+
+
+@gestor_required
+@require_POST
+def folga_cancelar(request, folga_id):
+    folga = get_object_or_404(
+        Folga, pk=folga_id, ativa=True, funcionario__in=funcionarios_visiveis(request.user)
+    )
+    cancelar_folga(folga, request.user)
+    messages.success(
+        request, f'Folga de {folga.funcionario.get_full_name()} em {folga.data:%d/%m/%Y} cancelada.'
+    )
+    return redirect('folgas')

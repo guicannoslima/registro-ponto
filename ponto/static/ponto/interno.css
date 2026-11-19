@@ -1339,3 +1339,83 @@ body:has([data-camera][data-modo="terminal"]) > .principal-interno {
 @media (max-width: 1000px) { .principal-interno .jornada-horarios { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .principal-interno .jornada-horarios { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .principal-interno .jornada-horarios .campo { display: flex; flex-direction: column; justify-content: flex-end; }
+
+/* ---------- aviso do dia no painel e folgas ---------- */
+
+.principal-interno .chamada--dia { align-items: flex-start; }
+.principal-interno .chamada__icone {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--acao);
+    color: #ffffff;
+}
+.principal-interno .chamada__icone svg { width: 22px; height: 22px; }
+.principal-interno .chamada--folga { background: var(--sucesso-fundo); border-color: #b9dcc7; }
+.principal-interno .chamada--folga .chamada__icone { background: var(--sucesso); }
+.principal-interno .chamada--compensacao { background: var(--atencao-fundo); border-color: #f0d49c; }
+.principal-interno .chamada--compensacao .chamada__icone { background: var(--atencao); }
+.principal-interno .chamada--dia .chamada__texto p { margin: 0; }
+.principal-interno .chamada--dia .chamada__texto p + p { margin-top: 4px; }
+.principal-interno .chamada--dia .selo { flex: none; }
+
+.principal-interno fieldset.campo { min-width: 0; margin: 0; padding: 0; border: 0; }
+.principal-interno fieldset.campo legend { margin: 0 0 8px; padding: 0; font-size: 15px; font-weight: 600; }
+
+.principal-interno .lista-pessoas { border: 1px solid var(--linha); border-radius: 10px; }
+.principal-interno .campo .lista-pessoas label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    font-weight: 400;
+    cursor: pointer;
+}
+.principal-interno .lista-pessoas label + label { border-top: 1px solid var(--linha); }
+.principal-interno .lista-pessoas input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--acao); }
+.principal-interno .lista-pessoas__saldo { margin-left: auto; color: var(--texto-apoio); }
+
+.principal-interno .tipos-folga { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.principal-interno .campo .tipo-folga {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--linha);
+    border-radius: 10px;
+    background: var(--superficie);
+    font-weight: 400;
+    cursor: pointer;
+}
+.principal-interno .tipo-folga:has(input:checked) {
+    border-color: var(--acao);
+    background: var(--acao-fundo);
+    box-shadow: inset 0 0 0 1px var(--acao);
+}
+.principal-interno .campo .tipo-folga input[type="radio"] {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    min-height: 0;
+    margin: 2px 0 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    accent-color: var(--acao);
+}
+.principal-interno .tipo-folga strong { display: block; margin-bottom: 2px; }
+.principal-interno .tipo-folga .apoio { display: block; font-size: 15px; }
+
+.principal-interno .saldo-linha {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--linha);
+}
+.principal-interno .saldo-linha small { display: block; color: var(--texto-apoio); font-size: 14px; }
+.principal-interno .saldo-linha__valor { text-align: right; white-space: nowrap; }
+.principal-interno .negativo { color: var(--perigo); font-weight: 600; }

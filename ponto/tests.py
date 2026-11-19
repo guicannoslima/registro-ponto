@@ -311,6 +311,17 @@ class CartaoPontoTests(TestCase):
 
         self.assertEqual((linha['faltas'], linha['carga'], linha['observacao']), ('', '', ''))
 
+    def test_sabado_na_regra_anterior_conta_so_hora_extra(self):
+        sabado = self.segunda + timedelta(days=5)
+        _batida(self.usuario, RegistroPonto.ENTRADA, _momento(sabado, 8))
+        _batida(self.usuario, RegistroPonto.SAIDA, _momento(sabado, 12))
+        item = montar_relatorio(None, self.usuario, sabado, sabado, False)[0]
+
+        linha = preparar_cartao_ponto(item, sabado, sabado)['cartao']['linhas'][0]
+
+        self.assertEqual((linha['normais'], linha['faltas'], linha['extras']), ('', '', '04:00'))
+        self.assertEqual(item['horas_extras'], timedelta(hours=4))
+
     def test_batida_manual_recebe_asterisco_e_dia_sem_saida_fica_incompleto(self):
         linha_quinta = self._cartao()['cartao']['linhas'][3]
 
@@ -1121,9 +1132,9 @@ class JornadasFeriadosTests(TestCase):
         from .services import configuracao_jornada
 
         self.vincular()
-        self.assertEqual(
-            configuracao_jornada(self.pessoa, self.segunda - timedelta(days=1))['carga'], timedelta(hours=7, minutes=45)
-        )
+        sexta_anterior = self.segunda - timedelta(days=3)
+        self.assertEqual(configuracao_jornada(self.pessoa, sexta_anterior)['carga'], timedelta(hours=7, minutes=45))
+        self.assertEqual(configuracao_jornada(self.pessoa, self.segunda - timedelta(days=1))['carga'], timedelta())
         self.assertEqual(configuracao_jornada(self.pessoa, self.segunda)['carga'], timedelta(hours=8))
         self.jornada.semana = {'0': ['09:00', '', '', '', '', '12:00']}
         self.jornada.save()
@@ -1267,3 +1278,123 @@ class JornadasFeriadosTests(TestCase):
         self.assertEqual(self.pessoa.perfil.jornadas.count(), 1)
         self.client.post(reverse('usuario_editar', args=[self.pessoa.pk]), dados | {'atualizar_jornada': 'on'})
         self.assertEqual(self.pessoa.perfil.jornadas.count(), 2)
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class FolgasBancoHorasTests(TestCase):
+    def setUp(self):
+        self.gestor = User.objects.create_user('gestora_folga', first_name='Ana', last_name='Souza')
+        self.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        self.gestor.perfil.save()
+        self.pessoa = User.objects.create_user('bruno_folga', first_name='Bruno', last_name='Carvalho')
+        self.pessoa.perfil.gestor = self.gestor.perfil
+        self.pessoa.perfil.save()
+        self.segunda = date(2026, 11, 16)
+
+    def _folga(self, data, tipo, horas=None):
+        from .models import Folga
+
+        return Folga.objects.create(
+            funcionario=self.pessoa, data=data, tipo=tipo, horas_abatidas=horas, motivo='Teste', lancada_por=self.gestor
+        )
+
+    def test_banco_de_horas_soma_extras_desconta_faltas_e_compensacoes(self):
+        from .models import Folga
+        from .services import saldo_banco_horas
+
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(self.segunda, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(self.segunda, 17))  # 9h: +1h15
+        quarta = self.segunda + timedelta(days=2)
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(quarta, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(quarta, 15, 50))  # 5 min a mais: dentro da tolerância
+        sabado = self.segunda + timedelta(days=5)
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(sabado, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(sabado, 10))  # fim de semana: +2h
+        with patch('django.utils.timezone.localdate', return_value=sabado):
+            # terça sem batida: -7h45; quinta e sexta sem batida: -15h30
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=1, minutes=15 + 120 - 3 * 465))
+            self._folga(self.segunda + timedelta(days=4), Folga.DISPENSA)  # sexta abonada
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=1, minutes=15 + 120 - 2 * 465))
+            self._folga(self.segunda + timedelta(days=7), Folga.COMPENSACAO, timedelta(hours=7, minutes=45))
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=1, minutes=15 + 120 - 3 * 465))
+
+    def test_folga_zera_carga_e_marca_cartao(self):
+        from .models import Folga
+        from .services import configuracao_jornada
+
+        terca = self.segunda + timedelta(days=1)
+        self._folga(terca, Folga.COMPENSACAO, timedelta(hours=7, minutes=45))
+        configuracao = configuracao_jornada(self.pessoa, terca)
+        self.assertEqual(configuracao['carga'], timedelta())
+        self.assertEqual(configuracao['carga_sem_folga'], timedelta(hours=7, minutes=45))
+        item = montar_relatorio(None, self.pessoa, terca, terca, False)[0]
+        linha = preparar_cartao_ponto(item, terca, terca)['cartao']['linhas'][0]
+        self.assertEqual((linha['faltas'], linha['observacao']), ('', 'Folga comp.'))
+
+    def test_gestor_lanca_compensacao_e_formulario_valida(self):
+        from .models import Folga
+
+        self.client.force_login(self.gestor)
+        dados = {'funcionarios': [self.pessoa.pk], 'data': '2026-11-23', 'tipo': 'compensacao', 'motivo': 'Fechamento'}
+        resposta = self.client.post(reverse('folga_lancar'), dados)
+        self.assertRedirects(resposta, reverse('folgas'))
+        folga = Folga.objects.get(funcionario=self.pessoa)
+        self.assertEqual(folga.horas_abatidas, timedelta(hours=7, minutes=45))
+        self.assertContains(self.client.get(reverse('folgas')), 'Fechamento')
+
+        repetida = self.client.post(reverse('folga_lancar'), dados)
+        self.assertContains(repetida, 'Já existe folga em 23/11/2026')
+        sabado = self.client.post(reverse('folga_lancar'), dados | {'data': '2026-11-21', 'tipo': 'dispensa'})
+        self.assertContains(sabado, '21/11/2026 é sábado e já não tem expediente para Bruno Carvalho.')
+
+        from .models import Feriado
+
+        Feriado.objects.update_or_create(data=date(2026, 11, 20), defaults={'nome': 'Consciência Negra'})
+        feriado = self.client.post(reverse('folga_lancar'), dados | {'data': '2026-11-20'})
+        self.assertContains(
+            feriado, '20/11/2026 é feriado (Consciência Negra) e já não tem expediente para Bruno Carvalho.'
+        )
+
+        parcial = self.client.get(reverse('folga_lancar'), dados | {'parcial': '1'})
+        self.assertContains(parcial, 'Abate 7h45min')
+
+    def test_cancelar_so_na_propria_equipe_e_colaborador_sem_acesso(self):
+        from .models import Folga
+
+        folga = self._folga(self.segunda, Folga.DISPENSA)
+        outro = User.objects.create_user('outro_gestor')
+        outro.perfil.papel = Perfil.PAPEL_GESTOR
+        outro.perfil.save()
+        self.client.force_login(outro)
+        self.assertEqual(self.client.post(reverse('folga_cancelar', args=[folga.pk])).status_code, 404)
+
+        self.client.force_login(self.pessoa)
+        self.assertRedirects(self.client.get(reverse('folgas')), reverse('painel'))
+
+        self.client.force_login(self.gestor)
+        self.client.post(reverse('folga_cancelar', args=[folga.pk]))
+        folga.refresh_from_db()
+        self.assertFalse(folga.ativa)
+        self.assertEqual(folga.cancelada_por, self.gestor)
+
+    def test_painel_e_equipe_mostram_folga_do_dia(self):
+        from .models import Folga
+
+        self._folga(timezone.localdate(), Folga.DISPENSA)
+        self.client.force_login(self.pessoa)
+        painel = self.client.get(reverse('painel'))
+        self.assertContains(painel, 'Folga lançada por Ana Souza')
+        self.assertContains(painel, 'Contam como extra')
+
+        self.client.force_login(self.gestor)
+        equipe = self.client.get(reverse('painel'), {'aba': 'equipe'})
+        self.assertContains(equipe, '<span class="selo selo--sucesso">Folga</span>', html=True)
+
+    def test_aviso_de_feriado_e_folga_semanal(self):
+        from .models import Feriado
+        from .services import aviso_do_dia
+
+        Feriado.objects.update_or_create(data=self.segunda, defaults={'nome': 'Feriado local'})
+        self.assertEqual(aviso_do_dia(self.pessoa, self.segunda)['titulo'], 'Feriado: Feriado local')
+        self.assertEqual(aviso_do_dia(self.pessoa, self.segunda + timedelta(days=5))['titulo'], 'Folga semanal')
+        self.assertIsNone(aviso_do_dia(self.pessoa, self.segunda + timedelta(days=1)))

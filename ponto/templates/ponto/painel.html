@@ -18,10 +18,23 @@
         </section>
     {% endif %}
 
+    {% if aviso %}
+        <section class="chamada chamada--dia chamada--{{ aviso.classe }}" aria-label="Aviso do dia">
+            <span class="chamada__icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>{% if aviso.classe == 'compensacao' %}<path d="m9 15 2 2 4-4"/>{% elif aviso.classe == 'feriado' %}<path d="m12 13 .9 1.8 2 .3-1.45 1.4.35 2-1.8-.95-1.8.95.35-2-1.45-1.4 2-.3z"/>{% else %}<path d="M8 15h8"/>{% endif %}</svg>
+            </span>
+            <div class="chamada__texto">
+                <p><strong>{{ aviso.titulo }}</strong></p>
+                <p class="apoio">{{ aviso.texto }}</p>
+            </div>
+            <span class="selo selo--{{ aviso.classe_selo }}">{{ aviso.selo }}</span>
+        </section>
+    {% endif %}
+
     <header class="titulo-pagina">
         <div class="titulo-pagina__texto">
             <h1>{{ titulo_do_dia }}</h1>
-            <p class="apoio">Jornada de {{ jornada_texto }}, com {{ tolerancia_minutos }} minutos de tolerância no saldo.</p>
+            <p class="apoio">{% if aviso %}{{ aviso.subtitulo }}{% else %}Jornada de {{ jornada_texto }}, com {{ tolerancia_minutos }} minutos de tolerância no saldo.{% endif %}</p>
         </div>
     </header>
 
@@ -46,7 +59,7 @@
                     <hr class="divisoria">
                     {% include 'ponto/_lista_batidas.html' with registros=registros_hoje %}
                 {% else %}
-                    <p class="apoio">Nenhuma batida hoje. Comece registrando a entrada.</p>
+                    <p class="apoio">{% if aviso %}Nenhuma batida hoje. Se precisar trabalhar, registre a entrada normalmente.{% else %}Nenhuma batida hoje. Comece registrando a entrada.{% endif %}</p>
                 {% endif %}
             </div>
 
@@ -62,10 +75,13 @@
                         {% endif %}
                     {% endif %}
                 </div>
+                {% if aviso_ontem %}<p class="apoio"><span class="selo selo--{{ aviso_ontem.classe_selo }}">{{ aviso_ontem.selo }}</span> {{ aviso_ontem.titulo }}.</p>{% endif %}
                 {% if registros_ontem %}
                     {% include 'ponto/_linha_do_dia.html' with linha=linha_ontem %}
                     <hr class="divisoria">
                     {% include 'ponto/_lista_batidas.html' with registros=registros_ontem %}
+                {% elif aviso_ontem %}
+                    <p class="apoio">Sem expediente previsto ontem e nenhuma batida registrada.</p>
                 {% else %}
                     <p class="apoio">Nenhuma batida ontem. Se você trabalhou, peça o ajuste em
                         <a href="{% url 'solicitar_criacao' %}" class="link">Ajustes de ponto</a>.</p>
@@ -123,23 +139,28 @@
                 </div>
             </div>
             <dl class="resumo-jornada">
-                {% if progresso.estado == 'extra' %}
-                    <div><dt>Hora extra</dt><dd>{{ extra_texto }}</dd></div>
+                {% if aviso %}
+                    <div><dt>Jornada do dia</dt><dd>{{ aviso.jornada }}</dd></div>
+                    <div><dt>Horas de hoje</dt><dd>Contam como extra</dd></div>
                 {% else %}
-                    <div><dt>Faltam</dt><dd>{{ restante_texto }}</dd></div>
+                    {% if progresso.estado == 'extra' %}
+                        <div><dt>Hora extra</dt><dd>{{ extra_texto }}</dd></div>
+                    {% else %}
+                        <div><dt>Faltam</dt><dd>{{ restante_texto }}</dd></div>
+                    {% endif %}
+                    <div><dt>Jornada do dia</dt><dd>{{ jornada_texto }}</dd></div>
                 {% endif %}
-                <div><dt>Jornada do dia</dt><dd>{{ jornada_texto }}</dd></div>
             </dl>
             <form method="post" action="{% url 'bater_ponto' %}">
                 {% csrf_token %}
                 {% if acao_registrar %}
-                    <button type="submit" class="btn btn--largo">{{ acao_registrar }}</button>
+                    <button type="submit" class="btn btn--largo{% if aviso %} btn--secundario{% endif %}">{{ acao_registrar }}</button>
                 {% else %}
                     <button type="submit" class="btn btn--largo" disabled>Todas as batidas de hoje registradas</button>
                 {% endif %}
             </form>
             {% if acao_registrar %}
-                <p class="apoio pequeno">Grava o horário atual: {{ hora_atual|time:"H:i" }}.</p>
+                <p class="apoio pequeno">{% if aviso %}Registrar só se for trabalhar. {% endif %}Grava o horário atual: {{ hora_atual|time:"H:i" }}.</p>
                 <a href="{% url 'ponto_facial' %}" class="btn btn--secundario btn--largo">Registrar por câmera</a>
             {% endif %}
         </aside>

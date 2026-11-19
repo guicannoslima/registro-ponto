@@ -73,6 +73,38 @@ document.addEventListener('DOMContentLoaded', () => {
     dataHora.addEventListener('change', atualizar);
 });
 
+// Lançar folga: atualiza o efeito no banco de horas ao trocar pessoas, data ou tipo.
+document.addEventListener('DOMContentLoaded', () => {
+    const painel = document.getElementById('efeito-folga');
+    const formulario = document.querySelector('[data-folga]');
+    if (!painel || !formulario) {
+        return;
+    }
+
+    const atualizar = () => {
+        const parametros = new URLSearchParams({ parcial: '1' });
+        new FormData(formulario).forEach((valor, nome) => {
+            if (['funcionarios', 'data', 'tipo'].includes(nome)) {
+                parametros.append(nome, valor);
+            }
+        });
+        fetch(`${painel.dataset.url}?${parametros}`)
+            .then((resposta) => (resposta.ok ? resposta.text() : Promise.reject(resposta.status)))
+            .then((html) => {
+                painel.innerHTML = html;
+            })
+            .catch(() => {
+                // Sem o efeito atualizado o formulário continua funcionando normalmente.
+            });
+    };
+
+    formulario.addEventListener('change', (evento) => {
+        if (['funcionarios', 'data', 'tipo'].includes(evento.target.name)) {
+            atualizar();
+        }
+    });
+});
+
 // Página inicial: troca de abas sem recarregar. Sem JS, cada aba é um link ?aba=… tratado pelo servidor.
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-abas]').forEach((grupo) => {

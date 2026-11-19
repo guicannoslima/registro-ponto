@@ -73,9 +73,8 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 1. **Horário impresso no cartão:** `HORARIO_DE_TRABALHO` em `ponto/constants.py`
    (09:00–12:45, 14:00–16:15, 16:30–18:00) soma **7h30**, mas `JORNADA_DIARIA` é **7h45**.
    Perguntar qual vale antes de mexer.
-2. **Sábado e domingo com batidas:** a regra atual espera 7h45 em qualquer dia com batida,
-   então meio período no sábado gera saldo negativo (ex.: −3h45). Perguntar se fim de semana
-   deve contar só como hora extra; é mudança de regra em `relatorios.py`.
+2. **Banco de horas:** implementado sem adicional de 50%/100%, sem validade das horas e sem
+   fechamento por período, e sem tela de extrato para o colaborador. Perguntar se e quando entram.
 3. **Atalho para dias incompletos:** a tabela do relatório na tela, com **Pedir ajuste** e
    **Lançar ponto**, saiu quando o PDF passou a ser exibido no iframe. Oferecido trazer uma
    lista curta acima do iframe; sem resposta.
@@ -169,3 +168,14 @@ Ajuste posterior na tela de Feriados: o rótulo Ano fica em linha própria e o i
 Consultar e Sincronizar nacionais compartilham a mesma linha, com topo, base e altura
 iguais (48 px), usando classes existentes. Prancha **Feriados · Alinhamento dos controles**
 no Figcraft e prévia em `design/previas/feriados-alinhamento/`.
+
+## Revisão de 19/11 — folgas e banco de horas
+
+Gestão ganhou **Folgas** (lista, lançamento e cancelamento; `gestor_required` em `views.py`).
+Modelo `Folga` com migração `0013` aplicada nos bancos `registro_ponto` e
+`registro_ponto_design`. Regras em `services.py`: `configuracao_jornada` considera a folga
+(e aceita dados pré-carregados), `saldo_banco_horas` calcula o banco desde a primeira batida,
+`aviso_do_dia` alimenta o aviso do painel e `efeito_da_folga` o quadro lateral do lançamento.
+`formatar_timedelta` passou para `utils.py`. Fim de semana na regra anterior agora tem carga
+zero. Prancha **Feriados e folgas** no Figcraft. [Uso e regras](USO.md#folgas-e-banco-de-horas).
+Validação: 111 testes aprovados, checks de Django e migrações, telas renderizadas com dados.

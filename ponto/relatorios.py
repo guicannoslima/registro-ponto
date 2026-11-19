@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from .constants import JORNADA_DIARIA, TOLERANCIA_SALDO
 from .models import RegistroPonto
-from .services import configuracao_jornada
+from .services import configuracao_jornada, saldo_do_dia, tempo_trabalhado
 
 
 def calcular_horas_dia(funcionario,data):
@@ -19,25 +19,17 @@ def calcular_horas_dia(funcionario,data):
 
     completo = RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios
 
-    tempo_trabalhado = None
     esperado = None
     diferenca = None
     if completo:
-        tempo_total = horarios[RegistroPonto.SAIDA] - horarios[RegistroPonto.ENTRADA]
-        
-        if RegistroPonto.SAIDA_ALMOCO in horarios and RegistroPonto.VOLTA_ALMOCO in horarios:
-            tempo_almoco = horarios[RegistroPonto.VOLTA_ALMOCO] - horarios[RegistroPonto.SAIDA_ALMOCO]
-        else:
-            tempo_almoco = timedelta()
-        
-        tempo_trabalhado = tempo_total - tempo_almoco
+        trabalhado = tempo_trabalhado(horarios)
         esperado = configuracao_jornada(funcionario, data)['carga']
-        diferenca = tempo_trabalhado - esperado
-        if abs(diferenca) <= TOLERANCIA_SALDO:
-            diferenca = timedelta()
-        
+        diferenca = saldo_do_dia(trabalhado, esperado)
+    else:
+        trabalhado = None
+
     return {
-        'tempo_trabalhado': tempo_trabalhado,
+        'tempo_trabalhado': trabalhado,
         'esperado': esperado,
         'diferenca': diferenca,
         'completo': completo,
@@ -68,27 +60,6 @@ def calcular_relatorio_periodo(funcionario, data_inicio, data_fim):
             })
         data_atual += timedelta(days = 1)
     return relatorio
-
-def formatar_timedelta(delta):
-    total = delta.total_seconds()
-    
-    if total < 0:
-        total = abs(total)
-        negativo = True
-    else: 
-        negativo = False
-
-    total = int(total)
-
-    horas = total // 3600
-    resto = total % 3600
-    minutos = resto // 60
-
-    sinal = '-'
-    if negativo == True:
-        return f'{sinal}{horas}h{minutos:02d}min'
-    else:
-        return f'{horas}h{minutos:02d}min'
 
 def montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos):
     relatorio = []

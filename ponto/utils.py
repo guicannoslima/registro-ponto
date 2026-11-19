@@ -100,3 +100,25 @@ def hhmm(delta):
         return ''
     minutos = int(delta.total_seconds()) // 60
     return f'{minutos // 60:02d}:{minutos % 60:02d}'
+
+
+def formatar_timedelta(delta):
+    total = delta.total_seconds()
+    
+    if total < 0:
+        total = abs(total)
+        negativo = True
+    else: 
+        negativo = False
+
+    total = int(total)
+
+    horas = total // 3600
+    resto = total % 3600
+    minutos = resto // 60
+
+    sinal = '-'
+    if negativo:
+        return f'{sinal}{horas}h{minutos:02d}min'
+    else:
+        return f'{horas}h{minutos:02d}min'
