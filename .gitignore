@@ -76,3 +76,6 @@ htmlcov/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Modelos de reconhecimento facial, baixados pelo comando preparar_facial
+modelos_faciais/

@@ -75,3 +75,12 @@ EMPRESA_ENDERECO = 'Av. Belo Horizonte, 397'
 HORARIO_DE_TRABALHO = (('09:00', '12:45'), ('14:00', '16:15'), ('16:30', '18:00'))
 DIAS_UTEIS = (0, 1, 2, 3, 4)
 DIAS_ABREVIADOS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom']
+
+# Reconhecimento facial: vetores normalizados SFace e limites da captura da câmera
+FACIAL_LIMIAR = 0.5
+FACIAL_MARGEM = 0.08
+FOTO_MAX_BYTES = 1024 * 1024
+FOTO_MAX_PIXELS = 1280 * 1280
+
+# Administração de usuários
+USUARIOS_POR_PAGINA = 25

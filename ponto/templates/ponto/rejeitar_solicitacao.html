@@ -14,7 +14,7 @@
 
     <section class="cartao-interno cartao-interno--estreito" aria-label="Confirmar rejeição">
         <dl class="resumo">
-            <dt>Funcionário</dt><dd>{{ solicitacao.funcionario.get_full_name }}</dd>
+            <dt>Colaborador</dt><dd>{{ solicitacao.funcionario.get_full_name }}</dd>
             {% if solicitacao.tipo_acao == 'criacao' %}
                 <dt>Pedido</dt><dd>Inclusão de batida</dd>
                 <dt>Batida</dt><dd class="numero">{{ solicitacao.get_tipo_display }}, {{ solicitacao.data_hora|date:"d/m/Y" }} às {{ solicitacao.data_hora|time:"H:i" }}</dd>

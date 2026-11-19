@@ -1,0 +1,56 @@
+{% extends 'ponto/base_interna.html' %}
+{% load static %}
+{% block title %}Reconhecimento facial - Registro de Ponto{% endblock %}
+{% block conteudo %}
+<div class="pagina" data-camera data-modo="{{ modo }}">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>{% if modo == 'cadastro' %}Cadastrar rosto{% elif modo == 'terminal' %}Ponto em computador compartilhado{% else %}Registrar por reconhecimento facial{% endif %}</h1>
+            <p class="apoio">{% if modo == 'cadastro' %}O gestor acompanha a captura e confirma a pessoa selecionada.{% else %}A câmera abre automaticamente. Posicione seu rosto para registrar o ponto.{% endif %}</p>
+        </div>
+    </header>
+    <div class="grade camera-grade">
+        <section class="cartao-interno camera-conteudo">
+            <form method="post" enctype="multipart/form-data" id="camera-form">
+                {% csrf_token %}
+                {% if modo == 'cadastro' %}
+                    <label for="camera-pessoa">Colaborador</label>
+                    <select id="camera-pessoa" name="funcionario" required>
+                        <option value="">Selecione a pessoa</option>
+                        {% for pessoa in pessoas %}<option value="{{ pessoa.pk }}">{{ pessoa.get_full_name|default:pessoa.username }} ({{ pessoa.username }})</option>{% endfor %}
+                    </select>
+                {% endif %}
+                <div class="camera-previa">
+                    <video id="camera-video" autoplay playsinline muted hidden aria-label="Prévia da câmera"></video>
+                    <p id="camera-desligada">Câmera desligada</p>
+                </div>
+                <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="apoio">{% if modo == 'pessoal' and not tem_cadastro %}Peça ao gestor para cadastrar seu rosto antes de usar a câmera.{% else %}Abrindo câmera. Autorize o acesso no navegador quando solicitado.{% endif %}</p>
+                <button id="camera-ligar" type="button" class="btn btn--secundario btn--largo" hidden>Retomar câmera</button>
+                {% if modo == 'cadastro' %}<button id="camera-capturar" type="submit" class="btn btn--largo" disabled>Cadastrar rosto</button>{% endif %}
+                <button id="camera-parar" type="button" class="btn btn--secundario btn--largo" hidden>Pausar câmera</button>
+            </form>
+            <noscript><p>Ative o JavaScript para usar a câmera. O registro comum continua disponível no painel.</p></noscript>
+        </section>
+        <aside class="cartao-interno camera-conteudo">
+            <h2>{% if modo == 'cadastro' %}Cadastro acompanhado{% else %}Antes de registrar{% endif %}</h2>
+            <p>Enquadre apenas um rosto. Olhe para a câmera em um local iluminado.</p>
+            {% if modo == 'cadastro' %}
+                <p>Confirme a identidade da pessoa antes de cadastrar. Uma nova captura substitui o cadastro anterior.</p>
+                <p>A captura gera um cadastro biométrico no servidor. A imagem é descartada após o processamento.</p>
+                <button type="button" id="camera-excluir" class="btn btn--secundario">Remover cadastro da pessoa selecionada</button>
+            {% else %}
+                <p>Ao reconhecer o rosto, o sistema grava o horário atual e a próxima batida, sem clicar.</p>
+                {% if modo == 'terminal' %}<p>Após a confirmação, saia do enquadramento para liberar a câmera para a próxima pessoa.</p>{% endif %}
+                <p>A imagem é descartada após a comparação com o cadastro facial.</p>
+            {% endif %}
+            <p class="apoio pequeno">Sem prova de vida nesta versão: uma fotografia pode enganar o reconhecimento. O registro comum continua disponível.</p>
+            {% if modo == 'terminal' %}
+                <form method="post">{% csrf_token %}<input type="hidden" name="acao" value="encerrar"><button class="btn btn--secundario" type="submit">Encerrar terminal</button></form>
+            {% else %}
+                <a href="{% url 'painel' %}" class="link">Voltar ao painel</a>
+            {% endif %}
+        </aside>
+    </div>
+</div>
+<script src="{% static 'ponto/camera.js' %}" defer></script>
+{% endblock %}

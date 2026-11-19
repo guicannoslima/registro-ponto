@@ -87,3 +87,27 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', atualizar);
     atualizar();
 });
+
+// Menus por clique: um grupo aberto, fechamento por clique fora, foco fora ou Escape.
+document.addEventListener('DOMContentLoaded', () => {
+    const menu = document.querySelector('[data-menu]');
+    if (!menu) return;
+    const grupos = [...menu.querySelectorAll('details')];
+    grupos.forEach((grupo) => {
+        grupo.addEventListener('toggle', () => {
+            if (grupo.open) grupos.forEach((outro) => { if (outro !== grupo) outro.open = false; });
+        });
+        grupo.addEventListener('keydown', (evento) => {
+            if (evento.key === 'Escape') {
+                grupo.open = false;
+                grupo.querySelector('summary').focus();
+            }
+        });
+        grupo.addEventListener('focusout', () => {
+            setTimeout(() => { if (!grupo.contains(document.activeElement)) grupo.open = false; }, 0);
+        });
+    });
+    document.addEventListener('click', (evento) => {
+        grupos.forEach((grupo) => { if (!grupo.contains(evento.target)) grupo.open = false; });
+    });
+});

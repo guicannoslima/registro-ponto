@@ -97,7 +97,7 @@
                             {% endfor %}
                         </ul>
                     {% else %}
-                        <p class="apoio">Nenhuma pessoa na sua equipe. Defina o gestor de cada funcionário na seção Perfis do painel administrativo.</p>
+                        <p class="apoio">Nenhuma pessoa na sua equipe. Defina o gestor de cada colaborador na seção Perfis do painel administrativo.</p>
                     {% endif %}
                     <a href="{% url 'equipe' %}" class="link">Ver equipe completa</a>
                 </div>
@@ -140,6 +140,15 @@
             </form>
             {% if acao_registrar %}
                 <p class="apoio pequeno">Grava o horário atual: {{ hora_atual|time:"H:i" }}.</p>
+                <a href="{% url 'ponto_facial' %}" class="btn btn--secundario btn--largo">Registrar por câmera</a>
+            {% endif %}
+            {% if user.perfil.papel == 'gestor' or user.perfil.papel == 'admin' %}
+                <a href="{% url 'cadastro_facial' %}" class="link">Gerenciar cadastros faciais</a>
+                <form method="post" action="{% url 'abrir_terminal' %}">
+                    {% csrf_token %}
+                    <button class="btn btn--secundario btn--largo" type="submit">Abrir terminal compartilhado</button>
+                    <p class="apoio pequeno">Encerra sua sessão e libera apenas o registro por rosto por até 12 horas.</p>
+                </form>
             {% endif %}
         </aside>
     </div>

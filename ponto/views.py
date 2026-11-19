@@ -1,28 +1,27 @@
 from datetime import date, timedelta
+from functools import wraps
+from smtplib import SMTPException
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.staticfiles import finders
-from django.http import HttpResponse
+from django.core.exceptions import ImproperlyConfigured
+from django.core.mail import EmailMessage
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.clickjacking import xframe_options_sameorigin
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from xhtml2pdf import pisa
 
-from .apresentacao import (
-    data_por_extenso,
-    linha_do_dia,
-    preparar_cartao_ponto,
-    proximo_tipo,
-    rotulo_do_dia,
-    situacao,
-)
-from .calculos import proximo_tipo_ponto
 from .constants import (
     ABAS_DO_PAINEL,
     ACAO_REGISTRAR,
@@ -31,13 +30,18 @@ from .constants import (
     DIAS_UTEIS,
     EMPRESA_ENDERECO,
     EMPRESA_NOME,
+    FACIAL_LIMIAR,
     HORARIO_DE_TRABALHO,
-    INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
     TOLERANCIA_SALDO,
+    USUARIOS_POR_PAGINA,
 )
+from .email import BackendEmail
+from .exceptions import ErroBatida, ErroFacial, SemRosto
+from .facial import extrair_vetor, identificar
 from .forms import (
     CadastroForm,
+    ConfiguracaoEmailForm,
     HistoricoFiltroForm,
     MotivoExclusaoForm,
     MotivoRejeicaoForm,
@@ -45,10 +49,29 @@ from .forms import (
     RelatorioForm,
     SolicitarCriacaoForm,
     SolicitarExclusaoForm,
+    TesteEmailForm,
+    UsuarioAdministracaoForm,
 )
-from .models import HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
+from .models import (
+    CadastroFacial,
+    ConfiguracaoEmail,
+    HistoricoAlteracaoPonto,
+    Perfil,
+    RegistroPonto,
+    SolicitacaoAjustePonto,
+)
 from .permissoes import funcionarios_visiveis
 from .relatorios import calcular_horas_dia, calcular_progresso, formatar_timedelta, montar_relatorio
+from .services import (
+    data_por_extenso,
+    linha_do_dia,
+    preparar_cartao_ponto,
+    proximo_tipo,
+    registrar_batida,
+    rotulo_do_dia,
+    situacao,
+)
+from .utils import _erro, _gestor, _limitar_captura, _pessoas
 
 
 def _registros_do_dia(usuario, data):
@@ -138,16 +161,10 @@ def painel(request):
 @login_required
 @require_POST
 def bater_ponto(request):
-    agora = timezone.now()
-    limite = agora - timedelta(minutes=INTERVALO_MINIMO_MINUTOS)
-    if RegistroPonto.objects.filter(funcionario=request.user, data_hora__gte=limite, ativo = True, data_hora__lte = agora).exists():
-        messages.error(request, f"Você só pode bater ponto a cada {INTERVALO_MINIMO_MINUTOS} minutos.")
-        return redirect('painel')
-    proximo_tipo = proximo_tipo_ponto(request.user)
-    if proximo_tipo:
-        RegistroPonto.objects.create(funcionario=request.user, tipo=proximo_tipo, data_hora=agora)
-    else:
-        messages.error(request, "Todos os pontos do dia foram batidos.")
+    try:
+        registrar_batida(request.user)
+    except ErroBatida as exc:
+        messages.error(request, str(exc))
     return redirect('painel')
 
 
@@ -445,7 +462,7 @@ def historico_alteracoes(request):
 
 
 def _funcionarios_do_relatorio(usuario):
-    """O funcionário só gera o próprio relatório; gestor e administrador, o de quem eles enxergam."""
+    """O colaborador só gera o próprio relatório; gestor e administrador, o de quem eles enxergam."""
     eh_funcionario = usuario.perfil.papel == Perfil.PAPEL_FUNCIONARIO
     if eh_funcionario:
         return User.objects.filter(pk=usuario.pk), eh_funcionario
@@ -565,3 +582,213 @@ def cadastro_usuario(request):
     else:
         form = CadastroForm()
     return render(request, 'ponto/cadastro_usuario.html', {'form': form})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def cadastro_facial(request):
+    if not _gestor(request.user):
+        return HttpResponseForbidden('Somente gestores podem cadastrar rostos.')
+    pessoas = _pessoas(request.user).order_by('first_name', 'username')
+    if request.method == 'POST':
+        try:
+            pessoa_id = int(request.POST.get('funcionario', ''))
+        except ValueError as exc:
+            raise Http404 from exc
+        pessoa = get_object_or_404(pessoas, pk=pessoa_id)
+        if request.POST.get('acao') == 'excluir':
+            CadastroFacial.objects.filter(funcionario=pessoa).delete()
+            return JsonResponse({'mensagem': 'Cadastro facial removido.'})
+        try:
+            _limitar_captura(request)
+            vetor = extrair_vetor(request.FILES.get('foto'))
+            # Impede associar um rosto já cadastrado a outra conta.
+            outros = CadastroFacial.objects.exclude(funcionario=pessoa).select_related('funcionario')
+            if any(sum(a * b for a, b in zip(vetor, outro.vetor, strict=True)) >= FACIAL_LIMIAR for outro in outros):
+                raise ErroFacial('Este rosto já possui cadastro. Peça a revisão ao administrador.')
+            CadastroFacial.objects.update_or_create(
+                funcionario=pessoa, defaults={'vetor': vetor, 'cadastrado_por': request.user},
+            )
+            return JsonResponse({'mensagem': f'Rosto cadastrado para {pessoa.get_full_name() or pessoa.username}.'})
+        except ErroFacial as exc:
+            return _erro(exc)
+    return render(request, 'ponto/camera.html', {'modo': 'cadastro', 'pessoas': pessoas})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def ponto_facial(request):
+    if request.method == 'GET':
+        return render(request, 'ponto/camera.html', {
+            'modo': 'pessoal', 'tem_cadastro': CadastroFacial.objects.filter(funcionario=request.user).exists(),
+        })
+    try:
+        _limitar_captura(request)
+        cadastros = CadastroFacial.objects.filter(funcionario=request.user).select_related('funcionario')
+        if not cadastros.exists():
+            return _erro(ErroFacial('Peça ao gestor para cadastrar seu rosto antes de usar a câmera.'), continuar=False)
+        pessoa = identificar(extrair_vetor(request.FILES.get('foto')), cadastros)
+        return _registrar(pessoa)
+    except ErroFacial as exc:
+        return _erro(exc)
+
+
+def _registrar(pessoa, terminal=None):
+    if terminal is not None and terminal.get('facial_pessoa_presente') == pessoa.pk:
+        anterior = terminal['facial_resultado_presente']
+        return JsonResponse(anterior['dados'], status=anterior['status'])
+    try:
+        registro = registrar_batida(pessoa)
+    except ErroBatida as exc:
+        dados = {'erro': str(exc), 'continuar': terminal is not None}
+        status = 409
+    else:
+        nome = pessoa.get_full_name() or pessoa.username
+        hora = timezone.localtime(registro.data_hora).strftime('%H:%M')
+        dados = {'mensagem': f'{nome}: {registro.get_tipo_display()} registrada às {hora}.'}
+        status = 200
+    if terminal is not None:
+        # A mesma pessoa precisa sair do enquadramento antes de poder registrar de novo.
+        terminal['facial_pessoa_presente'] = pessoa.pk
+        terminal['facial_resultado_presente'] = {'dados': dados, 'status': status}
+    return JsonResponse(dados, status=status)
+
+
+@login_required
+@require_POST
+def abrir_terminal(request):
+    if not _gestor(request.user):
+        return HttpResponseForbidden('Somente gestores podem abrir o terminal.')
+    gestor_id = request.user.pk
+    # A sessão do gestor termina: o computador compartilhado só pode bater ponto.
+    logout(request)
+    request.session['terminal_gestor_id'] = gestor_id
+    request.session.set_expiry(12 * 60 * 60)
+    return redirect('terminal_facial')
+
+
+@require_http_methods(['GET', 'POST'])
+def terminal_facial(request):
+    gestor_id = request.session.get('terminal_gestor_id')
+    gestor = User.objects.filter(pk=gestor_id, is_active=True).first() if gestor_id else None
+    if not gestor or not _gestor(gestor):
+        return redirect('login')
+    if request.method == 'POST':
+        if request.POST.get('acao') == 'encerrar':
+            request.session.flush()
+            return redirect('login')
+        try:
+            _limitar_captura(request)
+            cadastros = CadastroFacial.objects.filter(
+                funcionario__in=_pessoas(gestor),
+            ).select_related('funcionario')
+            if not cadastros.exists():
+                return _erro(ErroFacial('Nenhum rosto cadastrado. Peça ao gestor para preparar os cadastros.'),
+                             continuar=False)
+            pessoa = identificar(extrair_vetor(request.FILES.get('foto')), cadastros)
+            return _registrar(pessoa, terminal=request.session)
+        except SemRosto as exc:
+            request.session.pop('facial_pessoa_presente', None)
+            request.session.pop('facial_resultado_presente', None)
+            return _erro(exc)
+        except ErroFacial as exc:
+            return _erro(exc)
+    return render(request, 'ponto/camera.html', {'modo': 'terminal'})
+
+
+def administrador_required(view):
+    @login_required
+    @wraps(view)
+    def protegida(request, *args, **kwargs):
+        if request.user.perfil.papel != Perfil.PAPEL_ADMIN:
+            return HttpResponseForbidden('Somente administradores podem acessar esta página.')
+        return view(request, *args, **kwargs)
+
+    return protegida
+
+
+@administrador_required
+@require_http_methods(['GET'])
+def usuarios(request):
+    busca = request.GET.get('q', '').strip()
+    pessoas = User.objects.select_related('perfil__funcao', 'perfil__gestor__user').order_by('first_name', 'username')
+    if busca:
+        pessoas = pessoas.filter(
+            Q(first_name__icontains=busca)
+            | Q(last_name__icontains=busca)
+            | Q(username__icontains=busca)
+            | Q(email__icontains=busca),
+        )
+    pagina = Paginator(pessoas, USUARIOS_POR_PAGINA).get_page(request.GET.get('pagina'))
+    return render(request, 'ponto/usuarios.html', {'usuarios': pagina, 'busca': busca})
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def usuario_formulario(request, usuario_id=None):
+    pessoa = get_object_or_404(User, pk=usuario_id) if usuario_id else None
+    form = UsuarioAdministracaoForm(request.POST or None, instance=pessoa, administrador=request.user)
+    if request.method == 'POST' and form.is_valid():
+        usuario = form.save()
+        if usuario.pk == request.user.pk and form.cleaned_data.get('senha'):
+            update_session_auth_hash(request, usuario)
+        messages.success(request, 'Usuário atualizado.' if pessoa else 'Usuário cadastrado.')
+        return redirect('usuarios')
+    return render(request, 'ponto/usuario_formulario.html', {'form': form, 'pessoa': pessoa})
+
+
+def _email_do_ambiente():
+    seguranca = 'ssl' if getattr(settings, 'EMAIL_USE_SSL', False) else 'tls' if settings.EMAIL_USE_TLS else 'nenhuma'
+    return ConfiguracaoEmail(
+        servidor=settings.EMAIL_HOST,
+        porta=settings.EMAIL_PORT,
+        usuario=settings.EMAIL_HOST_USER,
+        seguranca=seguranca,
+        remetente=settings.DEFAULT_FROM_EMAIL,
+    )
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def configurar_email(request):
+    configuracao = ConfiguracaoEmail.objects.filter(pk=1).first()
+    form = ConfiguracaoEmailForm(instance=configuracao or _email_do_ambiente())
+    teste = TesteEmailForm(initial={'destinatario': request.user.email})
+    if request.method == 'POST':
+        if request.POST.get('acao') == 'testar':
+            teste = TesteEmailForm(request.POST)
+            if teste.is_valid():
+                try:
+                    with BackendEmail() as conexao:
+                        quantidade = EmailMessage(
+                            'Teste de envio — Registro de Ponto',
+                            'Este é um teste de envio de e-mails do Registro de Ponto.',
+                            conexao.remetente,
+                            [teste.cleaned_data['destinatario']],
+                            connection=conexao,
+                        ).send()
+                    if quantidade != 1:
+                        raise SMTPException('Envio não aceito pelo servidor.')
+                except (SMTPException, OSError, ImproperlyConfigured):
+                    messages.error(request, 'O teste falhou. Confira servidor, porta, segurança, usuário e senha SMTP.')
+                else:
+                    messages.success(
+                        request, 'O servidor aceitou o e-mail de teste. Confira a caixa de entrada e spam.'
+                    )
+                return redirect('configurar_email')
+        else:
+            form = ConfiguracaoEmailForm(request.POST, instance=configuracao or _email_do_ambiente())
+            if form.is_valid():
+                form.save(administrador=request.user)
+                messages.success(request, 'Configuração de envio de e-mails salva.')
+                return redirect('configurar_email')
+    return render(
+        request,
+        'ponto/configurar_email.html',
+        {
+            'form': form,
+            'teste': teste,
+            'configuracao_salva': configuracao is not None,
+            'tem_senha': bool(configuracao.senha_criptografada if configuracao else settings.EMAIL_HOST_PASSWORD),
+        },
+    )

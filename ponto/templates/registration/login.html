@@ -1,13 +1,10 @@
 {% extends 'ponto/base.html' %}
 {% load static %}
-        {% block title %}Login - Registro de Ponto{% endblock %}
-    {% block conteudo %}
-    <div  class="cartao-login">
-
+{% block title %}Login - Registro de Ponto{% endblock %}
+{% block conteudo %}
+    <div class="cartao-login">
         <img src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia" class="logo-login">
-        
         <h2>Entrar</h2>
-
         <form method="post">
             {% csrf_token %}
             {{ form.as_p }}
@@ -18,4 +15,4 @@
             <a href="{% url 'password_reset' %}">Esqueceu sua senha?</a>
         </p>
     </div>
-    {% endblock %}
+{% endblock %}

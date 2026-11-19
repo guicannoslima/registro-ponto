@@ -1,8 +1,17 @@
 from django.contrib.auth import views as auth_views
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
+    path('administracao/usuarios/', views.usuarios, name='usuarios'),
+    path('administracao/usuarios/novo/', views.usuario_formulario, name='usuario_criar'),
+    path('administracao/usuarios/<int:usuario_id>/', views.usuario_formulario, name='usuario_editar'),
+    path('administracao/email/', views.configurar_email, name='configurar_email'),
+    path('ponto/camera/', views.ponto_facial, name='ponto_facial'),
+    path('ponto/camera/cadastro/', views.cadastro_facial, name='cadastro_facial'),
+    path('ponto/camera/abrir-terminal/', views.abrir_terminal, name='abrir_terminal'),
+    path('terminal/', views.terminal_facial, name='terminal_facial'),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
     path('password_reset/', auth_views.PasswordResetView.as_view(template_name='registration/password_reset.html', extra_context={'etapa': 'pedir'}), name='password_reset'),

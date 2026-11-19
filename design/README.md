@@ -13,7 +13,7 @@ senha ficam como estão; as pranchas usam o recorte do header real.
 
 | Prancha | Principal mudança |
 | --- | --- |
-| Painel · funcionário | Linha do dia com as 6 batidas; o botão diz qual batida grava (“Registrar saída para o café”) |
+| Painel · colaborador | Linha do dia com as 6 batidas; o botão diz qual batida grava (“Registrar saída para o café”) |
 | Painel · gestor | Aviso das solicitações pendentes e abas **Hoje**, **Ontem** e **Sua equipe** |
 | Painel · abas Ontem e Sua equipe | Pranchas das outras abas da página inicial |
 | Equipe | Tabela comparável: situação, as 6 batidas em células e horas trabalhadas |
@@ -24,7 +24,7 @@ senha ficam como estão; as pranchas usam o recorte do header real.
 | Solicitações pendentes | Uma linha por pedido, com tipo, batida, motivo e **Rejeitar**/**Aprovar** alinhados |
 | Solicitações pendentes · vazio | Estado vazio que explica quando os pedidos aparecem |
 | Rejeitar solicitação | Confirmação no layout, com exemplo de erro de validação |
-| Histórico de alterações | Coluna da batida alterada e filtros por funcionário, ação e período |
+| Histórico de alterações | Coluna da batida alterada e filtros por colaborador, ação e período |
 | Relatório de ponto | Filtro horizontal, nome completo no select, totais em destaque e situação por cor e texto |
 | Relatório de ponto · PDF no iframe | **Gerar relatório** mostra o cartão ponto em PDF na própria página |
 
@@ -55,3 +55,31 @@ A skill `frontend-design`, em `.ai/skills/`, orientou a proposta.
 | Header no celular | O header atual, sem adaptação: fica fora deste redesenho |
 
 Toda nova mudança visual passa primeiro pelo Figcraft.
+
+## Reconhecimento facial
+
+A página **Câmera** contém as pranchas **Registrar por reconhecimento facial**,
+**Ponto em computador compartilhado** e **Cadastrar rosto**. Foram desenhadas no Figcraft
+antes da implementação, mantendo Figtree, cores, duas colunas e o header existente.
+As prévias estão em `previas/camera/`. Na aplicação, o cadastro inclui seleção de pessoa,
+remoção e explicação sobre o armazenamento; controles da câmera variam com seu estado.
+As pranchas refletem a abertura e o registro automáticos, sem botões para identificar ou
+gravar ponto. **Pausar câmera** e **Retomar câmera** permitem interromper e reabrir a captura;
+o cadastro inicial do rosto continua confirmado pelo gestor.
+
+## Administração e navegação
+
+A página **Administração e navegação** reúne **Usuários**, **Cadastrar usuário** e
+**Envio de e-mails**, desenhados em 1333 px antes da implementação. O usuário autorizou
+revisar o cabeçalho: **Meu ponto**, **Gestão** e **Administração** abrem subitens por clique.
+Cabeçalho e conteúdo deixam o limite de 1100 px e usam a largura disponível, com margens
+laterais pequenas. O nome e a ação de sair têm espaço próprio. Prévias em
+`previas/administracao/`. Essa revisão substitui a restrição anterior do header;
+login, cadastro público e redefinição de senha permanecem como estavam.
+
+## Colaborador e altura dos controles
+
+Os textos das pranchas passaram a usar **Colaborador**. A prancha **Envio de e-mails**
+foi ajustada antes do CSS para alinhar **Enviar teste** ao campo de destinatário: ambos
+com 48 px de altura. As prévias de Administração e Câmera foram exportadas novamente.
+As capturas históricas da página Atual representam o estado antigo da aplicação.

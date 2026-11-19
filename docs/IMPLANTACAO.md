@@ -97,3 +97,21 @@ O `Dockerfile` tem duas etapas: a primeira compila as dependências de
 `docker-entrypoint.sh` aplica as migrações e o `collectstatic` antes do Gunicorn,
 com 3 workers na porta 8000. O `.dockerignore` deixa fora da imagem o `.env`, o Git,
 a documentação e as ferramentas de desenvolvimento.
+
+## Habilitar o reconhecimento facial
+
+Após reconstruir e subir a imagem com as novas dependências, prepare os modelos:
+
+```bash
+docker compose exec web python manage.py preparar_facial
+```
+
+O comando precisa de acesso HTTPS ao repositório OpenCV no GitHub para baixar cerca de
+39 MB de modelos públicos. Faça isso a cada recriação do container, ou monte um diretório
+persistente e gravável pelo usuário `appuser` em `FACIAL_MODELS_DIR`. Os modelos são públicos;
+os cadastros biométricos ficam no PostgreSQL e acompanham seus backups. O botão comum
+funciona mesmo sem modelos instalados.
+
+Publique a aplicação com HTTPS para o navegador permitir a câmera fora de `localhost`.
+O modo compartilhado exige autorização de um gestor e encerra seu login antes de liberar
+somente a identificação facial. Consulte [os fluxos e as limitações](USO.md#registro-por-reconhecimento-facial).

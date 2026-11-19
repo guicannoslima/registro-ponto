@@ -27,7 +27,7 @@ Esta página registra o estado de cada área e o que falta, na ordem de trabalho
 
 ## Entregue
 
-- Solicitação de inclusão e de exclusão de batida pelo funcionário.
+- Solicitação de inclusão e de exclusão de batida pelo colaborador.
 - Aprovação e rejeição das solicitações pelo gestor.
 - Tela de histórico de alterações.
 - Relatório de banco de horas e exportação em PDF.

@@ -12,12 +12,16 @@ capacidade e decisões. Para documentação, mensagens e rótulos, siga os
 ## Contratos de código
 
 - Regras de jornada, limites das telas e textos fixos ficam em `ponto/constants.py`.
-- Dados prontos para as telas e para o PDF ficam em `ponto/apresentacao.py`; as views só montam
+- Dados prontos para as telas e para o PDF ficam em `ponto/services.py`; as views só montam
   o contexto.
 - Todo usuário tem `Perfil` (signal em `ponto/signals.py`); as views leem `request.user.perfil`.
 - O que cada papel enxerga vem de `funcionarios_visiveis` em `ponto/permissoes.py`.
 - O CSS das telas internas fica em `ponto/static/ponto/interno.css`, sob `.principal-interno`;
-  `estilo.css` (header e login) não muda.
+  o cabeçalho revisado a pedido do usuário usa `.topo-aplicacao` no mesmo arquivo.
+  `estilo.css` e as telas públicas não mudam.
+- Formulários em `ponto/forms.py`, views em `ponto/views.py` e exceções em `ponto/exceptions.py`.
+- Serviços de apresentação, sequência e gravação em `ponto/services.py`; e-mail em `ponto/email.py`.
+- Todos os testes ficam em `ponto/tests.py`. O papel mostrado na interface é **Colaborador**.
 - Ruff com 120 colunas (`pyproject.toml`); dependências em `requirements/` por ambiente.
 
 ## Antes de entregar

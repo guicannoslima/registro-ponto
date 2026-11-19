@@ -1,17 +1,17 @@
 # Capacidade
 
-Para 20 funcionários simultâneos, o sistema roda com folga em **2 vCPU e 2 GB de RAM**; o
+Para 20 colaboradores simultâneos, o sistema roda com folga em **2 vCPU e 2 GB de RAM**; o
 mínimo testado é **1 vCPU e 1 GB**, com respostas de 1 a 2 s quando PDFs e logins coincidem.
 
 ## Teste de carga — 18/11/2026
 
 **Revisão:** `e90fa50`. **Ambiente:** stack Docker igual ao de produção (Gunicorn com 3
 workers, PostgreSQL 17, `DEBUG=False`, WhiteNoise), numa máquina de 16 núcleos com 31 GB,
-gerador de carga na mesma máquina. **Dados:** 20 funcionários e uma gestora, com um mês de
+gerador de carga na mesma máquina. **Dados:** 20 colaboradores e uma gestora, com um mês de
 batidas cada (2.640 batidas).
 
 **Procedimento:** [Locust](https://docs.locust.io/) com 20 usuários simultâneos, cada um
-logado como um funcionário diferente. Peso das ações: painel 6, aba Ontem 2, ajustes 2,
+logado como um colaborador diferente. Peso das ações: painel 6, aba Ontem 2, ajustes 2,
 bater ponto 1, gerar relatório com o PDF no iframe 1 e baixar PDF 1 (os dois PDFs de 31
 dias). CPU e memória dos containers amostradas a cada segundo com `docker stats`; a CPU está
 em núcleos (1,0 = um núcleo inteiro).

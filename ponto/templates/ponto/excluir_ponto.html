@@ -14,10 +14,10 @@
 
     <section class="cartao-interno cartao-interno--estreito" aria-label="Confirmar exclusão">
         <dl class="resumo">
-            <dt>Funcionário</dt><dd>{{ registro.funcionario.get_full_name|default:registro.funcionario.username }}</dd>
+            <dt>Colaborador</dt><dd>{{ registro.funcionario.get_full_name|default:registro.funcionario.username }}</dd>
             <dt>Batida</dt><dd>{{ registro.get_tipo_display }}</dd>
             <dt>Data e hora</dt><dd class="numero">{{ registro.data_hora|date:"d/m/Y" }} às {{ registro.data_hora|time:"H:i" }}</dd>
-            <dt>Registrada por</dt><dd>{% if registro.registrado_manualmente %}Lançamento manual{% else %}O próprio funcionário{% endif %}</dd>
+            <dt>Registrada por</dt><dd>{% if registro.registrado_manualmente %}Lançamento manual{% else %}O próprio colaborador{% endif %}</dd>
         </dl>
         <form method="post" action="{% url 'excluir_ponto' registro.id %}" class="campos" novalidate>
             {% csrf_token %}

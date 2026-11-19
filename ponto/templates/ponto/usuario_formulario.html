@@ -1,0 +1,20 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}{% if pessoa %}Editar{% else %}Cadastrar{% endif %} usuário - Registro de Ponto{% endblock %}
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina"><div class="titulo-pagina__texto"><h1>{% if pessoa %}Editar usuário{% else %}Cadastrar usuário{% endif %}</h1><p class="apoio">Dados pessoais, acesso e vínculo com a equipe.</p></div></header>
+    <section class="cartao-interno">
+        <form method="post" class="campos" novalidate>
+            {% csrf_token %}{% include 'ponto/_erros_formulario.html' %}
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.first_name %}{% include 'ponto/_campo.html' with campo=form.last_name %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.username %}{% include 'ponto/_campo.html' with campo=form.email %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.cpf %}{% include 'ponto/_campo.html' with campo=form.funcao %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.papel %}{% include 'ponto/_campo.html' with campo=form.gestor %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.senha %}{% include 'ponto/_campo.html' with campo=form.confirmar_senha %}</div>
+            <label class="opcao">{{ form.is_active }} Usuário ativo</label>{{ form.is_active.errors }}
+            <p class="apoio pequeno">Colaboradores veem os próprios pontos; gestores veem sua equipe; administradores gerenciam usuários e configurações.</p>
+            <div class="acoes"><button class="btn" type="submit">{% if pessoa %}Salvar alterações{% else %}Cadastrar usuário{% endif %}</button><a href="{% url 'usuarios' %}" class="btn btn--secundario">Cancelar</a></div>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -9,7 +9,7 @@ from .models import Perfil
 def criar_perfil_do_usuario(sender, instance, created, raw=False, **kwargs):
     """Garante que todo usuário tenha um Perfil, venha de onde vier (cadastro, createsuperuser, admin, shell).
 
-    Superusuários recebem o papel de administrador; os demais começam como funcionário.
+    Superusuários recebem o papel de administrador; os demais começam como colaborador.
     """
     if not created or raw:  # raw: carga de fixtures (loaddata), em que o Perfil vem junto nos dados
         return

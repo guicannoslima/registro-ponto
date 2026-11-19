@@ -36,7 +36,7 @@ Reproduza rótulos da interface em **negrito**, e use crases para comandos,
 caminhos, parâmetros e valores.
 
 Escreva durações no formato da aplicação (`7h45min`) e datas como `18/11/2026`.
-Os papéis são **Funcionário**, **Gestor** e **Administrador**, como na interface.
+Os papéis são **Colaborador**, **Gestor** e **Administrador**, como na interface.
 
 ## Afirmações e evidências
 

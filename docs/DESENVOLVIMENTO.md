@@ -99,3 +99,48 @@ python manage.py makemigrations --check --dry-run
 
 Migrações de dados usam `RunPython` com modelos históricos (`apps.get_model`), como a
 `0006_criar_perfil_usuarios_sem_perfil`.
+
+## Preparar o reconhecimento facial
+
+Depois de instalar as dependências do ambiente, rode:
+
+```bash
+python manage.py migrate
+python manage.py preparar_facial
+```
+
+O segundo comando baixa YuNet e SFace do repositório oficial OpenCV e confere o SHA-256
+antes de salvar em `modelos_faciais/` (ignorado pelo Git). Reexecutar conserva os arquivos
+já verificados. `FACIAL_MODELS_DIR` permite escolher outro diretório. Não há download
+em requisições; modelos ausentes retornam uma orientação sem gravar ponto.
+
+O processamento usa `opencv-python-headless` e NumPy no servidor, com imagens limitadas a
+1 MB e 1280 × 1280 pixels. O navegador captura até 640 × 480. O vetor normalizado tem
+128 posições; o limiar de similaridade de cosseno é 0,5, com margem mínima de 0,08 entre
+candidatos no terminal. Esses valores estão em `ponto/constants.py`; a referência técnica
+é o [tutorial oficial de YuNet e SFace](https://docs.opencv.org/4.x/d0/dd4/tutorial_dnn_face.html).
+O limiar exige validação no ambiente de uso; não representa uma garantia de precisão.
+
+`ponto/facial.py` processa e compara rostos; `ponto/views.py` controla os três fluxos.
+`ponto/services.py` grava as batidas comum e facial com bloqueio transacional por usuário
+para que pedidos simultâneos respeitem o intervalo mínimo. Os vetores ficam na tabela
+`CadastroFacial` e não são expostos por URLs ou pelo admin.
+
+## Organização dos módulos e configuração de e-mail
+
+Formulários ficam em `ponto/forms.py`, views em `ponto/views.py` e exceções de domínio
+em `ponto/exceptions.py`, conforme solicitado pelo usuário. `_lock` e `_motor` continuam
+em `facial.py`: são estado do processamento, não exceções.
+Apresentação, sequência e gravação de batidas ficam em `ponto/services.py`; os testes
+ficam todos em `ponto/tests.py`.
+`ponto/utils.py` reúne os auxiliares `_gestor`, `_pessoas`, `_limitar_captura` e `_erro`,
+utilizados pelas views de reconhecimento facial.
+
+`ponto/email.py` estende o [backend SMTP do Django](https://docs.djangoproject.com/en/5.2/topics/email/).
+Até haver `ConfiguracaoEmail` no banco, utiliza as definições atuais de `settings.py`.
+Depois, carrega servidor, porta, segurança, autenticação e remetente salvos pela administração
+a cada conexão, inclusive para recuperação de senha. Não exige reiniciar o servidor.
+
+A senha SMTP é cifrada com [Fernet](https://cryptography.io/en/latest/fernet/), usando uma
+chave derivada da `SECRET_KEY`. Preserve a chave ao restaurar backups; após trocá-la, salve
+novamente a senha SMTP. A migração `0008` cria a tabela, sem gravar credenciais do ambiente.

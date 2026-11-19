@@ -15,40 +15,52 @@
 {% endblock %}
 
 {% block cabecalho %}
-    <header class="topo">
+    <header class="topo topo-aplicacao">
         <div class="topo-interno">
-            <a href="{% url 'painel' %}" class="logo-topo">
-                <img src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia">
-            </a>
-            <nav class="menu-topo">
-                <ul>
+            <a href="{% url 'painel' %}" class="logo-topo" aria-label="Página inicial"><img src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia"></a>
+            {% if user.is_authenticated %}
+                <nav class="navegacao" aria-label="Menu principal" data-menu>
+                    <a class="navegacao__inicio" href="{% url 'painel' %}">Início</a>
+                    <details class="menu-grupo">
+                        <summary>Meu ponto</summary>
+                        <div class="menu-grupo__itens">
+                            <a href="{% url 'ponto_facial' %}">Registrar por câmera</a>
+                            <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
+                            <a href="{% url 'relatorio_ponto' %}">Relatório de ponto</a>
+                        </div>
+                    </details>
                     {% if user.perfil.papel == 'gestor' or user.perfil.papel == 'admin' %}
-                        <li><a href="{% url 'equipe' %}">Equipe</a></li>
-                        <li><a href="{% url 'solicitacoes_pendentes' %}">Solicitações Pendentes</a></li>
-                        <li><a href="{% url 'historico_alteracoes' %}">Histórico de Alterações</a></li>
+                        <details class="menu-grupo">
+                            <summary>Gestão</summary>
+                            <div class="menu-grupo__itens">
+                                <a href="{% url 'equipe' %}">Equipe</a>
+                                <a href="{% url 'criar_ponto_manual' %}">Lançar ponto manual</a>
+                                <a href="{% url 'solicitacoes_pendentes' %}">Solicitações pendentes</a>
+                                <a href="{% url 'historico_alteracoes' %}">Histórico de alterações</a>
+                                <a href="{% url 'cadastro_facial' %}">Cadastros faciais</a>
+                                <form method="post" action="{% url 'abrir_terminal' %}">{% csrf_token %}<button type="submit">Abrir terminal compartilhado</button><p>Encerra sua sessão e libera apenas o registro por rosto.</p></form>
+                            </div>
+                        </details>
                     {% endif %}
-                    <li><a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a></li>
-                    <li><a href="{% url 'relatorio_ponto' %}">Relatório de Ponto</a></li>
-                </ul>
-            </nav>
-            <div class="topo-usuario">
-                <div class="topo-usuario-texto">
-                    <span>Bem-vindo, {{ request.user.first_name }}!</span>
-                    {% if user.perfil.funcao %}
-                        <small> {{ user.perfil.funcao.nome }}</small>
+                    {% if user.perfil.papel == 'admin' %}
+                        <details class="menu-grupo">
+                            <summary>Administração</summary>
+                            <div class="menu-grupo__itens">
+                                <a href="{% url 'usuarios' %}">Usuários</a>
+                                <a href="{% url 'usuario_criar' %}">Cadastrar usuário</a>
+                                <a href="{% url 'configurar_email' %}">Envio de e-mails</a>
+                            </div>
+                        </details>
                     {% endif %}
+                </nav>
+                <div class="topo-usuario">
+                    <div class="topo-usuario-texto">
+                        <span title="{{ user.get_full_name|default:user.username }}">Bem-vindo, {{ user.first_name|default:user.username }}!</span>
+                        <small>{{ user.perfil.funcao.nome|default:user.perfil.get_papel_display }}</small>
+                    </div>
+                    <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" title="Sair" aria-label="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg></button></form>
                 </div>
-                <form method="post" action="{% url 'logout' %}">
-                    {% csrf_token %}
-                    <button type="submit" title="Sair" aria-label="Sair">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/>
-                            <path d="M16 8l4 4-4 4"/>
-                            <path d="M20 12H9"/>
-                        </svg>
-                    </button>
-                </form>
-            </div>
+            {% else %}<span class="topo-terminal">Terminal de ponto compartilhado</span>{% endif %}
         </div>
     </header>
 {% endblock %}

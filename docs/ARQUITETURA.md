@@ -12,11 +12,11 @@ flowchart LR
   URLs --> Views[views.py]
   Views --> Forms[forms.py]
   Views --> Permissoes[permissoes.py]
-  Views --> Calculos[calculos.py]
+  Views --> Services[services.py]
   Views --> Relatorios[relatorios.py]
   Views --> Templates[templates/ e PDF xhtml2pdf]
   Permissoes --> Models[models.py]
-  Calculos --> Models
+  Services --> Models
   Relatorios --> Models
   Signals[signals.py] --> Models
   Models --> PostgreSQL
@@ -30,9 +30,8 @@ flowchart LR
 | `ponto/models.py` | `Funcao`, `Perfil`, `RegistroPonto`, `HistoricoAlteracaoPonto`, `SolicitacaoAjustePonto` |
 | `ponto/views.py` | Telas e ações: painel, batida, equipe, ajustes, histórico, relatórios, PDF e cadastro |
 | `ponto/permissoes.py` | `funcionarios_visiveis`: quais usuários cada papel enxerga |
-| `ponto/calculos.py` | `proximo_tipo_ponto`: a próxima batida do dia |
+| `ponto/services.py` | Sequência e gravação de batidas; dados prontos para as telas e o PDF |
 | `ponto/relatorios.py` | Horas do dia, saldo, resumo do período e progresso do relógio |
-| `ponto/apresentacao.py` | Dados prontos para as telas: linha do dia, situação, saldo com sinal e datas por extenso |
 | `ponto/constants.py` | Regras de jornada, limites das telas e textos fixos, num só lugar |
 | `ponto/signals.py` | Cria o `Perfil` de todo usuário novo |
 | `ponto/forms.py` | Formulários de cadastro, lançamento, solicitações e relatório |
@@ -45,8 +44,8 @@ flowchart LR
 | Modelo | Papel no domínio |
 | --- | --- |
 | `Perfil` | Um por usuário (`OneToOneField`, `related_name="perfil"`): papel, gestor, função e CPF |
-| `Funcao` | Cargo do funcionário, impresso no PDF |
-| `RegistroPonto` | Uma batida: funcionário, tipo, data e hora, se foi manual e o campo `ativo` do soft delete |
+| `Funcao` | Cargo do colaborador, impresso no PDF |
+| `RegistroPonto` | Uma batida: colaborador, tipo, data e hora, se foi manual e o campo `ativo` do soft delete |
 | `HistoricoAlteracaoPonto` | Auditoria de inclusões e exclusões, com autor e motivo |
 | `SolicitacaoAjustePonto` | Pedido de inclusão ou exclusão com status Pendente, Aprovado ou Rejeitado |
 
@@ -65,7 +64,7 @@ sem ele ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)).
 | --- | --- |
 | **Administrador** | Todos os usuários com perfil |
 | **Gestor** | Os usuários cujo perfil aponta para ele como gestor |
-| **Funcionário** | Nenhum outro usuário |
+| **Colaborador** | Nenhum outro usuário |
 
 ## Regras de cálculo
 

@@ -1,7 +1,7 @@
 # Registro de Ponto
 
 Sistema web de controle de jornada da Prime Tecnologia, em Django e PostgreSQL:
-o funcionário registra as batidas do dia com um clique, e gestores acompanham a
+o colaborador registra as batidas do dia com um clique, e gestores acompanham a
 equipe, revisam ajustes e geram relatórios de banco de horas em tela ou em PDF.
 
 **Estado: em desenvolvimento.** As funcionalidades principais estão implementadas;
@@ -28,7 +28,7 @@ PyCharm, veja [Desenvolvimento](docs/DESENVOLVIMENTO.md).
 | --- | --- |
 | Batida automática na ordem do dia, com intervalo mínimo de 10 minutos | Implementado |
 | Painel com relógio de jornada e hora extra | Implementado |
-| Papéis **Funcionário**, **Gestor** e **Administrador** | Implementado |
+| Papéis **Colaborador**, **Gestor** e **Administrador** | Implementado |
 | Solicitações de inclusão e exclusão, com aprovação e histórico | Implementado |
 | Relatório de banco de horas e folha de ponto em PDF | Implementado |
 | Cadastro de usuários e redefinição de senha por e-mail | Implementado |

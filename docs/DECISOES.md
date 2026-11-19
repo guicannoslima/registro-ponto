@@ -41,7 +41,7 @@ cujo padrão já era `BigAutoField`.
 com `RelatedObjectDoesNotExist`. **Alternativas:** (a) tratar a ausência em cada
 view; (b) criar o perfil sempre que um `User` nasce. **Escolha:** (b), com um signal
 `post_save` em `ponto/signals.py`: superusuário vira **Administrador** e os demais,
-**Funcionário**. A view de cadastro completa o perfil criado. A migração `0006` cria o
+**Colaborador**. A view de cadastro completa o perfil criado. A migração `0006` cria o
 perfil de quem já existia sem ele. **Consequência:** o passo manual de criar o perfil
 do administrador saiu da documentação.
 
@@ -70,3 +70,29 @@ em `views.py`, `relatorios.py`, `forms.py` e `apresentacao.py`. Ficam agora em
 Crie uma seção de nível 2 com o título da decisão e a data. Descreva o problema, as
 alternativas consideradas, a escolha e a consequência. Ao substituir uma decisão,
 mantenha a antiga e aponte para a nova.
+
+## Menu com subitens e administração — 18/11/2026
+
+**Decisão implementada por pedido explícito do usuário:** revisar o cabeçalho anteriormente
+congelado, abrir submenus por clique e aproveitar toda a largura em 1333 px. A nova página
+**Administração e navegação** no Figcraft precedeu a implementação. O CSS fica no arquivo
+interno, com cabeçalho sob `.topo-aplicacao`; `estilo.css` e as telas públicas não mudam.
+
+O administrador passa a cadastrar e editar usuários dentro do sistema e configurar o SMTP.
+Credenciais SMTP ficam cifradas no banco e nunca voltam para o campo da tela; a configuração
+do ambiente vale até o primeiro salvamento. Teste de envio requer uma ação própria na tela.
+Formulários e views ficam concentrados em `forms.py` e `views.py`, e as exceções de domínio
+em `exceptions.py`, conforme orientação posterior do usuário.
+
+## Serviços, e-mail, testes e nomenclatura — 18/11/2026
+
+**Decisão implementada por pedido do usuário:** os serviços de apresentação, sequência e
+registro de batidas ficam em `ponto/services.py`; o módulo de envio chama-se `ponto/email.py`;
+todos os testes ficam em `ponto/tests.py`. Formulários, views e exceções continuam nos arquivos
+únicos definidos anteriormente. Os imports e a referência do backend nos settings foram atualizados.
+
+O papel passa a ser exibido como **Colaborador**, inclusive nos formulários e no admin Django.
+A migração `0009` altera somente rótulos e metadados; preserva os identificadores e valores
+já gravados no banco. Não muda regras de jornada, permissões ou sequência de batidas.
+Os campos e botões comuns têm 48 px para alinhar as ações dos formulários, como no exemplo
+`IM04.png` fornecido pelo usuário; ações compactas das tabelas mantêm seu tamanho próprio.

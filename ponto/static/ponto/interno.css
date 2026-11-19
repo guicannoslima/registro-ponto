@@ -1,6 +1,6 @@
 /*
  * Conteúdo interno do Registro de Ponto (proposta aprovada em design/registro-ponto-telas.figcraft).
- * Todas as regras ficam sob .principal-interno: o header (estilo.css) e o login não mudam.
+ * Conteúdo sob .principal-interno e cabeçalho autorizado sob .topo-aplicacao; estilo.css não muda.
  */
 
 @font-face {
@@ -267,7 +267,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 44px;
+    min-height: 48px;
     padding: 0 20px;
     border: 1px solid transparent;
     border-radius: 8px;
@@ -403,6 +403,13 @@
     color: var(--texto);
     font-family: inherit;
     font-size: 16px;
+}
+
+.principal-interno .campo input:not([type="checkbox"]),
+.principal-interno .campo select {
+    height: 48px;
+    padding-block: 11px;
+    line-height: 24px;
 }
 
 .principal-interno .campo textarea {
@@ -1120,4 +1127,76 @@ span.batida-celula {
 
 .sem-quebra {
     white-space: nowrap;
+}
+
+/* Reconhecimento facial: pranchas Câmera no Figcraft. */
+.principal-interno .camera-grade { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+.principal-interno .camera-conteudo,
+.principal-interno #camera-form { display: flex; flex-direction: column; gap: 20px; }
+.principal-interno .camera-previa {
+    aspect-ratio: 16 / 9;
+    background: var(--texto);
+    color: white;
+    border-radius: var(--raio);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+.principal-interno .camera-previa video { width: 100%; height: 100%; object-fit: contain; transform: scaleX(-1); }
+.principal-interno .camera-previa [hidden] { display: none; }
+.principal-interno [data-camera] [hidden] { display: none; }
+.principal-interno #camera-mensagem { min-height: 3em; }
+.principal-interno #camera-mensagem[data-erro="true"] { color: var(--perigo); }
+@media (max-width: 800px) {
+    .principal-interno .camera-grade { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Cabeçalho e largura revisados a pedido do usuário; telas públicas mantêm seu CSS. */
+.principal-interno { width: 100%; max-width: none; padding-inline: 24px; }
+.topo-aplicacao { font-family: Figtree, "Segoe UI", Arial, sans-serif; }
+.topo-aplicacao .topo-interno { max-width: none; width: 100%; min-height: 80px; padding: 12px 24px; gap: 24px; }
+.topo-aplicacao .logo-topo { flex: none; }
+.topo-aplicacao .topo-usuario { flex: none; margin-left: auto; }
+.topo-aplicacao .topo-usuario-texto { max-width: 230px; min-width: 0; gap: 4px; }
+.topo-aplicacao .topo-usuario-texto > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topo-aplicacao .topo-usuario button { background: #0a6ea3; }
+.topo-aplicacao .topo-terminal { margin-left: auto; color: #52677c; }
+.topo-aplicacao .navegacao { display: flex; flex: 1; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.topo-aplicacao .navegacao__inicio,
+.topo-aplicacao summary { padding: 10px 12px; color: #18324b; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 6px; }
+.topo-aplicacao summary { display: flex; align-items: center; gap: 10px; list-style: none; cursor: pointer; }
+.topo-aplicacao summary::-webkit-details-marker { display: none; }
+.topo-aplicacao summary::after { content: ''; border: solid currentColor; border-width: 0 1.5px 1.5px 0; width: 6px; height: 6px; transform: rotate(45deg); margin-top: -3px; }
+.topo-aplicacao details[open] summary::after { transform: rotate(225deg); margin-top: 3px; }
+.topo-aplicacao summary:hover,
+.topo-aplicacao details[open] summary,
+.topo-aplicacao .navegacao__inicio:hover { background: #e5f3fb; color: #0a6ea3; }
+.topo-aplicacao .menu-grupo { position: relative; }
+.topo-aplicacao .menu-grupo__itens { position: absolute; z-index: 50; top: calc(100% + 6px); left: 0; width: 280px; max-width: calc(100vw - 32px); padding: 8px; background: white; border: 1px solid #d5dde6; border-radius: 8px; box-shadow: 0 10px 24px rgb(24 50 75 / 12%); }
+.topo-aplicacao .menu-grupo__itens a,
+.topo-aplicacao .menu-grupo__itens button { display: block; width: 100%; padding: 10px 12px; color: #18324b; text-align: left; font-size: 15px; font-weight: 500; line-height: 1.5; text-decoration: none; background: transparent; border-radius: 6px; }
+.topo-aplicacao .menu-grupo__itens a:hover,
+.topo-aplicacao .menu-grupo__itens button:hover { background: #f2f5f9; color: #0a6ea3; }
+.topo-aplicacao .menu-grupo__itens form { border-top: 1px solid #d5dde6; margin-top: 6px; padding-top: 6px; }
+.topo-aplicacao .menu-grupo__itens p { margin: 0 12px 8px; color: #52677c; font-size: 13px; }
+.topo-aplicacao :focus-visible { outline: 3px solid #0a6ea3; outline-offset: 2px; }
+.principal-interno .busca-usuarios { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 16px; }
+.principal-interno .busca-usuarios .campo { flex: 1; min-width: min(100%, 260px); }
+.principal-interno input[type="search"],
+.principal-interno input[type="number"] { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--borda-campo); border-radius: 6px; font: inherit; background: white; color: var(--texto); }
+@media (max-width: 900px) {
+    .topo-aplicacao .topo-interno { flex-wrap: wrap; gap: 12px; }
+    .topo-aplicacao .navegacao { flex-basis: 100%; order: 3; }
+    .topo-aplicacao .topo-usuario-texto { max-width: 190px; }
+    .topo-aplicacao .menu-grupo__itens { left: auto; right: 0; }
+}
+@media (max-width: 480px) {
+    .principal-interno { padding-inline: 12px; }
+    .topo-aplicacao .topo-interno { padding-inline: 12px; }
+    .topo-aplicacao .navegacao { gap: 2px; }
+    .topo-aplicacao summary,
+    .topo-aplicacao .navegacao__inicio { padding: 10px 8px; font-size: 14px; }
+    .topo-aplicacao .menu-grupo__itens { position: fixed; inset: auto 12px auto 12px; width: auto; max-width: none; }
+    .topo-aplicacao .topo-usuario-texto { max-width: 170px; }
+    .principal-interno .busca-usuarios > .btn { width: 100%; }
 }

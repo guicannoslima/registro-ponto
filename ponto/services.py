@@ -1,10 +1,22 @@
-"""Dados prontos para as telas internas: linha do dia, situação, saldo e datas por extenso."""
+"""Serviços de registro de ponto, sequência de batidas e apresentação das telas e do PDF."""
 
 from datetime import timedelta
 
+from django.contrib.auth.models import User
+from django.db import transaction
 from django.utils import timezone
 
-from .constants import DIAS_ABREVIADOS, DIAS_CURTOS, DIAS_SEMANA, DIAS_UTEIS, JORNADA_DIARIA, MESES, ROTULOS_CURTOS
+from .constants import (
+    DIAS_ABREVIADOS,
+    DIAS_CURTOS,
+    DIAS_SEMANA,
+    DIAS_UTEIS,
+    INTERVALO_MINIMO_MINUTOS,
+    JORNADA_DIARIA,
+    MESES,
+    ROTULOS_CURTOS,
+)
+from .exceptions import ErroBatida
 from .models import RegistroPonto
 
 
@@ -129,22 +141,24 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             if valor:
                 totais[chave] += valor
 
-        linhas.append({
-            'dia': f'{data:%d/%m/%y} - {DIAS_ABREVIADOS[data.weekday()]}',
-            'fim_de_semana': not util,
-            'batidas': [
-                {
-                    'hora': timezone.localtime(horarios[tipo]).strftime('%H:%M') if tipo in horarios else '',
-                    'manual': (data, tipo) in manuais,
-                }
-                for tipo in RegistroPonto.ORDEM_TIPOS
-            ],
-            'normais': hhmm(normais),
-            'faltas': hhmm(faltas),
-            'extras': hhmm(extras),
-            'carga': hhmm(carga),
-            'observacao': observacao,
-        })
+        linhas.append(
+            {
+                'dia': f'{data:%d/%m/%y} - {DIAS_ABREVIADOS[data.weekday()]}',
+                'fim_de_semana': not util,
+                'batidas': [
+                    {
+                        'hora': timezone.localtime(horarios[tipo]).strftime('%H:%M') if tipo in horarios else '',
+                        'manual': (data, tipo) in manuais,
+                    }
+                    for tipo in RegistroPonto.ORDEM_TIPOS
+                ],
+                'normais': hhmm(normais),
+                'faltas': hhmm(faltas),
+                'extras': hhmm(extras),
+                'carga': hhmm(carga),
+                'observacao': observacao,
+            }
+        )
 
     item['cartao'] = {
         'linhas': linhas,
@@ -152,3 +166,32 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
         'tem_manual': bool(manuais),
     }
     return item
+
+
+def proximo_tipo_ponto(funcionario):
+    hoje = timezone.localdate()
+    registros = RegistroPonto.objects.filter(funcionario=funcionario, data_hora__date=hoje, ativo=True)
+    batidas_registradas = registros.values_list('tipo', flat=True)
+
+    for tipo in RegistroPonto.ORDEM_TIPOS:
+        if tipo not in batidas_registradas:
+            return tipo
+
+
+@transaction.atomic
+def registrar_batida(usuario):
+    # Serializa batidas da mesma pessoa, inclusive entre o terminal e o botão comum.
+    User.objects.select_for_update().get(pk=usuario.pk)
+    agora = timezone.now()
+    limite = agora - timedelta(minutes=INTERVALO_MINIMO_MINUTOS)
+    if RegistroPonto.objects.filter(
+        funcionario=usuario,
+        data_hora__gte=limite,
+        data_hora__lte=agora,
+        ativo=True,
+    ).exists():
+        raise ErroBatida(f'Você só pode bater ponto a cada {INTERVALO_MINIMO_MINUTOS} minutos.')
+    tipo = proximo_tipo_ponto(usuario)
+    if not tipo:
+        raise ErroBatida('Todos os pontos do dia foram batidos.')
+    return RegistroPonto.objects.create(funcionario=usuario, tipo=tipo, data_hora=agora)

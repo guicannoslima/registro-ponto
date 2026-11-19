@@ -1,19 +1,36 @@
 from datetime import date, datetime, time, timedelta
+from io import BytesIO
+from smtplib import SMTPException
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import TestCase, override_settings
+from django.core.exceptions import ImproperlyConfigured
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 
-from .apresentacao import (
+from .email import BackendEmail, cifrar_senha, decifrar_senha
+from .exceptions import ErroFacial, FacialIndisponivel, SemRosto
+from .facial import extrair_vetor, identificar
+from .models import (
+    CadastroFacial,
+    ConfiguracaoEmail,
+    Funcao,
+    HistoricoAlteracaoPonto,
+    Perfil,
+    RegistroPonto,
+    SolicitacaoAjustePonto,
+)
+from .relatorios import montar_relatorio
+from .services import (
     formatar_saldo,
     hhmm,
     linha_do_dia,
     preparar_cartao_ponto,
     situacao,
 )
-from .models import Funcao, HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
-from .relatorios import montar_relatorio
 
 # O test runner força DEBUG=False; sem collectstatic não há manifest, então os testes usam o storage simples
 STORAGES_DE_TESTE = {
@@ -35,6 +52,7 @@ class PerfilAutomaticoTests(TestCase):
         user = User.objects.create_user('joao', password='senha-forte-123')
 
         self.assertEqual(user.perfil.papel, Perfil.PAPEL_FUNCIONARIO)
+        self.assertEqual(user.perfil.get_papel_display(), 'Colaborador')
 
     def test_superusuario_acessa_o_painel_sem_erro(self):
         user = User.objects.create_superuser('admin', 'admin@example.com', 'senha-forte-123')
@@ -349,3 +367,410 @@ class CartaoPontoTests(TestCase):
         )
 
         self.assertEqual(resposta.status_code, 400)
+
+
+def foto():
+    buffer = BytesIO()
+    Image.new('RGB', (640, 480)).save(buffer, 'JPEG')
+    return SimpleUploadedFile('camera.jpg', buffer.getvalue(), content_type='image/jpeg')
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class FluxosFaciaisTests(TestCase):
+    def setUp(self):
+        self.gestor = User.objects.create_user('gestor')
+        self.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        self.gestor.perfil.save()
+        self.pessoa = User.objects.create_user('pessoa', first_name='Maria')
+        self.pessoa.perfil.gestor = self.gestor.perfil
+        self.pessoa.perfil.save()
+        self.fora = User.objects.create_user('outra-equipe')
+        self.cadastro = CadastroFacial.objects.create(funcionario=self.pessoa, vetor=[1., 0.])
+        CadastroFacial.objects.create(funcionario=self.fora, vetor=[0., 1.])
+
+    def test_telas_renderizam(self):
+        self.client.force_login(self.gestor)
+        for rota in ('painel', 'ponto_facial', 'cadastro_facial'):
+            self.assertEqual(self.client.get(reverse(rota)).status_code, 200)
+        resposta = self.client.get(reverse('cadastro_facial'))
+        self.assertNotContains(resposta, 'outra-equipe')
+
+    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    def test_usuario_logado_reconhece_e_registra_uma_unica_batida(self, extrair):
+        self.client.force_login(self.pessoa)
+        resposta = self.client.post(reverse('ponto_facial'), {'foto': foto()})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(RegistroPonto.objects.get().tipo, RegistroPonto.ENTRADA)
+        self.assertFalse(RegistroPonto.objects.get().foto)
+        self.client.post(reverse('bater_ponto'))
+        self.assertEqual(RegistroPonto.objects.count(), 1)
+
+    @patch('ponto.views.extrair_vetor', return_value=[0., 1.])
+    def test_nao_grava_quando_rosto_e_de_outra_pessoa(self, extrair):
+        self.client.force_login(self.pessoa)
+        self.assertEqual(self.client.post(reverse('ponto_facial'), {'foto': foto()}).status_code, 400)
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    @patch('ponto.views.extrair_vetor', side_effect=FacialIndisponivel('Modelos indisponíveis.'))
+    def test_falha_do_motor_nao_grava_ponto(self, extrair):
+        self.client.force_login(self.pessoa)
+        self.assertEqual(self.client.post(reverse('ponto_facial'), {'foto': foto()}).status_code, 503)
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_sem_cadastro_nao_grava(self):
+        self.client.force_login(self.gestor)
+        self.assertEqual(self.client.post(reverse('ponto_facial'), {'foto': foto()}).status_code, 400)
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_funcionario_nao_cadastra_nem_abre_terminal(self):
+        self.client.force_login(self.pessoa)
+        self.assertEqual(self.client.get(reverse('cadastro_facial')).status_code, 403)
+        self.assertEqual(self.client.post(reverse('abrir_terminal')).status_code, 403)
+
+    @patch('ponto.views.extrair_vetor', return_value=[0.6, 0.8])
+    def test_gestor_nao_cadastra_pessoa_de_outra_equipe(self, extrair):
+        self.client.force_login(self.gestor)
+        resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.fora.pk, 'foto': foto()})
+        self.assertEqual(resposta.status_code, 404)
+        extrair.assert_not_called()
+
+    @patch('ponto.views.extrair_vetor', return_value=[-1., 0.])
+    def test_gestor_substitui_e_remove_cadastro_da_equipe(self, extrair):
+        self.client.force_login(self.gestor)
+        resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'foto': foto()})
+        self.assertEqual(resposta.status_code, 200)
+        self.cadastro.refresh_from_db()
+        self.assertEqual(self.cadastro.vetor, [-1., 0.])
+        self.assertEqual(self.cadastro.cadastrado_por, self.gestor)
+        self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'acao': 'excluir'})
+        self.assertFalse(CadastroFacial.objects.filter(funcionario=self.pessoa).exists())
+
+    @patch('ponto.views.extrair_vetor', return_value=[0., 1.])
+    def test_nao_associa_o_mesmo_rosto_a_duas_contas(self, extrair):
+        self.client.force_login(self.gestor)
+        resposta = self.client.post(reverse('cadastro_facial'), {'funcionario': self.pessoa.pk, 'foto': foto()})
+        self.assertEqual(resposta.status_code, 400)
+        self.cadastro.refresh_from_db()
+        self.assertEqual(self.cadastro.vetor, [1., 0.])
+
+    def abrir(self):
+        self.client.force_login(self.gestor)
+        self.client.post(reverse('abrir_terminal'))
+
+    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    def test_terminal_identifica_sem_manter_sessao_do_gestor(self, extrair):
+        self.abrir()
+        self.assertNotIn('_auth_user_id', self.client.session)
+        self.assertEqual(self.client.get(reverse('terminal_facial')).status_code, 200)
+        self.assertEqual(self.client.get(reverse('equipe')).status_code, 302)
+        self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 200)
+        self.assertEqual(RegistroPonto.objects.get().funcionario, self.pessoa)
+        # O rosto reconhecido nunca vira uma sessão autenticada.
+        self.assertNotIn('_auth_user_id', self.client.session)
+
+    @patch('ponto.views.extrair_vetor', return_value=[0., 1.])
+    def test_terminal_nao_reconhece_pessoas_fora_da_equipe(self, extrair):
+        self.abrir()
+        self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 400)
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_terminal_exige_autorizacao_e_pode_ser_encerrado(self):
+        self.assertRedirects(self.client.get(reverse('terminal_facial')), reverse('login'))
+        self.abrir()
+        self.client.post(reverse('terminal_facial'), {'acao': 'encerrar'})
+        self.assertNotIn('terminal_gestor_id', self.client.session)
+
+    def test_terminal_perde_acesso_quando_gestor_e_desativado(self):
+        self.abrir()
+        self.gestor.is_active = False
+        self.gestor.save()
+        self.assertRedirects(self.client.get(reverse('terminal_facial')), reverse('login'))
+
+    @patch('ponto.views._limitar_captura')
+    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    def test_terminal_nao_repete_batida_de_quem_permanece_na_camera(self, extrair, limitar):
+        self.abrir()
+        primeira = self.client.post(reverse('terminal_facial'), {'foto': foto()})
+        with patch('ponto.services.timezone.now', return_value=timezone.now() + timedelta(minutes=11)):
+            segunda = self.client.post(reverse('terminal_facial'), {'foto': foto()})
+        self.assertEqual(segunda.json(), primeira.json())
+        self.assertEqual(RegistroPonto.objects.count(), 1)
+
+    @patch('ponto.views._limitar_captura')
+    @patch('ponto.views.extrair_vetor', return_value=[1., 0.])
+    def test_terminal_libera_nova_batida_apos_sair_do_enquadramento(self, extrair, limitar):
+        self.abrir()
+        self.client.post(reverse('terminal_facial'), {'foto': foto()})
+        extrair.side_effect = SemRosto('Aguardando rosto.')
+        resposta = self.client.post(reverse('terminal_facial'), {'foto': foto()})
+        self.assertTrue(resposta.json()['continuar'])
+        self.assertNotIn('facial_pessoa_presente', self.client.session)
+        extrair.side_effect = None
+        with patch('ponto.services.timezone.now', return_value=timezone.now() + timedelta(minutes=11)):
+            self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 200)
+        self.assertEqual(RegistroPonto.objects.count(), 2)
+
+    @patch('ponto.views._limitar_captura')
+    @patch('ponto.views.extrair_vetor', side_effect=[[1., 0.], [0., 1.]])
+    def test_terminal_registra_pessoas_diferentes_em_sequencia(self, extrair, limitar):
+        outra = User.objects.create_user('colega')
+        outra.perfil.gestor = self.gestor.perfil
+        outra.perfil.save()
+        CadastroFacial.objects.create(funcionario=outra, vetor=[0., 1.])
+        self.abrir()
+        self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 200)
+        self.assertEqual(self.client.post(reverse('terminal_facial'), {'foto': foto()}).status_code, 200)
+        self.assertEqual(
+            set(RegistroPonto.objects.values_list('funcionario_id', flat=True)), {self.pessoa.pk, outra.pk},
+        )
+
+    def test_post_exige_csrf(self):
+        cliente = Client(enforce_csrf_checks=True)
+        cliente.force_login(self.gestor)
+        self.assertEqual(cliente.post(reverse('abrir_terminal')).status_code, 403)
+        self.assertEqual(cliente.post(reverse('cadastro_facial')).status_code, 403)
+        self.assertEqual(cliente.post(reverse('ponto_facial')).status_code, 403)
+        self.assertEqual(cliente.post(reverse('terminal_facial')).status_code, 403)
+
+
+class MotorFacialTests(SimpleTestCase):
+    def test_rejeita_imagem_invalida_e_arquivo_ausente(self):
+        for arquivo in (None, SimpleUploadedFile('foto.jpg', b'nao e imagem')):
+            with self.assertRaises(ErroFacial):
+                extrair_vetor(arquivo)
+
+    def test_rejeita_arquivo_grande(self):
+        with self.assertRaises(ErroFacial):
+            extrair_vetor(SimpleUploadedFile('foto.jpg', b'x' * (1024 * 1024 + 1)))
+
+    def test_rejeita_foto_com_dimensoes_excessivas(self):
+        buffer = BytesIO()
+        Image.new('RGB', (2000, 1000)).save(buffer, 'JPEG')
+        with self.assertRaises(ErroFacial):
+            extrair_vetor(SimpleUploadedFile('foto.jpg', buffer.getvalue()))
+
+    def test_rejeita_identificacao_ambigua(self):
+        cadastros = [CadastroFacial(vetor=[1., 0.]), CadastroFacial(vetor=[0.99, 0.1])]
+        with self.assertRaisesMessage(ErroFacial, 'inconclusiva'):
+            identificar([1., 0.], cadastros)
+
+    def test_rejeita_rosto_desconhecido(self):
+        with self.assertRaisesMessage(ErroFacial, 'não reconhecido'):
+            identificar([1., 0.], [CadastroFacial(vetor=[0., 1.])])
+
+
+SENHA = 'Acesso-inicial-482!'
+SEGREDO = 'smtp-teste-482!'
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class AdministracaoTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('caio', first_name='Caio', email='caio@example.com', password=SENHA)
+        self.admin.perfil.papel = Perfil.PAPEL_ADMIN
+        self.admin.perfil.save()
+        self.gestor = User.objects.create_user('gestor')
+        self.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        self.gestor.perfil.save()
+        self.funcionario = User.objects.create_user('funcionario', password=SENHA, email='pessoa@example.com')
+        self.funcao = Funcao.objects.create(nome='Analista')
+        self.client.force_login(self.admin)
+
+    def dados_usuario(self, **alteracoes):
+        dados = {
+            'first_name': 'Marina',
+            'last_name': 'Silva',
+            'username': 'marina',
+            'email': 'marina@example.com',
+            'cpf': '123.456.789-09',
+            'papel': Perfil.PAPEL_FUNCIONARIO,
+            'gestor': self.gestor.perfil.pk,
+            'funcao': self.funcao.pk,
+            'senha': SENHA,
+            'confirmar_senha': SENHA,
+            'is_active': 'on',
+        }
+        dados.update(alteracoes)
+        return dados
+
+    def dados_email(self, **alteracoes):
+        dados = {
+            'servidor': 'smtp.example.com',
+            'porta': '587',
+            'usuario': 'conta@example.com',
+            'senha': SEGREDO,
+            'seguranca': 'tls',
+            'remetente': 'ponto@example.com',
+        }
+        dados.update(alteracoes)
+        return dados
+
+    def test_admin_cadastra_usuario_e_perfil_com_email_e_senha(self):
+        resposta = self.client.post(reverse('usuario_criar'), self.dados_usuario())
+        self.assertRedirects(resposta, reverse('usuarios'))
+        pessoa = User.objects.get(username='marina')
+        self.assertTrue(pessoa.check_password(SENHA))
+        self.assertEqual(pessoa.email, 'marina@example.com')
+        self.assertEqual(pessoa.perfil.cpf, '12345678909')
+        self.assertEqual(pessoa.perfil.gestor, self.gestor.perfil)
+        self.assertEqual(pessoa.perfil.funcao, self.funcao)
+        self.assertEqual(Perfil.objects.filter(user=pessoa).count(), 1)
+        self.assertFalse(pessoa.is_staff)
+        self.assertFalse(pessoa.is_superuser)
+
+    def test_admin_edita_email_sem_trocar_senha(self):
+        dados = self.dados_usuario(username='funcionario', cpf='', senha='', confirmar_senha='')
+        self.client.post(reverse('usuario_editar', args=[self.funcionario.pk]), dados)
+        self.funcionario.refresh_from_db()
+        self.assertEqual(self.funcionario.email, 'marina@example.com')
+        self.assertTrue(self.funcionario.check_password(SENHA))
+
+    def test_pode_desativar_usuario_e_mudar_papel(self):
+        dados = self.dados_usuario(
+            username='funcionario',
+            cpf='',
+            senha='',
+            confirmar_senha='',
+            is_active='',
+            papel=Perfil.PAPEL_GESTOR,
+            gestor='',
+        )
+        self.client.post(reverse('usuario_editar', args=[self.funcionario.pk]), dados)
+        self.funcionario.refresh_from_db()
+        self.assertFalse(self.funcionario.is_active)
+        self.assertEqual(self.funcionario.perfil.papel, Perfil.PAPEL_GESTOR)
+
+    def test_nao_permite_bloquear_a_propria_conta(self):
+        dados = self.dados_usuario(username='caio', cpf='', senha='', confirmar_senha='', is_active='')
+        resposta = self.client.post(reverse('usuario_editar', args=[self.admin.pk]), dados)
+        self.assertContains(resposta, 'Você não pode desativar sua própria conta.')
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)
+        self.assertEqual(self.admin.perfil.papel, Perfil.PAPEL_ADMIN)
+
+    def test_nao_aceita_usuario_cpf_duplicados_senha_fraca_e_email_invalido(self):
+        casos = [
+            self.dados_usuario(username='caio'),
+            self.dados_usuario(email='invalido'),
+            self.dados_usuario(senha='123', confirmar_senha='123'),
+        ]
+        self.funcionario.perfil.cpf = '12345678909'
+        self.funcionario.perfil.save()
+        casos.append(self.dados_usuario())
+        for campo, dados in zip(('username', 'email', 'senha', 'cpf'), casos, strict=True):
+            with self.subTest(campo=campo):
+                resposta = self.client.post(reverse('usuario_criar'), dados)
+                self.assertEqual(resposta.status_code, 200)
+                self.assertIn(campo, resposta.context['form'].errors)
+        self.assertFalse(User.objects.filter(username='marina').exists())
+
+    def test_funcionario_nao_pode_ser_usado_como_gestor(self):
+        resposta = self.client.post(reverse('usuario_criar'), self.dados_usuario(gestor=self.funcionario.perfil.pk))
+        self.assertContains(resposta, 'Faça uma escolha válida')
+        self.assertFalse(User.objects.filter(username='marina').exists())
+
+    def test_busca_por_email(self):
+        resposta = self.client.get(reverse('usuarios'), {'q': 'pessoa@example.com'})
+        self.assertContains(resposta, 'pessoa@example.com')
+        self.assertNotContains(resposta, 'caio@example.com')
+
+    def test_administracao_exige_papel_e_login_em_get_e_post(self):
+        for usuario in (self.gestor, self.funcionario):
+            self.client.force_login(usuario)
+            for rota in ('usuarios', 'usuario_criar', 'configurar_email'):
+                self.assertEqual(self.client.get(reverse(rota)).status_code, 403)
+                self.assertEqual(self.client.post(reverse(rota), {}).status_code, 403)
+            self.assertEqual(self.client.get(reverse('usuario_editar', args=[self.admin.pk])).status_code, 403)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('usuarios')).status_code, 302)
+
+    def test_menu_mostra_administracao_so_ao_administrador(self):
+        self.assertContains(self.client.get(reverse('painel')), '<summary>Administração</summary>', html=True)
+        self.client.force_login(self.gestor)
+        self.assertNotContains(self.client.get(reverse('painel')), '<summary>Administração</summary>', html=True)
+        self.client.force_login(self.funcionario)
+        resposta = self.client.get(reverse('painel'))
+        self.assertNotContains(resposta, '<summary>Gestão</summary>', html=True)
+
+    def test_formularios_exigem_csrf(self):
+        cliente = Client(enforce_csrf_checks=True)
+        cliente.force_login(self.admin)
+        for rota in ('usuario_criar', 'configurar_email'):
+            self.assertEqual(cliente.post(reverse(rota), {}).status_code, 403)
+
+    def test_salva_smtp_sem_expor_senha_na_tela(self):
+        resposta = self.client.post(reverse('configurar_email'), self.dados_email())
+        self.assertRedirects(resposta, reverse('configurar_email'))
+        config = ConfiguracaoEmail.objects.get()
+        self.assertEqual(decifrar_senha(config.senha_criptografada), SEGREDO)
+        self.assertNotEqual(config.senha_criptografada, SEGREDO)
+        self.assertEqual(config.atualizado_por, self.admin)
+        self.assertNotContains(self.client.get(reverse('configurar_email')), SEGREDO)
+
+    def test_senha_em_branco_preserva_a_atual_e_remocao_e_explicita(self):
+        self.client.post(reverse('configurar_email'), self.dados_email())
+        self.client.post(reverse('configurar_email'), self.dados_email(senha='', porta='465', seguranca='ssl'))
+        self.assertEqual(decifrar_senha(ConfiguracaoEmail.objects.get().senha_criptografada), SEGREDO)
+        self.client.post(reverse('configurar_email'), self.dados_email(senha='', limpar_senha='on'))
+        self.assertEqual(ConfiguracaoEmail.objects.get().senha_criptografada, '')
+        self.assertEqual(ConfiguracaoEmail.objects.count(), 1)
+
+    def test_smtp_rejeita_porta_servidor_e_remetente_invalidos(self):
+        for dados in (
+            self.dados_email(porta='65536'),
+            self.dados_email(servidor='https://smtp.example.com'),
+            self.dados_email(remetente='invalido'),
+        ):
+            self.assertEqual(self.client.post(reverse('configurar_email'), dados).status_code, 200)
+        self.assertFalse(ConfiguracaoEmail.objects.exists())
+
+    @patch('ponto.views.BackendEmail')
+    @patch('ponto.views.EmailMessage.send', return_value=1)
+    def test_envio_de_teste_so_ocorre_por_acao_explicita(self, enviar, backend):
+        backend.return_value.__enter__.return_value.remetente = 'ponto@example.com'
+        self.client.post(reverse('configurar_email'), self.dados_email())
+        enviar.assert_not_called()
+        resposta = self.client.post(reverse('configurar_email'), {'acao': 'testar', 'destinatario': 'caio@example.com'})
+        self.assertRedirects(resposta, reverse('configurar_email'))
+        enviar.assert_called_once()
+
+    @patch('ponto.views.BackendEmail', side_effect=SMTPException('Falha de autenticação'))
+    def test_falha_de_envio_nao_declara_sucesso(self, backend):
+        resposta = self.client.post(
+            reverse('configurar_email'), {'acao': 'testar', 'destinatario': 'caio@example.com'}, follow=True
+        )
+        self.assertContains(resposta, 'O teste falhou.')
+        self.assertNotContains(resposta, 'O servidor aceitou')
+
+    @override_settings(EMAIL_BACKEND='ponto.email.BackendEmail')
+    @patch('django.core.mail.backends.smtp.EmailBackend.send_messages', return_value=1)
+    def test_recuperacao_de_senha_usa_o_smtp_e_remetente_salvos(self, enviar):
+        self.client.post(reverse('configurar_email'), self.dados_email())
+        self.client.post(reverse('password_reset'), {'email': self.funcionario.email})
+        enviar.assert_called_once()
+        self.assertEqual(enviar.call_args.args[0][0].from_email, 'ponto@example.com')
+
+    @override_settings(EMAIL_HOST='ambiente.example.com', EMAIL_PORT=2525, EMAIL_HOST_PASSWORD=SEGREDO)
+    def test_backend_usa_ambiente_ate_salvar_configuracao(self):
+        backend = BackendEmail()
+        self.assertEqual(backend.host, 'ambiente.example.com')
+        self.assertEqual(backend.port, 2525)
+        self.assertEqual(backend.password, SEGREDO)
+        self.client.post(reverse('configurar_email'), self.dados_email(senha=''))
+        self.assertEqual(BackendEmail().password, SEGREDO)
+
+    def test_backend_usa_host_porta_autenticacao_e_seguranca_salvos(self):
+        self.client.post(reverse('configurar_email'), self.dados_email(porta='465', seguranca='ssl'))
+        backend = BackendEmail()
+        self.assertEqual(backend.host, 'smtp.example.com')
+        self.assertEqual(backend.port, 465)
+        self.assertEqual(backend.username, 'conta@example.com')
+        self.assertEqual(backend.password, SEGREDO)
+        self.assertTrue(backend.use_ssl)
+        self.assertFalse(backend.use_tls)
+
+    def test_troca_de_chave_exige_recadastrar_senha_smtp(self):
+        cifrada = cifrar_senha(SEGREDO)
+        with override_settings(SECRET_KEY=SEGREDO + '-outra-chave'):
+            with self.assertRaises(ImproperlyConfigured):
+                decifrar_senha(cifrada)

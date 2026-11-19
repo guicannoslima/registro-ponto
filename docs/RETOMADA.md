@@ -3,6 +3,22 @@
 Estado em 18/11/2026, revisão `e90fa50` publicada em `origin/main`. Esta página diz o que já
 foi feito, o que está pendente e como continuar o trabalho sem repetir o que já se decidiu.
 
+Revisão local posterior, sem push: reconhecimento facial pessoal e terminal compartilhado
+implementados; dependências e modelos instalados, migração `0007` aplicada no banco local.
+O registro reconhece e bate o ponto automaticamente; a câmera abre ao entrar nas telas.
+O nome da conta local `admin` foi atualizado para **Caio** a pedido do usuário.
+Administração de usuários e SMTP implementada; migração `0008` aplicada no banco local.
+O menu foi reorganizado por clique, e o cabeçalho e conteúdo agora usam toda a largura,
+por autorização explícita do usuário. Formulários em `forms.py`, views em `views.py` e
+exceções em `exceptions.py`. As telas públicas continuam como estavam.
+Serviços de apresentação, batidas e sequência reunidos em `services.py`; módulo de e-mail
+renomeado para `email.py`, e todos os 69 testes reunidos em `tests.py`. A interface usa
+**Colaborador**, e botões comuns e campos têm 48 px para alinhar formulários.
+A migração `0009`, somente de rótulos, foi aplicada no banco local.
+Os auxiliares `_gestor`, `_pessoas`, `_limitar_captura` e `_erro` ficam em `ponto/utils.py`.
+O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
+([uso e limitações](USO.md#registro-por-reconhecimento-facial)).
+
 ## Onde o projeto está
 
 | Área | Estado |
@@ -13,7 +29,9 @@ foi feito, o que está pendente e como continuar o trabalho sem repetir o que j�
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 28 testes em `ponto/tests.py`, todos passando ([Testes](TESTES.md)) |
+| Testes | 69 testes reunidos em `ponto/tests.py`, todos passando ([Testes](TESTES.md)) |
+| Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
+| Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | 2 vCPU e 2 GB para 20 pessoas simultâneas ([Capacidade](CAPACIDADE.md)) |
 
 ## Decisões pendentes do usuário
@@ -27,8 +45,6 @@ foi feito, o que está pendente e como continuar o trabalho sem repetir o que j�
 3. **Atalho para dias incompletos:** a tabela do relatório na tela, com **Pedir ajuste** e
    **Lançar ponto**, saiu quando o PDF passou a ser exibido no iframe. Oferecido trazer uma
    lista curta acima do iframe; sem resposta.
-4. **Saudação do header:** usuários sem primeiro nome aparecem como "Bem-vindo, !". O header
-   está congelado; só mudar se o usuário pedir.
 
 ## Pendências conhecidas
 
@@ -49,7 +65,7 @@ foi feito, o que está pendente e como continuar o trabalho sem repetir o que j�
 - Banco `registro_ponto` (desenvolvimento do usuário): `admin`, e os colaboradores de teste
   `marina` e `rafael` (senha `teste-ponto-123`), com batidas de 26/10 a 18/11/2026.
 - Banco `registro_ponto_design`: dados fictícios usados para capturar as telas (`ana` gestora;
-  `bruno`, `carla`, `diego`, `elisa` funcionários; senha `senha-forte-123`). Para usar:
+  `bruno`, `carla`, `diego`, `elisa` colaboradores; senha `senha-forte-123`). Para usar:
   `DB_NAME=registro_ponto_design python manage.py runserver 127.0.0.1:8766`. Pode ser apagado.
 - O usuário roda o servidor pelo PyCharm na porta 8000; use outra porta para testes.
 - `.idea/` não é versionada; a configuração recomendada está em [Desenvolvimento](DESENVOLVIMENTO.md#pycharm).
@@ -71,10 +87,13 @@ Se o usuário fechar o app, não reabra sem pedir. Exporte as prévias para `des
 
 ## Regras de trabalho combinadas
 
-- Mudança visual nas telas passa primeiro pelo Figcraft; o header e as telas de login,
-  cadastro e redefinição de senha não mudam ([decisão](DECISOES.md#conteúdo-interno-com-css-próprio--18112026)).
-- CSS das telas internas em `ponto/static/ponto/interno.css`, sob `.principal-interno`.
-- Constantes em `ponto/constants.py`; lógica de apresentação em `ponto/apresentacao.py`.
+- Mudança visual nas telas passa primeiro pelo Figcraft. A revisão do cabeçalho foi autorizada
+  pelo usuário para acomodar submenus e a largura de 1333 px. Login, cadastro público e
+  redefinição de senha continuam preservados ([decisões](DECISOES.md)).
+- CSS em `ponto/static/ponto/interno.css`: conteúdo sob `.principal-interno`, cabeçalho sob `.topo-aplicacao`.
+- Formulários em `ponto/forms.py`, views em `ponto/views.py` e exceções em `ponto/exceptions.py`.
+- Serviços em `ponto/services.py`, e-mail em `ponto/email.py` e testes somente em `ponto/tests.py`.
+- Constantes em `ponto/constants.py`; lógica de apresentação em `ponto/services.py`.
 - Ruff com 120 colunas; arquivos Python novos sem avisos.
 - Commits em [Conventional Commits](PADROES_DE_DOCUMENTACAO.md#commits) em português, sem a
   linha `Co-Authored-By`, divididos por assunto, e só quando o usuário pedir. Push também só

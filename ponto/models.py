@@ -15,7 +15,7 @@ class Perfil(models.Model):
     PAPEL_ADMIN = "admin"
 
     PAPEL_CHOICES = [
-        (PAPEL_FUNCIONARIO, "Funcionário"),
+        (PAPEL_FUNCIONARIO, "Colaborador"),
         (PAPEL_GESTOR, "Gestor"),
         (PAPEL_ADMIN, "Administrador"),
     ]
@@ -80,6 +80,7 @@ class RegistroPonto(models.Model):
 
     funcionario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        verbose_name='colaborador',
         on_delete=models.CASCADE,
         related_name="registros_ponto",
     )
@@ -136,6 +137,7 @@ class HistoricoAlteracaoPonto(models.Model):
 class SolicitacaoAjustePonto(models.Model):
     funcionario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        verbose_name='colaborador',
         on_delete=models.SET_NULL,
         null=True,
         related_name = 'solicitacoes',
@@ -162,7 +164,7 @@ class SolicitacaoAjustePonto(models.Model):
 
     data_hora = models.DateTimeField(null=True, blank=True)
 
-    motivo_funcionario = models.TextField()
+    motivo_funcionario = models.TextField(verbose_name='motivo do colaborador')
 
     PENDENTE = "pendente"
     APROVADO = "aprovado"
@@ -189,3 +191,45 @@ class SolicitacaoAjustePonto(models.Model):
     )
 
     criado_em = models.DateTimeField(auto_now_add=True)
+
+
+class CadastroFacial(models.Model):
+    funcionario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, verbose_name='colaborador',
+        on_delete=models.CASCADE, related_name='cadastro_facial',
+    )
+    vetor = models.JSONField(editable=False)
+    cadastrado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+',
+    )
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'cadastro facial'
+        verbose_name_plural = 'cadastros faciais'
+
+    def __str__(self):
+        return f'Cadastro facial de {self.funcionario}'
+
+
+class ConfiguracaoEmail(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    servidor = models.CharField(max_length=255)
+    porta = models.PositiveIntegerField(default=587)
+    usuario = models.CharField(max_length=254, blank=True)
+    senha_criptografada = models.TextField(blank=True, editable=False)
+    seguranca = models.CharField(
+        max_length=10, default='tls',
+        choices=[('tls', 'STARTTLS'), ('ssl', 'SSL/TLS'), ('nenhuma', 'Sem criptografia')],
+    )
+    remetente = models.EmailField()
+    atualizado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='+')
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'configuração de e-mail'
+        verbose_name_plural = 'configurações de e-mail'
+        constraints = [models.CheckConstraint(condition=models.Q(pk=1), name='configuracao_email_unica')]
+
+    def __str__(self):
+        return 'Envio de e-mails'
