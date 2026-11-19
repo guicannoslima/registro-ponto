@@ -256,7 +256,7 @@ class CartaoPontoTests(TestCase):
     def setUp(self):
         self.usuario = User.objects.create_user('marina', password='senha-forte-123', first_name='Marina')
         self.segunda, self.terca = date(2026, 11, 16), date(2026, 11, 17)
-        for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, (8, 12, 13, 15, 15, 18)):
+        for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, (8, 12, 13, 15, 15, 18), strict=True):
             _batida(self.usuario, tipo, _momento(self.segunda, hora, 45 if tipo == RegistroPonto.VOLTA_CAFE else 0))
         _batida(
             self.usuario,

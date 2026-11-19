@@ -31,6 +31,8 @@ staticfiles/
 
 # Documentação e ferramentas de desenvolvimento
 README.md
+AGENTS.md
+CLAUDE.md
 docs/
 design/
 .ai/

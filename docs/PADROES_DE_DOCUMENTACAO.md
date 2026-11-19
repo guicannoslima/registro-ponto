@@ -18,6 +18,8 @@ Use listas numeradas para passos em sequência e tabelas para comparar parâmetr
 | Ambiente local, PyCharm, dependências e lint | [Desenvolvimento](DESENVOLVIMENTO.md) |
 | Docker, variáveis de ambiente e dados | [Implantação](IMPLANTACAO.md) |
 | Como reproduzir as verificações | [Testes](TESTES.md) |
+| Recursos necessários e teste de carga | [Capacidade](CAPACIDADE.md) |
+| Estado atual e como continuar o trabalho | [Retomada](RETOMADA.md) |
 | Por que cada caminho foi escolhido | [Decisões](DECISOES.md) |
 | Estado e próximos passos | [Roadmap](ROADMAP.md) |
 
