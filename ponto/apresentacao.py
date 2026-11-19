@@ -6,7 +6,6 @@ from django.utils import timezone
 
 from .constants import DIAS_ABREVIADOS, DIAS_CURTOS, DIAS_SEMANA, DIAS_UTEIS, JORNADA_DIARIA, MESES, ROTULOS_CURTOS
 from .models import RegistroPonto
-from .relatorios import formatar_timedelta
 
 
 def data_por_extenso(data):
@@ -81,43 +80,6 @@ def formatar_saldo(delta):
     return f'{sinal}{horas}h{minutos:02d}min'
 
 
-def preparar_relatorio(relatorio):
-    """Acrescenta ao relatório os textos da tela: dia curto, saldo com sinal e totais formatados.
-
-    Sábados e domingos sem nenhuma batida ficam fora da tabela, mas continuam no PDF.
-    """
-    for item in relatorio:
-        dias = []
-        incompletos = 0
-        for dia in item['relatorio']:
-            if dia['data'].weekday() >= 5 and not dia['horarios']:
-                continue
-            completo = dia['status'] == 'Completo'
-            linha = {'data': dia['data'], 'rotulo': dia_curto(dia['data']), 'completo': completo}
-            if completo:
-                diferenca = dia['diferenca']
-                linha.update(
-                    trabalhado=formatar_timedelta(dia['tempo_trabalhado']),
-                    esperado=formatar_timedelta(dia['esperado']),
-                    saldo=formatar_saldo(diferenca),
-                    saldo_classe='positivo'
-                    if diferenca > timedelta()
-                    else 'negativo'
-                    if diferenca < timedelta()
-                    else '',
-                )
-            else:
-                incompletos += 1
-            dias.append(linha)
-        item.update(
-            dias=dias,
-            dias_incompletos=incompletos,
-            horas_normais_texto=formatar_timedelta(item['horas_normais']),
-            horas_extras_texto=formatar_timedelta(item['horas_extras']),
-        )
-    return relatorio
-
-
 def hhmm(delta):
     """Duração no formato do cartão ponto: timedelta(hours=7, minutes=45) -> '07:45'; vazio quando não há valor."""
     if not delta:
@@ -129,7 +91,7 @@ def hhmm(delta):
 def preparar_cartao_ponto(item, data_inicio, data_fim):
     """Linhas e totais do cartão ponto em PDF para um item de montar_relatorio.
 
-    NORMAIS e EXTRAS seguem a mesma regra do relatório na tela. FALTAS soma o saldo devedor dos dias completos e a
+    NORMAIS e EXTRAS seguem a regra de calcular_resumo. FALTAS soma o saldo devedor dos dias completos e a
     jornada inteira dos dias úteis já passados sem nenhuma batida; dias futuros ficam em branco. Dias com batidas,
     mas sem entrada ou saída, saem como incompletos, sem horas calculadas.
     """

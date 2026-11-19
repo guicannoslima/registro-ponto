@@ -10,7 +10,6 @@ from .apresentacao import (
     hhmm,
     linha_do_dia,
     preparar_cartao_ponto,
-    preparar_relatorio,
     situacao,
 )
 from .models import Funcao, HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
@@ -115,14 +114,6 @@ class ApresentacaoTests(TestCase):
         self.assertEqual(formatar_saldo(timedelta()), '0min')
         self.assertEqual(formatar_saldo(timedelta(minutes=50)), '+0h50min')
         self.assertEqual(formatar_saldo(-timedelta(hours=1, minutes=5)), '−1h05min')
-
-    def test_relatorio_omite_fim_de_semana_sem_batidas(self):
-        sabado = date(2026, 11, 14)
-        relatorio = preparar_relatorio(montar_relatorio(None, self.usuario, sabado, sabado + timedelta(days=2), False))
-
-        dias = relatorio[0]['dias']
-        self.assertEqual([d['data'] for d in dias], [sabado + timedelta(days=2)])
-        self.assertEqual(relatorio[0]['dias_incompletos'], 1)
 
 
 @override_settings(STORAGES=STORAGES_DE_TESTE)
@@ -312,3 +303,39 @@ class CartaoPontoTests(TestCase):
         self.assertEqual(resposta['Content-Type'], 'application/pdf')
         self.assertIn('cartao-ponto-20261116-20261119.pdf', resposta['Content-Disposition'])
         self.assertTrue(resposta.content.startswith(b'%PDF'))
+
+    def test_gerar_relatorio_exibe_o_pdf_num_iframe(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(
+            reverse('relatorio_ponto'),
+            {'funcionario': self.usuario.id, 'data_inicio': '2026-11-16', 'data_fim': '2026-11-19'},
+        )
+
+        filtro = f'data_inicio=2026-11-16&data_fim=2026-11-19&funcionario={self.usuario.id}'
+        url = f'{reverse("visualizar_relatorio_pdf")}?{filtro}'
+        self.assertEqual(resposta.context['pdf_url'], url)
+        self.assertContains(resposta, '<iframe class="visor-pdf"')
+
+    def test_visualizar_entrega_pdf_inline_liberado_para_iframe_da_mesma_origem(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.get(
+            reverse('visualizar_relatorio_pdf'),
+            {'funcionario': self.usuario.id, 'data_inicio': '2026-11-16', 'data_fim': '2026-11-19'},
+        )
+
+        self.assertEqual(resposta['Content-Type'], 'application/pdf')
+        self.assertTrue(resposta['Content-Disposition'].startswith('inline;'))
+        self.assertEqual(resposta['X-Frame-Options'], 'SAMEORIGIN')
+
+    def test_funcionario_nao_visualiza_o_cartao_de_outra_pessoa(self):
+        outra = User.objects.create_user('rafael', password='senha-forte-123', first_name='Rafael')
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.get(
+            reverse('visualizar_relatorio_pdf'),
+            {'funcionario': outra.id, 'data_inicio': '2026-11-16', 'data_fim': '2026-11-19'},
+        )
+
+        self.assertEqual(resposta.status_code, 400)

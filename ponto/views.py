@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -7,7 +8,9 @@ from django.contrib.staticfiles import finders
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
+from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from xhtml2pdf import pisa
 
@@ -15,7 +18,6 @@ from .apresentacao import (
     data_por_extenso,
     linha_do_dia,
     preparar_cartao_ponto,
-    preparar_relatorio,
     proximo_tipo,
     rotulo_do_dia,
     situacao,
@@ -442,81 +444,104 @@ def historico_alteracoes(request):
     })
 
 
+def _funcionarios_do_relatorio(usuario):
+    """O funcionário só gera o próprio relatório; gestor e administrador, o de quem eles enxergam."""
+    eh_funcionario = usuario.perfil.papel == Perfil.PAPEL_FUNCIONARIO
+    if eh_funcionario:
+        return User.objects.filter(pk=usuario.pk), eh_funcionario
+    return funcionarios_visiveis(usuario).order_by('first_name', 'last_name'), eh_funcionario
+
+
+def _cartao_ponto_pdf(funcionarios, dados, inline):
+    """Gera o PDF do cartão ponto a partir dos dados validados do RelatorioForm."""
+    data_inicio, data_fim = dados['data_inicio'], dados['data_fim']
+    relatorio = montar_relatorio(
+        funcionarios, dados['funcionario'], data_inicio, data_fim, dados.get('gerar_todos')
+    )
+    for item in relatorio:
+        preparar_cartao_ponto(item, data_inicio, data_fim)
+
+    html = get_template('ponto/relatorio_pdf.html').render({
+        'relatorio': relatorio,
+        'data_inicio': data_inicio,
+        'data_fim': data_fim,
+        'emitido_em': timezone.localtime(),
+        'logo': finders.find('ponto/logo.png'),
+        'empresa_nome': EMPRESA_NOME,
+        'empresa_endereco': EMPRESA_ENDERECO,
+        'horario': [
+            {'nome': nome.upper(), 'pares': HORARIO_DE_TRABALHO if indice in DIAS_UTEIS else ()}
+            for indice, nome in enumerate(DIAS_ABREVIADOS)
+        ],
+        'jornada': formatar_timedelta(JORNADA_DIARIA),
+        'tolerancia': int(TOLERANCIA_SALDO.total_seconds() // 60),
+    })
+    response = HttpResponse(content_type='application/pdf')
+    disposicao = 'inline' if inline else 'attachment'
+    nome_arquivo = f'cartao-ponto-{data_inicio:%Y%m%d}-{data_fim:%Y%m%d}.pdf'
+    response['Content-Disposition'] = f'{disposicao}; filename="{nome_arquivo}"'
+    if pisa.CreatePDF(html, dest=response).err:
+        return HttpResponse('Não foi possível gerar o PDF. Tente novamente.', status=500)
+    return response
+
+
+def _parametros_do_relatorio(dados):
+    """Query string que reproduz o filtro validado, usada pelo iframe do PDF."""
+    parametros = {
+        'data_inicio': dados['data_inicio'].isoformat(),
+        'data_fim': dados['data_fim'].isoformat(),
+    }
+    if dados['funcionario']:
+        parametros['funcionario'] = dados['funcionario'].pk
+    if dados.get('gerar_todos'):
+        parametros['gerar_todos'] = 'on'
+    return urlencode(parametros)
+
+
 @login_required
 def relatorio_ponto(request):
-    eh_funcionario =  request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO
-    if eh_funcionario:
-        funcionarios = User.objects.filter(pk=request.user.pk)
-    else:
-        funcionarios = funcionarios_visiveis(request.user).order_by('first_name', 'last_name')
-
-    relatorio = None
+    funcionarios, eh_funcionario = _funcionarios_do_relatorio(request.user)
+    contexto = {}
 
     if request.method == 'POST':
-        form = RelatorioForm(request.POST, funcionarios= funcionarios, permite_todos= not eh_funcionario)
+        form = RelatorioForm(request.POST, funcionarios=funcionarios, permite_todos=not eh_funcionario)
         if form.is_valid():
-            data_inicio = form.cleaned_data['data_inicio']
-            data_fim = form.cleaned_data['data_fim']
-            gerar_todos = form.cleaned_data.get('gerar_todos')
-            funcionario_escolhido = form.cleaned_data['funcionario']
-            relatorio = preparar_relatorio(
-                montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
-            )
+            dados = form.cleaned_data
+            contexto['pdf_url'] = f"{reverse('visualizar_relatorio_pdf')}?{_parametros_do_relatorio(dados)}"
+            if dados.get('gerar_todos'):
+                contexto['titulo_pdf'] = 'Cartão ponto da equipe'
+            else:
+                contexto['titulo_pdf'] = f"Cartão ponto de {dados['funcionario'].get_full_name()}"
+            contexto['periodo_pdf'] = dados
     else:
-        form = RelatorioForm(funcionarios = funcionarios, permite_todos= not eh_funcionario)
-    return render(request, 'ponto/relatorio_ponto.html', {
-        'form': form,
-        'relatorio': relatorio,
-        'eh_funcionario': eh_funcionario,
-        'tolerancia_minutos': int(TOLERANCIA_SALDO.total_seconds() // 60),
-    })
+        form = RelatorioForm(funcionarios=funcionarios, permite_todos=not eh_funcionario)
+
+    contexto['form'] = form
+    return render(request, 'ponto/relatorio_ponto.html', contexto)
 
 
 @login_required
 @require_POST
 def exportar_relatorio_pdf(request):
-    eh_funcionario = request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO
-    if eh_funcionario:
-        funcionarios = User.objects.filter(pk=request.user.pk)
-    else:
-        funcionarios = funcionarios_visiveis(request.user)
-
+    """Baixar PDF: o cartão ponto como anexo."""
+    funcionarios, eh_funcionario = _funcionarios_do_relatorio(request.user)
     form = RelatorioForm(request.POST, funcionarios=funcionarios, permite_todos=not eh_funcionario)
     if form.is_valid():
-        data_inicio = form.cleaned_data['data_inicio']
-        data_fim = form.cleaned_data['data_fim']
-        gerar_todos = form.cleaned_data.get('gerar_todos')
-        funcionario_escolhido = form.cleaned_data['funcionario']
-        relatorio = montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos)
-        for item in relatorio:
-            preparar_cartao_ponto(item, data_inicio, data_fim)
+        return _cartao_ponto_pdf(funcionarios, form.cleaned_data, inline=False)
+    messages.error(request, 'Formulário inválido, verifique os dados e tente novamente.')
+    return redirect('relatorio_ponto')
 
-        html = get_template('ponto/relatorio_pdf.html').render({
-            'relatorio': relatorio,
-            'data_inicio': data_inicio,
-            'data_fim': data_fim,
-            'emitido_em': timezone.localtime(),
-            'logo': finders.find('ponto/logo.png'),
-            'empresa_nome': EMPRESA_NOME,
-            'empresa_endereco': EMPRESA_ENDERECO,
-            'horario': [
-                {'nome': nome.upper(), 'pares': HORARIO_DE_TRABALHO if indice in DIAS_UTEIS else ()}
-                for indice, nome in enumerate(DIAS_ABREVIADOS)
-            ],
-            'jornada': formatar_timedelta(JORNADA_DIARIA),
-            'tolerancia': int(TOLERANCIA_SALDO.total_seconds() // 60),
-        })
-        response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="cartao-ponto-{data_inicio:%Y%m%d}-{data_fim:%Y%m%d}.pdf"'
-        pisa_status = pisa.CreatePDF(html, dest=response)
 
-        if pisa_status.err:
-            return HttpResponse('Erro ao gerar PDF')
-        else:
-            return response
-    else:
-        messages.error(request, 'Formulário inválido, verifique os dados e tente novamente.')
-        return redirect('relatorio_ponto')
+@login_required
+@xframe_options_sameorigin
+def visualizar_relatorio_pdf(request):
+    """Gerar relatório: o mesmo cartão ponto exibido no navegador, dentro do iframe da página de relatório."""
+    funcionarios, eh_funcionario = _funcionarios_do_relatorio(request.user)
+    form = RelatorioForm(request.GET, funcionarios=funcionarios, permite_todos=not eh_funcionario)
+    if not form.is_valid():
+        return HttpResponse('Filtro do relatório inválido. Gere o relatório de novo.', status=400)
+    return _cartao_ponto_pdf(funcionarios, form.cleaned_data, inline=True)
+
 
 def cadastro_usuario(request):
     if request.method == 'POST':

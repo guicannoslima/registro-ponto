@@ -22,5 +22,6 @@ urlpatterns = [
     path('ponto/historico/', views.historico_alteracoes, name='historico_alteracoes'),
     path('ponto/relatorios/', views.relatorio_ponto, name='relatorio_ponto'),
     path('ponto/relatorio/pdf/', views.exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
+    path('ponto/relatorio/pdf/visualizar/', views.visualizar_relatorio_pdf, name='visualizar_relatorio_pdf'),
     path('ponto/cadastro_usuario/', views.cadastro_usuario, name='cadastro_usuario'),
 ]

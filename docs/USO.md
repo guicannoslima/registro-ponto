@@ -76,24 +76,12 @@ quem fez, quando e por quê, e filtra por funcionário, ação e período.
 
 ## Relatório de banco de horas
 
-**Implementado.** Escolha o período e o funcionário, ou marque **Gerar todos** para a
-equipe inteira. Para cada dia, o relatório mostra:
+**Implementado.** Escolha o período e o funcionário, ou marque **Gerar para toda a equipe**.
+**Gerar relatório** exibe o cartão ponto em PDF dentro da página, num visualizador que rola
+por todas as páginas; **Abrir em nova aba** mostra o mesmo PDF em tela cheia. **Baixar PDF**
+baixa o arquivo direto. O funcionário gera só o próprio relatório.
 
-| Coluna | Conteúdo |
-| --- | --- |
-| **Status** | *Completo* (com entrada e saída) ou *Incompleto*, com atalho para solicitar o ajuste |
-| **Horas trabalhadas** | Da entrada à saída, descontando o almoço |
-| **Jornada esperada** | `7h45min` por dia |
-| **Saldo** | Trabalhado menos esperado: positivo é hora extra, negativo é hora devida |
-
-Diferenças de até 10 minutos, para mais ou para menos, não entram no saldo do dia.
-Os totais do período separam horas normais, limitadas à jornada de cada dia, horas
-extras e dias incompletos. Sábados e domingos sem batidas ficam fora da tabela na tela,
-mas continuam no PDF. Num dia incompleto, o funcionário vê **Pedir ajuste** e o gestor,
-**Lançar ponto**. O funcionário gera só o próprio relatório.
-
-**Baixar PDF** gera o **Cartão Ponto** do mesmo período e funcionário, uma página por pessoa
-com **Gerar todos**. O cartão traz:
+O **Cartão Ponto** tem uma página por pessoa quando a equipe inteira é gerada. O cartão traz:
 
 - cabeçalho com a logo, o período e a data de emissão; rodapé com **Página X de Y**;
 - dados da empresa e do funcionário (nome, CPF, função e gestor) e o horário de trabalho
@@ -102,9 +90,9 @@ com **Gerar todos**. O cartão traz:
   **EXTRAS**, **CARGA** e **OBS.**, e a linha de **TOTAIS**;
 - legenda, declaração de conferência e assinaturas do funcionário e do gestor.
 
-**NORMAIS** e **EXTRAS** seguem a mesma regra do relatório na tela, então os totais batem.
-**FALTAS** soma o saldo devedor dos dias completos e a jornada inteira dos dias úteis sem
-nenhuma batida (**Falta**). Dias com batidas, mas sem entrada ou saída, saem como
+**NORMAIS** e **EXTRAS** seguem a regra de cálculo do sistema (`calcular_resumo`).
+**FALTAS** soma o saldo devedor dos dias completos e a jornada inteira dos dias úteis já
+passados sem nenhuma batida (**Falta**); dias futuros ficam em branco. Dias com batidas, mas sem entrada ou saída, saem como
 **Incompleto**, sem horas calculadas. Batidas lançadas manualmente recebem `*`. Os dados da
 empresa e o horário impresso ficam em `ponto/constants.py`.
 

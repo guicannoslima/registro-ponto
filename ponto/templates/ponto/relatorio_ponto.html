@@ -35,73 +35,20 @@
         </form>
     </section>
 
-    {% for item in relatorio %}
-        <section class="cartao-interno" aria-labelledby="relatorio-{{ item.funcionario.id }}">
-            <div>
-                <h2 id="relatorio-{{ item.funcionario.id }}">{{ item.funcionario.get_full_name|default:item.funcionario.username }}</h2>
-                <p class="apoio">
-                    {% if item.funcionario.perfil.funcao %}{{ item.funcionario.perfil.funcao.nome }}, de{% else %}De{% endif %}
-                    {{ form.cleaned_data.data_inicio|date:"d/m" }} a {{ form.cleaned_data.data_fim|date:"d/m/Y" }}
-                </p>
-            </div>
-            <div class="totais">
-                <div class="total">
-                    <span class="apoio pequeno">Horas normais</span>
-                    <span class="total__valor">{{ item.horas_normais_texto }}</span>
+    {% if pdf_url %}
+        <section class="cartao-interno" aria-labelledby="titulo-pdf">
+            <div class="cartao-interno__topo">
+                <div>
+                    <h2 id="titulo-pdf">{{ titulo_pdf }}</h2>
+                    <p class="apoio">
+                        De {{ periodo_pdf.data_inicio|date:"d/m" }} a {{ periodo_pdf.data_fim|date:"d/m/Y" }}.
+                        Role o documento para ver todas as páginas.
+                    </p>
                 </div>
-                <div class="total">
-                    <span class="apoio pequeno">Horas extras</span>
-                    <span class="total__valor total__valor--sucesso">{{ item.horas_extras_texto }}</span>
-                </div>
-                <div class="total">
-                    <span class="apoio pequeno">Dias incompletos</span>
-                    <span class="total__valor{% if item.dias_incompletos %} total__valor--atencao{% endif %}">{{ item.dias_incompletos }}</span>
-                </div>
+                <a href="{{ pdf_url }}" class="btn btn--secundario" target="_blank" rel="noopener">Abrir em nova aba</a>
             </div>
-            <div class="tabela-rolagem">
-                <table class="tabela-interna">
-                    <thead>
-                        <tr>
-                            <th scope="col">Dia</th>
-                            <th scope="col">Situação</th>
-                            <th scope="col">Trabalhado</th>
-                            <th scope="col">Esperado</th>
-                            <th scope="col">Saldo</th>
-                            <th scope="col"><span class="sr-only">Ações</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for dia in item.dias %}
-                            <tr>
-                                <td>{{ dia.rotulo }}</td>
-                                {% if dia.completo %}
-                                    <td><span class="selo selo--sucesso">Completo</span></td>
-                                    <td>{{ dia.trabalhado }}</td>
-                                    <td>{{ dia.esperado }}</td>
-                                    <td><span class="{% if dia.saldo_classe %}saldo--{{ dia.saldo_classe }}{% endif %}">{{ dia.saldo }}</span></td>
-                                    <td></td>
-                                {% else %}
-                                    <td><span class="selo selo--atencao">Incompleto</span></td>
-                                    <td>—</td>
-                                    <td>—</td>
-                                    <td>—</td>
-                                    <td class="direita">
-                                        {% if eh_funcionario %}
-                                            <a href="{% url 'solicitar_criacao' %}" class="link">Pedir ajuste</a>
-                                        {% else %}
-                                            <a href="{% url 'criar_ponto_manual' %}?funcionario={{ item.funcionario.id }}&amp;data={{ dia.data|date:'Y-m-d' }}" class="link">Lançar ponto</a>
-                                        {% endif %}
-                                    </td>
-                                {% endif %}
-                            </tr>
-                        {% empty %}
-                            <tr><td colspan="6" class="apoio">Nenhum dia útil no período.</td></tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <p class="apoio pequeno">Diferenças de até {{ tolerancia_minutos }} minutos entram como 0min. Sábados e domingos sem batidas não aparecem na tela, só no PDF.</p>
+            <iframe class="visor-pdf" src="{{ pdf_url }}" title="{{ titulo_pdf }}, de {{ periodo_pdf.data_inicio|date:'d/m/Y' }} a {{ periodo_pdf.data_fim|date:'d/m/Y' }}"></iframe>
         </section>
-    {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}
