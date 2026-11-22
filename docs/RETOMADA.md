@@ -204,3 +204,31 @@ Checks Django aprovados; 110 de 111 testes passaram na imagem. O teste de foto d
 recebe `application/octet-stream` em vez de `image/webp`, inclusive isoladamente.
 ShellCheck executado, com três observações. [Procedimento e limites](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026).
 Ainda falta VM completa e emissão/renovação real pela Cloudflare. Sem push.
+
+## Implantação de 22/11 — HTTPS e renovação automática
+
+Usuário conectado como `prime` em `srv-ponto`, Ubuntu 24.04.5 LTS, com sudo; domínio
+`ponto.primecartorios.com.br`, IP interno `10.0.10.209`. Confirmou a criação do registro
+DNS na Cloudflare e enviou o resumo de instalação concluída em `/opt/registro-ponto`,
+inicialmente somente HTTP, sem token da Cloudflare.
+
+**Decisão do usuário:** seguir com certificado Let's Encrypt por DNS manual e depois
+automatizar a renovação com token da conta da empresa. O usuário edita DNS, mas não pode
+criar Account API tokens; posteriormente recebeu o token da infraestrutura.
+Certbot instalado; TXT publicado e conferido no DNS público do Google. Usuário enviou a
+confirmação de certificado emitido, válido até **20/02/2027**, em
+`/etc/letsencrypt/live/ponto.primecartorios.com.br/`. Reexecutou o instalador sem erros e
+confirmou acesso HTTPS sem aviso e login com administrador. Pacote Nginx
+`1.24.0-2ubuntu7.21`, configuração válida, serviço reiniciado e ativo. Teste específico
+da câmera ainda sem confirmação.
+
+**Renovação automática configurada:** plugin `python3-certbot-dns-cloudflare` instalado,
+credencial em `/etc/letsencrypt/cloudflare.ini` com permissão 600. `certbot reconfigure`
+migrou o certificado existente para `dns-cloudflare`, com propagação de 60 segundos e
+deploy hook `nginx -t && systemctl reload nginx`. Usuário enviou simulação aprovada com
+execução dos hooks e `Successfully updated configuration`. `certbot.timer` ativado e
+agendamento confirmado para **23/11/2026 às 02h41min10s (-03)**. A primeira execução
+agendada e uma renovação real ainda não foram observadas.
+[Estado e procedimento](INSTALACAO.md#https-manual-e-automação-posterior--22112026).
+
+Continuar orientando o usuário uma etapa por vez, aguardando a saída de cada etapa.

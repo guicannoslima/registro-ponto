@@ -9,6 +9,95 @@ Nos exemplos, troque `ponto.exemplo.com.br` pelo domínio real. A aplicação é
 usuário padrão do servidor, `prime`, com acesso por senha; o `root` só entra se faltar `sudo`. Linhas
 iniciadas por `#` dentro dos blocos são comentários.
 
+## Servidor informado — 22/11/2026
+
+| Item | Valor |
+| --- | --- |
+| Domínio | `ponto.primecartorios.com.br` |
+| IP interno | `10.0.10.209` |
+| Acesso SSH | Usuário informou que conseguiu entrar no servidor |
+| Sistema | Saída enviada pelo usuário: Ubuntu 24.04.5 LTS, `VERSION_ID=24.04`, codinome `noble` |
+| Usuário e sudo | Prompt `prime@srv-ponto`; `sudo -v` concluído com a mensagem `sudo liberado` |
+| CPU e memória | 2 vCPUs; 3,8 GiB de RAM, com 3,4 GiB disponíveis; swap de 3,6 GiB sem uso na conferência |
+| Disco | Raiz de 95 GiB, com 84 GiB disponíveis e 8% de uso na conferência |
+| Resolução do nome e ping | Saída enviada pelo usuário: domínio resolvido para `10.0.10.209`, três respostas de 32 bytes, tempos de 45, 47 e 46 ms, TTL 63 |
+| DNS na Cloudflare | Usuário confirmou a criação do registro `A`, nome `ponto`, IP `10.0.10.209`, DNS only |
+| Instalação | Usuário enviou o resumo final do instalador: instalação concluída em `/opt/registro-ponto`, somente HTTP, sem token da Cloudflare |
+| HTTPS e login | Após reexecutar o instalador com o certificado emitido, usuário confirmou acesso HTTPS sem aviso e login com administrador |
+| Nginx | Pacote instalado e candidato `1.24.0-2ubuntu7.21`; configuração validada e serviço reiniciado, com estado `active` |
+
+O ping confirma a resolução do nome e respostas ICMP a partir da máquina do usuário.
+Sistema, sudo e Nginx conferidos pela saída enviada pelo usuário. HTTPS e login confirmados
+pelo usuário no navegador. O teste da câmera ainda aguarda confirmação específica.
+
+## HTTPS manual e automação posterior — 22/11/2026
+
+**Decidido pelo usuário:** emitir o certificado do Let's Encrypt por validação DNS manual
+para disponibilizar o HTTPS; automatizar as renovações posteriormente, quando a infraestrutura
+fornecer o token da Cloudflare. O usuário consegue editar registros DNS, mas a tela da
+Cloudflare informou que ele não tem permissão para criar **Account API tokens**.
+
+**Estado confirmado:** o instalador concluiu somente com HTTP. Depois, o usuário instalou
+o Certbot e criou o TXT solicitado. A consulta ao DNS público do Google retornou o valor
+correto; o usuário confirmou o desafio e enviou a mensagem de emissão bem-sucedida.
+O certificado vence em **20/02/2027** e está em
+`/etc/letsencrypt/live/ponto.primecartorios.com.br/fullchain.pem`; a chave está em
+`/etc/letsencrypt/live/ponto.primecartorios.com.br/privkey.pem`. A emissão inicial foi manual;
+a renovação foi posteriormente migrada para a Cloudflare, conforme descrito abaixo.
+
+Depois da emissão, o usuário reexecutou o instalador com o domínio e o IP definidos.
+Ele reconheceu o certificado existente e aplicou a configuração HTTPS do Nginx:
+
+```bash
+DOMINIO=ponto.primecartorios.com.br IP_SERVIDOR=10.0.10.209 bash /opt/registro-ponto/scripts/instalar.sh
+```
+
+O usuário confirmou conclusão sem erros, endereço HTTPS sem aviso de certificado e login
+com o administrador. Essa reexecução também atualiza o sistema, o código e os containers;
+não altera, por si só, o autenticador manual do certificado.
+
+O procedimento combinado é emitir com `certbot certonly --manual --preferred-challenges dns`,
+para `ponto.primecartorios.com.br`, e criar na Cloudflare o registro TXT
+`_acme-challenge.ponto` com o valor apresentado pelo Certbot. Antes de confirmar o desafio,
+conferir a publicação do TXT no DNS público. Depois da emissão, configurar o Nginx para usar
+o certificado e validar HTTPS e a câmera no navegador da rede interna. A validação DNS
+dispensa conexões da autoridade certificadora ao IP interno do servidor
+([Let's Encrypt: DNS-01](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)).
+
+Sem hooks de autenticação, certificados emitidos com `--manual` exigem renovação manual.
+Essa era a limitação inicial e foi resolvida nesta implantação pela migração abaixo
+([Certbot: emissão e renovação manual](https://eff-certbot.readthedocs.io/en/stable/using.html#manual)).
+
+**Automação configurada e testada em 22/11/2026:** o usuário recebeu o token da infraestrutura,
+instalou `python3-certbot-dns-cloudflare` e salvou a credencial em
+`/etc/letsencrypt/cloudflare.ini`, confirmando permissão 600. O token não foi compartilhado
+na conversa nem registrado no repositório. O plugin requer `Zone → DNS → Edit` para a zona
+([documentação do Certbot para Cloudflare](https://certbot-dns-cloudflare.readthedocs.io/en/stable/)).
+
+A migração foi feita com:
+
+```bash
+sudo certbot reconfigure --cert-name ponto.primecartorios.com.br --authenticator dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini --dns-cloudflare-propagation-seconds 60 --deploy-hook "nginx -t && systemctl reload nginx"
+```
+
+O usuário escolheu **R** para testar os hooks. A simulação de renovação validou o DNS após
+60 segundos, executou o hook com configuração Nginx válida e terminou com
+`Successfully updated configuration`. O `reconfigure` testa no ambiente de homologação do
+Let's Encrypt e só salva as opções após sucesso
+([documentação do Certbot](https://eff-certbot.readthedocs.io/en/stable/using.html#modifying-the-renewal-configuration-of-existing-certificates)).
+
+O usuário ativou `certbot.timer` com `sudo systemctl enable --now certbot.timer` e enviou
+o agendamento: próxima execução em **23/11/2026 às 02h41min10s (-03)**, acionando
+`certbot.service`. O serviço verifica periodicamente se há necessidade de renovar;
+a data atual do certificado não muda com a simulação. A primeira execução agendada e uma
+renovação real ainda não foram observadas. Manter a credencial válida para as futuras renovações.
+
+Para uma conferência futura da renovação com a configuração salva e da recarga do Nginx:
+
+```bash
+sudo certbot renew --cert-name ponto.primecartorios.com.br --dry-run --run-deploy-hooks
+```
+
 ## Instalação automática
 
 ### O que preparar antes
