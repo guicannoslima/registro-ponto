@@ -23,6 +23,8 @@ services:
     build: .
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - media_data:/app/media
     environment:
       # Dentro do Docker, o banco é acessado pelo nome do serviço ("db"),
       # não por localhost. Isso sobrescreve o DB_HOST/DB_PORT do .env.
@@ -38,3 +40,4 @@ services:
 
 volumes:
   postgres_data:
+  media_data:

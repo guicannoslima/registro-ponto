@@ -1,19 +1,37 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-    <head>
-        <meta charset="UTF-8">
-        <title>Rejeitar solicitação</title>
-    </head>
+{% extends 'ponto/base_interna.html' %}
 
-    <body>
-        {{ solicitacao.funcionario.get_full_name }} - {{ solicitacao.get_tipo_acao_display }}
-        Motivo do funcionário: {{ solicitacao.motivo_funcionario }}
+{% block title %}Rejeitar solicitação - Registro de Ponto{% endblock %}
 
-        <form method="post" action="">
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina titulo-pagina--voltar">
+        {% url 'solicitacoes_pendentes' as url_pendentes %}
+        {% include 'ponto/_voltar.html' with url=url_pendentes destino='Solicitações pendentes' %}
+        <div class="titulo-pagina__texto">
+            <h1>Rejeitar solicitação</h1>
+        </div>
+    </header>
+
+    <section class="cartao-interno cartao-interno--estreito" aria-label="Confirmar rejeição">
+        <dl class="resumo">
+            <dt>Colaborador</dt><dd>{{ solicitacao.funcionario.get_full_name }}</dd>
+            {% if solicitacao.tipo_acao == 'criacao' %}
+                <dt>Pedido</dt><dd>Inclusão de batida</dd>
+                <dt>Batida</dt><dd class="numero">{{ solicitacao.get_tipo_display }}, {{ solicitacao.data_hora|date:"d/m/Y" }} às {{ solicitacao.data_hora|time:"H:i" }}</dd>
+            {% else %}
+                <dt>Pedido</dt><dd>Exclusão de batida</dd>
+                <dt>Batida</dt><dd class="numero">{{ solicitacao.registro.get_tipo_display }}, {{ solicitacao.registro.data_hora|date:"d/m/Y" }} às {{ solicitacao.registro.data_hora|time:"H:i" }}</dd>
+            {% endif %}
+            <dt>Motivo informado</dt><dd>{{ solicitacao.motivo_funcionario }}</dd>
+        </dl>
+        <form method="post" class="campos" novalidate>
             {% csrf_token %}
-            {{ motivo_rejeicao.as_p }}
-            <button type="submit">Confirmar Rejeição</button>
-            <a href="{% url 'solicitacoes_pendentes' %}">Cancelar</a>
+            {% include 'ponto/_campo.html' with campo=motivo_rejeicao.motivo_rejeicao %}
+            <div class="acoes">
+                <button type="submit" class="btn btn--perigo">Rejeitar solicitação</button>
+                <a href="{% url 'solicitacoes_pendentes' %}" class="btn btn--secundario">Cancelar</a>
+            </div>
         </form>
-    </body>
-</html>
+    </section>
+</div>
+{% endblock %}

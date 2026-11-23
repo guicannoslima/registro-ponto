@@ -4,6 +4,7 @@ set -e
 
 echo "Aplicando migrações do banco..."
 python manage.py migrate --noinput
+python manage.py sincronizar_feriados
 
 echo "Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput

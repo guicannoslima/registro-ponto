@@ -1,0 +1,150 @@
+# Implantação com Docker
+
+`docker compose up -d --build` sobe a aplicação (Gunicorn) e o PostgreSQL em containers.
+A cada subida, o container aplica as migrações e roda o `collectstatic`.
+Para instalar num servidor de produção, com Nginx, HTTPS e backup, siga a
+[instalação no servidor](INSTALACAO.md).
+
+## Primeira subida
+
+Pré-requisitos: [Docker](https://docs.docker.com/get-started/get-docker/) com Compose e Git.
+
+1. Clone o repositório e crie o `.env`:
+
+   ```bash
+   git clone https://github.com/primecartorios/registro-ponto.git
+   cd registro-ponto
+   cp .env.example .env               # Windows (PowerShell): Copy-Item .env.example .env
+   ```
+
+2. Preencha no `.env` a `SECRET_KEY`, a `DB_PASSWORD` e os dados de e-mail.
+3. Suba os containers:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Crie o administrador:
+
+   ```bash
+   docker compose exec web python manage.py createsuperuser
+   ```
+
+Acesse `http://localhost:8000/`. O superusuário já entra como **Administrador**.
+
+## Variáveis de ambiente
+
+O `.env` fica na raiz, ao lado do `manage.py`, e não é versionado. O modelo é o `.env.example`.
+
+| Variável | Uso | Observação |
+| --- | --- | --- |
+| `SECRET_KEY` | Chave criptográfica do Django | Obrigatória; sem o caractere `$` |
+| `DEBUG` | Modo de depuração | `False` em produção; padrão `True` |
+| `ALLOWED_HOSTS` | Endereços aceitos, separados por vírgula | Padrão `localhost,127.0.0.1` |
+| `CSRF_TRUSTED_ORIGINS` | Origens confiáveis para formulários | Com `http://` ou `https://` |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Banco PostgreSQL | No Docker, também criam o banco do container |
+| `DB_HOST`, `DB_PORT` | Endereço do banco | No Docker, o `compose.yaml` força `db:5432` |
+| `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | Conta SMTP do Gmail | Remetente da redefinição de senha |
+
+O Docker Compose interpreta `$` nos valores do `.env` como variável e altera o valor
+lido; gere chaves só com letras, números, `-` e `_`.
+
+Em `EMAIL_HOST_PASSWORD`, use uma [senha de app](https://support.google.com/accounts/answer/185833)
+do Google, não a senha da conta. Ela exige a verificação em duas etapas ativa.
+
+Para acessar por outro endereço, como o IP da rede ou um domínio, inclua-o em
+`ALLOWED_HOSTS` e em `CSRF_TRUSTED_ORIGINS`.
+
+## Comandos do dia a dia
+
+| Ação | Comando |
+| --- | --- |
+| Parar | `docker compose down` |
+| Subir novamente | `docker compose up -d` |
+| Subir após alterar o código | `docker compose up -d --build` |
+| Ver os logs | `docker compose logs -f web` |
+| Ver o status | `docker compose ps` |
+| Abrir o shell do Django | `docker compose exec web python manage.py shell` |
+
+Os dados ficam no volume `postgres_data` e sobrevivem quando os containers são parados
+ou recriados. **`docker compose down -v` apaga esse volume e todo o banco.**
+
+## Levar os dados do banco local para o Docker
+
+O banco do Docker é separado do PostgreSQL da máquina e começa vazio. Para copiar os dados:
+
+1. Exporte do banco local, com o ambiente virtual ativo. O `-X utf8` evita erro de
+   acentuação no Windows:
+
+   ```bash
+   python -X utf8 manage.py dumpdata --exclude contenttypes --exclude auth.permission \
+     --exclude admin.logentry --exclude sessions -o dados.json
+   ```
+
+2. Copie o arquivo para o container e importe:
+
+   ```bash
+   docker compose cp dados.json web:/app/
+   docker compose exec web python manage.py loaddata dados.json
+   ```
+
+3. Apague o `dados.json`: ele contém dados pessoais e hashes de senha. O arquivo já
+   está no `.gitignore`.
+
+## Imagem
+
+O `Dockerfile` tem duas etapas: a primeira compila as dependências de
+`requirements/production.txt` em wheels; a segunda instala as wheels numa imagem
+`python:3.12-slim` e roda como o usuário sem privilégios `appuser`. O
+`docker-entrypoint.sh` aplica as migrações e o `collectstatic` antes do Gunicorn,
+com 3 workers na porta 8000. O `.dockerignore` deixa fora da imagem o `.env`, o Git,
+a documentação e as ferramentas de desenvolvimento.
+
+## Habilitar o reconhecimento facial
+
+O build da imagem Docker já baixa e verifica YuNet e SFace. Para atualizar a imagem:
+
+```bash
+docker compose build web
+docker compose up -d
+```
+
+O build precisa de acesso HTTPS ao repositório OpenCV no GitHub para baixar cerca de
+39 MB de modelos públicos; o SHA-256 esperado é conferido antes de aceitar cada arquivo.
+Os modelos ficam em `/app/modelos_faciais`, dentro da imagem. Recriar o container conserva
+os modelos sem baixar novamente em execução. Os binários continuam fora do Git e do
+contexto de build; não é necessário enviá-los manualmente nem usar um volume para eles.
+Se definir `FACIAL_MODELS_DIR` para outro caminho, prepare os modelos nesse diretório.
+Os cadastros biométricos ficam no PostgreSQL e acompanham seus backups. O botão comum
+funciona mesmo sem modelos instalados. A imagem foi construída e os dois modelos foram
+carregados em um container descartável sem rede.
+
+Publique a aplicação com HTTPS para o navegador permitir a câmera fora de `localhost`.
+O modo compartilhado exige autorização de um gestor e encerra seu login antes de liberar
+somente a identificação facial. Consulte [os fluxos e as limitações](USO.md#registro-por-reconhecimento-facial).
+
+## Persistência das fotos de perfil
+
+As fotos escolhidas pelos colaboradores ficam em `/app/media`, no volume `media_data`
+do Compose. A imagem cria esse diretório com permissão do usuário `appuser`. Inclua o
+volume no backup junto do PostgreSQL; o banco guarda o nome do arquivo e não seu conteúdo.
+Não publique a pasta como mídia aberta: a aplicação entrega as fotos pela rota privada.
+As fotos novas são normalizadas para WebP; `media/.gitkeep` mantém a pasta no repositório,
+e os demais arquivos de mídia continuam ignorados pelo Git.
+`docker compose config --quiet` e o build foram validados. O contêiner de verificação
+carregou os modelos sem rede e confirmou suporte WebP; não iniciou banco nem aplicação
+de produção.
+
+## Setup de jornadas e feriados
+
+A migração `0012` inclui oito modelos semanais sem vincular automaticamente os colaboradores.
+O entrypoint Docker executa `sincronizar_feriados` após `migrate`, carregando o ano corrente
+sem duplicar datas nem sobrescrever ajustes. Não faz requisição externa. O comando também
+pode ser agendado pelo operador no início de cada ano:
+
+```bash
+python manage.py sincronizar_feriados --ano 2027
+```
+
+A tela **Administração → Feriados** carrega qualquer ano entre 2000 e 2099.
+Veja as regras e limitações em [Jornadas e feriados](USO.md#jornadas-e-feriados).

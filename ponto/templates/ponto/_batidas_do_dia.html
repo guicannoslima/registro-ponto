@@ -1,0 +1,20 @@
+{% if funcionario_contexto %}
+    <h2>{{ funcionario_contexto.first_name|default:funcionario_contexto.username }} em {{ data_contexto|date:"d/m/Y" }}</h2>
+    <ul class="lista-batidas">
+        {% for passo in linha_contexto %}
+            <li>
+                <span class="lista-batidas__nome">{{ passo.nome }}</span>
+                {% if passo.registro %}
+                    <span class="lista-batidas__hora">{{ passo.registro.data_hora|time:"H:i" }}</span>
+                {% else %}
+                    <span class="lista-batidas__hora lista-batidas__hora--vazia" aria-label="sem batida">—</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+    <hr class="divisoria">
+    <p class="apoio pequeno">Atualiza ao escolher a pessoa e a data, para evitar batida duplicada.</p>
+{% else %}
+    <h2>Batidas já registradas</h2>
+    <p class="apoio">Escolha o colaborador e a data para ver as batidas que ele já tem no dia.</p>
+{% endif %}

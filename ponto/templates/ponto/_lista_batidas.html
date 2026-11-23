@@ -1,0 +1,14 @@
+<ul class="lista-batidas">
+    {% for registro in registros %}
+        <li>
+            <span class="lista-batidas__nome">{{ registro.get_tipo_display }}</span>
+            <span class="lista-batidas__hora">{{ registro.data_hora|time:"H:i" }}</span>
+            {% if registro.id in exclusoes_pendentes %}
+                <span class="selo selo--atencao">Exclusão pendente</span>
+            {% else %}
+                <a href="{% url 'solicitar_exclusao' registro.id %}" class="link"
+                   aria-label="Pedir exclusão da {{ registro.get_tipo_display|lower }} de {{ registro.data_hora|date:'d/m' }} às {{ registro.data_hora|time:'H:i' }}">Pedir exclusão</a>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ul>

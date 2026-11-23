@@ -1,0 +1,68 @@
+{% extends 'ponto/base_interna.html' %}
+{% load static %}
+{% block title %}Reconhecimento facial - Registro de Ponto{% endblock %}
+{% block conteudo %}
+<div class="pagina" data-camera data-modo="{{ modo }}" data-confirmacao-ms="{{ confirmacao_ms|default:3000 }}" data-aviso-ms="{{ aviso_ms|default:6000 }}"{% if modo == 'terminal' %} data-inatividade-ms="{{ inatividade_ms }}" data-manutencao-ms="{{ manutencao_ms }}"{% endif %}>
+    {% if modo != 'terminal' %}<header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>{% if modo == 'cadastro' %}Cadastrar rosto{% else %}Registrar por reconhecimento facial{% endif %}</h1>
+            <p class="apoio">{% if modo == 'cadastro' %}O gestor acompanha a captura e confirma a pessoa selecionada.{% else %}A câmera abre automaticamente. Posicione seu rosto para registrar o ponto.{% endif %}</p>
+        </div>
+    </header>{% endif %}
+    <div id="camera-cadastro-aviso" class="aviso aviso--atencao camera-cadastro-aviso" role="alert"{% if modo != 'pessoal' or tem_cadastro %} hidden{% endif %}>Peça ao gestor para cadastrar seu rosto antes de usar a câmera.</div>
+    <div class="grade camera-grade{% if modo == 'terminal' %} camera-grade--terminal{% endif %}">
+        <section class="cartao-interno camera-conteudo">
+            <form method="post" enctype="multipart/form-data" id="camera-form">
+                {% csrf_token %}
+                {% if modo == 'cadastro' %}
+                    <label for="camera-pessoa">Colaborador</label>
+                    <select id="camera-pessoa" name="funcionario" required>
+                        <option value="">Selecione a pessoa</option>
+                        {% for pessoa in pessoas %}<option value="{{ pessoa.pk }}" data-nome="{{ pessoa.get_full_name|default:pessoa.username }} ({{ pessoa.username }})">{{ pessoa.get_full_name|default:pessoa.username }} ({{ pessoa.username }}) — {% if pessoa.rosto_cadastrado %}Cadastrado{% else %}Sem cadastro{% endif %}</option>{% endfor %}
+                    </select>
+                {% endif %}
+                <div class="camera-previa">
+                    <button id="camera-area" class="camera-ativar" type="button" aria-label="Ativar ou retomar câmera" title="Clique ou toque para ativar a câmera" disabled></button>
+                    <video id="camera-video" autoplay playsinline muted hidden aria-label="Prévia da câmera"></video>
+                    <svg class="camera-guia" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false"><path d="M20 34V23Q20 20 23 20H34 M66 20H77Q80 20 80 23V34 M80 66V77Q80 80 77 80H66 M34 80H23Q20 80 20 77V66"/></svg>
+                    <p id="camera-desligada">Câmera desligada</p>
+                    <div id="camera-registro-aviso" class="camera-registro-aviso" role="alert" hidden></div>
+                    <p id="camera-mensagem" role="status" aria-live="polite" aria-atomic="true" class="camera-registro-aviso">Abrindo câmera. Autorize o acesso no navegador quando solicitado.</p>
+                    <div id="camera-confirmacao" class="camera-confirmacao" role="status" aria-live="polite" aria-atomic="true" hidden>
+                        <h2 id="camera-confirmacao-titulo"></h2>
+                        {% if modo != 'cadastro' %}
+                            <img id="camera-confirmacao-foto" alt="" hidden>
+                            <div id="camera-confirmacao-generica">{% include 'ponto/_avatar_generico.html' %}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <button id="camera-ligar" type="button" class="btn btn--secundario btn--largo" hidden>Retomar câmera</button>
+                {% if modo == 'cadastro' %}<button id="camera-capturar" type="submit" class="btn btn--largo" disabled>Cadastrar rosto</button>{% endif %}
+                <button id="camera-parar" type="button" class="btn btn--secundario btn--largo" hidden>Pausar câmera</button>
+            </form>
+            <noscript><p>Ative o JavaScript para usar a câmera. O registro comum continua disponível no painel.</p></noscript>
+        </section>
+        {% if modo != 'terminal' %}<aside class="cartao-interno camera-conteudo">
+            <h2>{% if modo == 'cadastro' %}Cadastro acompanhado{% else %}Antes de registrar{% endif %}</h2>
+            {% if modo == 'cadastro' %}
+                <div class="camera-cadastro-estado" aria-live="polite" aria-atomic="true">
+                    <span id="camera-cadastro-estado" class="selo selo--neutro">Selecione um colaborador</span>
+                    <p id="camera-cadastro-detalhe" class="apoio">O estado do cadastro facial será mostrado aqui.</p>
+                </div>
+            {% endif %}
+            <p>Enquadre apenas um rosto. Olhe para a câmera em um local iluminado.</p>
+            {% if modo == 'cadastro' %}
+                <p>Confirme a identidade da pessoa antes de cadastrar ou substituir o rosto.</p>
+                <p>A captura gera um cadastro biométrico no servidor. A imagem é descartada após o processamento.</p>
+                <button type="button" id="camera-excluir" class="btn btn--secundario" hidden>Remover cadastro facial</button>
+            {% else %}
+                <p>Ao reconhecer o rosto, o sistema grava o horário atual e a próxima batida, sem clicar.</p>
+                <p>A imagem é descartada após a comparação com o cadastro facial.</p>
+            {% endif %}
+            <a href="{% url 'painel' %}" class="link">Voltar ao painel</a>
+        </aside>{% endif %}
+    </div>
+    {% if modo == 'cadastro' %}{% include 'ponto/_confirm_dialog.html' %}{% endif %}
+</div>
+<script src="{% static 'ponto/camera.js' %}" defer></script>
+{% endblock %}

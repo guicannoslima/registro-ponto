@@ -1,0 +1,23 @@
+<h2>Efeito no banco de horas</h2>
+{% if not efeito %}
+    <p class="apoio">Escolha os colaboradores e a data para ver o saldo de cada um antes e depois da folga.</p>
+{% else %}
+    <p class="apoio">
+        {% if efeito_compensacao %}Compensação{% else %}Dispensa{% endif %}{% if efeito_data %} em {{ efeito_data|date:'d/m' }}, {{ efeito_data|date:'l'|lower }}{% endif %}.
+        {% if not efeito_compensacao %}A dispensa não altera o banco de horas.{% endif %}
+    </p>
+    {% for linha in efeito %}
+        <div class="saldo-linha">
+            <div>{{ linha.pessoa.get_full_name|default:linha.pessoa.username }}
+                {% if efeito_compensacao %}<small>Abate {{ linha.abatidas }}</small>{% endif %}</div>
+            <div class="saldo-linha__valor numero">
+                {% if efeito_compensacao %}{{ linha.antes }} → <strong{% if linha.negativo %} class="negativo"{% endif %}>{{ linha.depois }}</strong>
+                {% else %}<strong{% if linha.negativo %} class="negativo"{% endif %}>{{ linha.antes }}</strong>{% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    {% if efeito_compensacao and efeito_insuficiente %}
+        <p class="aviso aviso--atencao">Saldo insuficiente para {{ efeito_insuficiente|join:', ' }}. A diferença fica
+            negativa no banco de horas até ser compensada com novas horas extras.</p>
+    {% endif %}
+{% endif %}

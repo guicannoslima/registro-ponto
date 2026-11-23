@@ -1,5 +1,9 @@
 from datetime import timedelta
+
+from .constants import JORNADA_DIARIA, TOLERANCIA_SALDO
 from .models import RegistroPonto
+from .services import configuracao_jornada, saldo_do_dia, tempo_trabalhado
+
 
 def calcular_horas_dia(funcionario,data):
     registros = RegistroPonto.objects.filter(
@@ -15,26 +19,17 @@ def calcular_horas_dia(funcionario,data):
 
     completo = RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios
 
-    tempo_trabalhado = None
     esperado = None
     diferenca = None
-    tolerancia = timedelta(minutes=10)
     if completo:
-        tempo_total = horarios[RegistroPonto.SAIDA] - horarios[RegistroPonto.ENTRADA]
-        
-        if RegistroPonto.SAIDA_ALMOCO in horarios and RegistroPonto.VOLTA_ALMOCO in horarios:
-            tempo_almoco = horarios[RegistroPonto.VOLTA_ALMOCO] - horarios[RegistroPonto.SAIDA_ALMOCO]
-        else:
-            tempo_almoco = timedelta()
-        
-        tempo_trabalhado = tempo_total - tempo_almoco
-        esperado = timedelta (hours=7, minutes=45)
-        diferenca = tempo_trabalhado - esperado
-        if abs(diferenca) <= tolerancia:
-            diferenca = timedelta()
-        
+        trabalhado = tempo_trabalhado(horarios)
+        esperado = configuracao_jornada(funcionario, data)['carga']
+        diferenca = saldo_do_dia(trabalhado, esperado)
+    else:
+        trabalhado = None
+
     return {
-        'tempo_trabalhado': tempo_trabalhado,
+        'tempo_trabalhado': trabalhado,
         'esperado': esperado,
         'diferenca': diferenca,
         'completo': completo,
@@ -65,27 +60,6 @@ def calcular_relatorio_periodo(funcionario, data_inicio, data_fim):
             })
         data_atual += timedelta(days = 1)
     return relatorio
-
-def formatar_timedelta(delta):
-    total = delta.total_seconds()
-    
-    if total < 0:
-        total = abs(total)
-        negativo = True
-    else: 
-        negativo = False
-
-    total = int(total)
-
-    horas = total // 3600
-    resto = total % 3600
-    minutos = resto // 60
-
-    sinal = '-'
-    if negativo == True:
-        return f'{sinal}{horas}h{minutos}min'
-    else:
-        return f'{horas}h{minutos}min'
 
 def montar_relatorio(funcionarios, funcionario_escolhido, data_inicio, data_fim, gerar_todos):
     relatorio = []
@@ -133,9 +107,9 @@ def calcular_resumo(dias_calculados):
         'horas_extras': horas_extras,
     }
 
-def calcular_progresso(horarios, agora):
-    jornada = timedelta(hours=7, minutes=45)
-    tolerancia = timedelta(minutes=10)
+def calcular_progresso(horarios, agora, jornada=JORNADA_DIARIA):
+    divisor = jornada.total_seconds() or 1
+    tolerancia = TOLERANCIA_SALDO
 
     if RegistroPonto.ENTRADA not in horarios:
         return {
@@ -163,7 +137,7 @@ def calcular_progresso(horarios, agora):
 
     tempo_trabalhado = fim - entrada - almoco
 
-    percentual = (tempo_trabalhado.total_seconds()) / (jornada.total_seconds()) * 100
+    percentual = (tempo_trabalhado.total_seconds()) / divisor * 100
     percentual = int(min(100, max(0, percentual)))
 
     if RegistroPonto.SAIDA in horarios:
@@ -182,7 +156,7 @@ def calcular_progresso(horarios, agora):
     else:
         tempo_extra = max(excesso_bruto, timedelta())
     
-    percentual_extra = (tempo_extra.total_seconds()) / (jornada.total_seconds()) * 100
+    percentual_extra = (tempo_extra.total_seconds()) / divisor * 100
     percentual_extra = int(min(100, max(0, percentual_extra)))
 
     return {

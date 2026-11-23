@@ -1,0 +1,7 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}Jornada - Registro de Ponto{% endblock %}
+{% block conteudo %}<div class="pagina"><header class="titulo-pagina"><div><h1>{% if jornada.pk %}Editar{% else %}Cadastrar{% endif %} jornada</h1><p class="apoio">Deixe os horários do dia vazios para folga. Intervalos são opcionais.</p></div></header>
+<section class="cartao-interno"><form method="post" class="campos" novalidate>{% csrf_token %}{% include 'ponto/_erros_formulario.html' %}{% include 'ponto/_campo.html' with campo=form.nome %}
+<div class="aviso aviso--info">O almoço é descontado; o café conta como tempo trabalhado. Use horários dentro do mesmo dia. Editar este modelo não altera os vínculos já salvos.</div>
+{% for dia in form.dias %}<fieldset class="jornada-dia"><legend>{{ dia.nome }}</legend><div class="jornada-horarios">{% for campo in dia.campos %}<div class="campo"><label for="{{ campo.id_for_label }}">{{ campo.label }}</label>{{ campo }}{{ campo.errors }}</div>{% endfor %}</div></fieldset>{% endfor %}
+<label class="opcao">{{ form.ativa }} Jornada ativa para novos vínculos</label><div class="acoes"><button class="btn" type="submit">Salvar jornada</button><a class="btn btn--secundario" href="{% url 'jornadas' %}">Cancelar</a></div></form></section></div>{% endblock %}

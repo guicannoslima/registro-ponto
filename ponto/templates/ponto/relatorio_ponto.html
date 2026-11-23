@@ -1,58 +1,54 @@
 {% extends 'ponto/base_interna.html' %}
-{% load ponto_filters %}
 
-{% block title %}Relatório de Ponto{% endblock %}
+{% block title %}Relatório de ponto - Registro de Ponto{% endblock %}
 
 {% block conteudo %}
-
-    <h1>
-        Relatório de Ponto
-    </h1>
-    <div class="cartao">
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-        <button type="submit">
-            Gerar relatório
-        </button>
-        <button type="submit"  formaction="{%url 'exportar_relatorio_pdf' %}">
-        Exportar PDF
-        </button>
-    </form>
-    </div>
-
-    {% if relatorio %}
-    {% for item in relatorio %}
-        <div class="cartao">
-            <h2>{{ item.funcionario.get_full_name }}</h2>
-            <p>Horas normais: {{ item.horas_normais|ponto_filter }} | Horas extras: {{ item.horas_extras|ponto_filter }}</p>
-            <table class="tabela">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        <th>Status</th>
-                        <th>Trabalhado</th>
-                        <th>Esperado</th>
-                        <th>Diferença</th>
-                        <th>Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for dia in item.relatorio %}
-                        <tr>
-                            <td> {{ dia.data|date:"d/m/Y" }}</td>
-                            <td> {{ dia.status }} </td>  
-                            {% if dia.status == 'Completo' %}
-                                <td> {{ dia.tempo_trabalhado|ponto_filter }}</td> <td>{{ dia.esperado|ponto_filter }}</td> <td>{{ dia.diferenca|ponto_filter }}</td> <td></td>
-                            {% else %}
-                                <td>—</td> <td>—</td> <td>—</td>
-                                <td><a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a></td>
-                            {% endif %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+<div class="pagina">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>Relatório de ponto</h1>
+            <p class="apoio">Horas trabalhadas, saldo e horas extras por período.</p>
         </div>
-    {% endfor %}
-{% endif %}
+    </header>
+
+    <section class="cartao-interno" aria-label="Filtro do relatório">
+        <form method="post" class="campos" novalidate>
+            {% csrf_token %}
+            {% include 'ponto/_erros_formulario.html' %}
+            <div class="campos-linha">
+                {% include 'ponto/_campo.html' with campo=form.funcionario %}
+                {% include 'ponto/_campo.html' with campo=form.data_inicio %}
+                {% include 'ponto/_campo.html' with campo=form.data_fim %}
+            </div>
+            <div class="filtro-rodape">
+                {% if form.gerar_todos %}
+                    <div class="opcao">
+                        {{ form.gerar_todos }}
+                        <label for="{{ form.gerar_todos.id_for_label }}">{{ form.gerar_todos.label }}</label>
+                    </div>
+                {% else %}
+                    <span class="opcao"></span>
+                {% endif %}
+                <button type="submit" class="btn btn--secundario" formaction="{% url 'exportar_relatorio_pdf' %}">Baixar PDF</button>
+                <button type="submit" class="btn">Gerar relatório</button>
+            </div>
+        </form>
+    </section>
+
+    {% if pdf_url %}
+        <section class="cartao-interno" aria-labelledby="titulo-pdf">
+            <div class="cartao-interno__topo">
+                <div>
+                    <h2 id="titulo-pdf">{{ titulo_pdf }}</h2>
+                    <p class="apoio">
+                        De {{ periodo_pdf.data_inicio|date:"d/m" }} a {{ periodo_pdf.data_fim|date:"d/m/Y" }}.
+                        Role o documento para ver todas as páginas.
+                    </p>
+                </div>
+                <a href="{{ pdf_url }}" class="btn btn--secundario" target="_blank" rel="noopener">Abrir em nova aba</a>
+            </div>
+            <iframe class="visor-pdf" src="{{ pdf_url }}" title="{{ titulo_pdf }}, de {{ periodo_pdf.data_inicio|date:'d/m/Y' }} a {{ periodo_pdf.data_fim|date:'d/m/Y' }}"></iframe>
+        </section>
+    {% endif %}
+</div>
 {% endblock %}

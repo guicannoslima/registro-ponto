@@ -1,0 +1,5 @@
+{% if form.non_field_errors %}
+    <ul class="erros-formulario" role="alert">
+        {% for erro in form.non_field_errors %}<li>{{ erro }}</li>{% endfor %}
+    </ul>
+{% endif %}

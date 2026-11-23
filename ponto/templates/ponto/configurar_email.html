@@ -1,0 +1,27 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}Envio de e-mails - Registro de Ponto{% endblock %}
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina"><div class="titulo-pagina__texto"><h1>Envio de e-mails</h1><p class="apoio">Configure o servidor e o remetente usados pelo sistema, inclusive na recuperação de senha.</p></div></header>
+    <section class="cartao-interno" aria-label="Configuração SMTP">
+        <p class="apoio">{% if configuracao_salva %}O sistema usa a configuração salva nesta tela.{% else %}O sistema ainda usa a configuração do ambiente. Salve para substituí-la.{% endif %}</p>
+        <form method="post" class="campos" novalidate>
+            {% csrf_token %}<input type="hidden" name="acao" value="salvar">{% include 'ponto/_erros_formulario.html' %}
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.servidor %}{% include 'ponto/_campo.html' with campo=form.porta %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.usuario %}{% include 'ponto/_campo.html' with campo=form.seguranca %}</div>
+            <div class="campos-linha">{% include 'ponto/_campo.html' with campo=form.remetente %}{% include 'ponto/_campo.html' with campo=form.senha %}</div>
+            <p class="apoio pequeno">{% if tem_senha %}Existe uma senha de autenticação configurada.{% else %}Nenhuma senha de autenticação configurada.{% endif %} A senha atual não é exibida.</p>
+            <label class="opcao">{{ form.limpar_senha }} {{ form.limpar_senha.label }}</label>
+            <div class="acoes"><button class="btn" type="submit">Salvar configuração</button></div>
+        </form>
+    </section>
+    <section class="cartao-interno" aria-label="Teste de envio">
+        <h2>Testar o envio</h2><p class="apoio">Usa a configuração já salva. Salve as alterações acima antes de testar.</p>
+        <form method="post" class="busca-usuarios" novalidate>
+            {% csrf_token %}<input type="hidden" name="acao" value="testar">
+            {% include 'ponto/_campo.html' with campo=teste.destinatario %}
+            <button class="btn btn--secundario" type="submit">Enviar teste</button>
+        </form>
+    </section>
+</div>
+{% endblock %}

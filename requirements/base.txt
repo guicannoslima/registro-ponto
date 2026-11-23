@@ -1,0 +1,13 @@
+# Dependências comuns a todos os ambientes
+Django~=5.2.19  # LTS (suporte até abr/2028); ~= aceita só patches 5.2.x
+asgiref==3.12.1
+sqlparse==0.6.0
+tzdata==2026.4
+psycopg2-binary==2.9.13
+python-decouple==3.8
+pillow==12.3.0
+xhtml2pdf==0.2.23  # exportação do relatório em PDF
+whitenoise==6.9.0  # arquivos estáticos (middleware e storage no settings)
+opencv-python-headless==4.13.0.92  # reconhecimento facial local (YuNet e SFace)
+numpy==2.5.5  # vetores do reconhecimento facial
+cryptography==50.0.2  # proteção da senha SMTP salva no banco
