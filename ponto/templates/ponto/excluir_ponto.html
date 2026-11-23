@@ -5,8 +5,11 @@
 {% block conteudo %}
 <div class="pagina">
     <header class="titulo-pagina titulo-pagina--voltar">
-        {% url 'equipe' as url_equipe %}
-        {% include 'ponto/_voltar.html' with url=url_equipe destino='Equipe' %}
+        {% if veio_do_manual %}
+            {% include 'ponto/_voltar.html' with url=destino destino='Lançar ponto manual' %}
+        {% else %}
+            {% include 'ponto/_voltar.html' with url=destino destino='Equipe' %}
+        {% endif %}
         <div class="titulo-pagina__texto">
             <h1>Excluir batida</h1>
         </div>
@@ -19,13 +22,13 @@
             <dt>Data e hora</dt><dd class="numero">{{ registro.data_hora|date:"d/m/Y" }} às {{ registro.data_hora|time:"H:i" }}</dd>
             <dt>Registrada por</dt><dd>{% if registro.registrado_manualmente %}Lançamento manual{% else %}O próprio colaborador{% endif %}</dd>
         </dl>
-        <form method="post" action="{% url 'excluir_ponto' registro.id %}" class="campos" novalidate>
+        <form method="post" action="{% url 'excluir_ponto' registro.id %}{% if veio_do_manual %}?voltar=manual{% endif %}" class="campos" novalidate>
             {% csrf_token %}
             {% include 'ponto/_campo.html' with campo=form.motivo %}
             <p class="aviso aviso--atencao">A batida deixa de contar nas horas, mas continua no histórico de alterações.</p>
             <div class="acoes">
                 <button type="submit" class="btn btn--perigo">Excluir batida</button>
-                <a href="{% url 'equipe' %}" class="btn btn--secundario">Cancelar</a>
+                <a href="{{ destino }}" class="btn btn--secundario">Cancelar</a>
             </div>
         </form>
     </section>

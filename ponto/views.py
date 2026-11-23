@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from functools import wraps
 from smtplib import SMTPException
 from urllib.parse import urlencode
@@ -226,11 +226,27 @@ def _contexto_batidas_do_dia(funcionarios, funcionario_id, data_texto):
         data = date.fromisoformat((data_texto or '')[:10])
     except (ValueError, TypeError, User.DoesNotExist):
         return {'funcionario_contexto': None}
+    registros = _registros_do_dia(funcionario, data)
+    linha = linha_do_dia(registros)
+    na_linha = {passo['registro'].pk for passo in linha if passo['registro']}
     return {
         'funcionario_contexto': funcionario,
         'data_contexto': data,
-        'linha_contexto': linha_do_dia(_registros_do_dia(funcionario, data)),
+        'linha_contexto': linha,
+        # Batidas repetidas do mesmo tipo ficam fora da linha; aparecem à parte para poderem ser excluídas.
+        'repetidas_contexto': [registro for registro in registros if registro.pk not in na_linha],
     }
+
+
+def _destino_apos_exclusao(request, registro):
+    """Volta ao lançamento manual com a pessoa e o dia da batida quando a exclusão veio de lá; senão, à Equipe."""
+    if request.GET.get('voltar') == 'manual':
+        parametros = urlencode({
+            'funcionario': registro.funcionario_id,
+            'data': timezone.localtime(registro.data_hora).date().isoformat(),
+        })
+        return f"{reverse('criar_ponto_manual')}?{parametros}"
+    return reverse('equipe')
 
 
 @login_required
@@ -270,6 +286,11 @@ def criar_ponto_manual(request):
         inicial = {}
         if funcionario_id and funcionarios.filter(pk=funcionario_id).exists():
             inicial['funcionario'] = funcionario_id
+        try:
+            # Volta de uma exclusão: o formulário já abre no dia que estava sendo ajustado; falta só a hora.
+            inicial['data_hora'] = datetime.combine(date.fromisoformat(request.GET.get('data', '')), time())
+        except ValueError:
+            pass
         form = RegistroManualForm(funcionarios=funcionarios, initial=inicial)
 
     contexto = {'form': form}
@@ -287,6 +308,7 @@ def excluir_ponto(request, registro_id):
     registro = get_object_or_404(
         RegistroPonto, id=registro_id, ativo=True, funcionario__in=funcionarios_visiveis(request.user)
     )
+    destino = _destino_apos_exclusao(request, registro)
 
     if request.method == 'POST':
         motivo_exclusao = MotivoExclusaoForm(request.POST)
@@ -294,13 +316,21 @@ def excluir_ponto(request, registro_id):
             registro.ativo = False
             registro.save()
             HistoricoAlteracaoPonto.objects.create(
-                tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO, registro=registro, realizado_por=request.user, motivo=motivo_exclusao.cleaned_data['motivo']
-             )
+                tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO,
+                registro=registro,
+                realizado_por=request.user,
+                motivo=motivo_exclusao.cleaned_data['motivo'],
+            )
             messages.success(request, 'Batida excluída. A alteração está no histórico.')
-            return redirect('equipe')
+            return redirect(destino)
     else:
         motivo_exclusao = MotivoExclusaoForm()
-    return render (request, 'ponto/excluir_ponto.html', {'form': motivo_exclusao, 'registro': registro})
+    return render(request, 'ponto/excluir_ponto.html', {
+        'form': motivo_exclusao,
+        'registro': registro,
+        'destino': destino,
+        'veio_do_manual': request.GET.get('voltar') == 'manual',
+    })
 
 
 @login_required

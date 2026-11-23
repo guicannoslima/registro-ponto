@@ -234,6 +234,39 @@ class TelasInternasTests(TestCase):
         entrada.refresh_from_db()
         self.assertFalse(entrada.ativo)
 
+    def test_lancamento_manual_permite_excluir_batidas_de_dias_anteriores(self):
+        dia = self.hoje - timedelta(days=30)
+        entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(dia, 8))
+        repetida = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(dia, 8, 2))
+        self.client.force_login(self.gestor)
+
+        resposta = self.client.get(
+            reverse('criar_ponto_manual'), {'parcial': '1', 'funcionario': self.funcionario.id, 'data': dia.isoformat()}
+        )
+
+        self.assertContains(resposta, f"{reverse('excluir_ponto', args=[entrada.id])}?voltar=manual")
+        self.assertContains(resposta, f"{reverse('excluir_ponto', args=[repetida.id])}?voltar=manual")
+        self.assertContains(resposta, 'Entrada (repetida)')
+
+    def test_exclusao_pelo_lancamento_manual_volta_para_o_mesmo_dia(self):
+        dia = self.hoje - timedelta(days=30)
+        entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(dia, 8))
+        self.client.force_login(self.gestor)
+        url = f"{reverse('excluir_ponto', args=[entrada.id])}?voltar=manual"
+        destino = f"{reverse('criar_ponto_manual')}?funcionario={self.funcionario.id}&data={dia.isoformat()}"
+
+        self.assertContains(self.client.get(url), f'href="{destino.replace("&", "&amp;")}"')
+        resposta = self.client.post(url, {'motivo': 'Batida duplicada.'})
+
+        self.assertRedirects(resposta, destino)
+        entrada.refresh_from_db()
+        self.assertFalse(entrada.ativo)
+        self.assertTrue(entrada.historico.filter(tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO).exists())
+        # De volta ao lançamento, o formulário e o painel continuam no dia ajustado.
+        retorno = self.client.get(destino)
+        self.assertContains(retorno, f'value="{dia.isoformat()}T00:00"')
+        self.assertContains(retorno, f'data-dia="{dia.isoformat()}"')
+
     def test_gestor_nao_exclui_batida_de_fora_da_equipe(self):
         outra = User.objects.create_user('outra_pessoa', first_name='Outra')
         batida = _batida(outra, RegistroPonto.ENTRADA, _momento(self.hoje, 8))

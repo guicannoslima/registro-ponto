@@ -632,6 +632,15 @@
     text-align: right;
 }
 
+.lista-batidas__acao {
+    width: 56px;
+    text-align: right;
+}
+
+.lista-batidas__repetida .lista-batidas__nome {
+    color: var(--atencao);
+}
+
 .lista-batidas__hora--vazia {
     color: var(--texto-apoio);
     font-weight: 400;
