@@ -1,6 +1,6 @@
 """Regras, consultas e preparação dos dados de negócio do registro de ponto."""
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
 from uuid import uuid4
@@ -26,6 +26,7 @@ from .constants import (
     HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
+    MESES,
     MOTIVO_COMPENSACAO_IMPORTADA,
     MOTIVO_FOLGA_IMPORTADA,
     MOTIVOS_FOLGA_IMPORTADA_POR_DATA,
@@ -50,7 +51,7 @@ from .models import (
     VinculoJornada,
 )
 from .permissoes import funcionarios_visiveis
-from .utils import formatar_timedelta, hhmm, hhmm_com_sinal
+from .utils import formatar_saldo, formatar_timedelta, hhmm, hhmm_com_sinal
 
 
 def proximo_tipo(registros, tipos=None):
@@ -462,6 +463,16 @@ def fator_do_dia(funcionario, data, configuracao, dias_com_batida=None, vinculos
     return FATOR_DOMINGO
 
 
+MOVIMENTO_DIA = 'dia'
+MOVIMENTO_FALTA = 'falta'
+MOVIMENTO_COMPENSACAO = 'compensacao'
+ROTULOS_MOVIMENTO = {
+    MOVIMENTO_DIA: 'Dia abaixo da jornada',
+    MOVIMENTO_FALTA: 'Falta',
+    MOVIMENTO_COMPENSACAO: 'Folga de compensação',
+}
+
+
 def saldo_banco_horas(funcionario, ate=None):
     """Banco de horas acumulado desde a primeira batida, como nos sistemas de RH.
 
@@ -471,6 +482,14 @@ def saldo_banco_horas(funcionario, ate=None):
     agendadas. Dias com batidas, mas sem entrada ou saída, ficam fora até o ajuste.
 
     Com `ate` anterior a hoje, o saldo para nesse dia: só contam os dias e as compensações até ele.
+    """
+    return sum((movimento['horas'] for movimento in movimentos_banco_horas(funcionario, ate)), timedelta())
+
+
+def movimentos_banco_horas(funcionario, ate=None):
+    """Cada crédito e débito do banco de horas, dia a dia, com a regra de saldo_banco_horas.
+
+    Devolve dicionários com data, horas (positivas ou negativas) e tipo (dia, falta ou compensação).
     """
     hoje = timezone.localdate()
     limite = min(ate, hoje) if ate else hoje
@@ -483,9 +502,13 @@ def saldo_banco_horas(funcionario, ate=None):
 
     folgas_ativas = list(Folga.objects.filter(funcionario=funcionario, ativa=True))
     abatidas = [f for f in folgas_ativas if not ate or ate >= hoje or f.data <= ate]
-    saldo = -sum((f.horas_abatidas or timedelta() for f in abatidas), timedelta())
+    movimentos = [
+        {'data': f.data, 'horas': -f.horas_abatidas, 'tipo': MOVIMENTO_COMPENSACAO}
+        for f in abatidas
+        if f.horas_abatidas
+    ]
     if not por_dia:
-        return saldo
+        return sorted(movimentos, key=lambda movimento: movimento['data'])
 
     inicio = min(por_dia)
     vinculos = list(funcionario.perfil.jornadas.all())
@@ -501,11 +524,109 @@ def saldo_banco_horas(funcionario, ate=None):
         horarios = por_dia.get(dia, {})
         if RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios:
             fator = fator_do_dia(funcionario, dia, configuracao, dias_com_batida, vinculos, feriados, folgas)
-            saldo += saldo_do_dia(tempo_trabalhado(horarios) * fator, carga)
-        elif not horarios and dia < hoje:
-            saldo -= carga
+            horas = saldo_do_dia(tempo_trabalhado(horarios) * fator, carga)
+            if horas:
+                movimentos.append({'data': dia, 'horas': horas, 'tipo': MOVIMENTO_DIA})
+        elif not horarios and dia < hoje and carga:
+            movimentos.append({'data': dia, 'horas': -carga, 'tipo': MOVIMENTO_FALTA})
         dia += timedelta(days=1)
-    return saldo
+    # No mesmo dia, o crédito entra antes do débito.
+    return sorted(movimentos, key=lambda movimento: (movimento['data'], movimento['horas'] < timedelta()))
+
+
+def banco_horas_por_origem(funcionario):
+    """Banco de horas com a compensação pela ordem de origem: cada débito sai das horas positivas mais antigas.
+
+    Cada dia positivo forma um lote com a data em que as horas foram feitas. Dias negativos, faltas e folgas de
+    compensação consomem os lotes do mais antigo para o mais novo; sem horas disponíveis, o débito fica como
+    saldo devedor e é pago pelos próximos dias positivos. O total é o mesmo de saldo_banco_horas: a ordem só
+    define de onde as horas saem (e, quando houver prazo de vencimento, quais vencem primeiro).
+    """
+    lotes, descontos, pendentes = [], [], deque()
+    for movimento in movimentos_banco_horas(funcionario):
+        if movimento['horas'] > timedelta():
+            lote = {'data': movimento['data'], 'gerado': movimento['horas'], 'restante': movimento['horas']}
+            lotes.append(lote)
+            while pendentes and lote['restante']:
+                desconto = pendentes[0]
+                usado = min(desconto['faltando'], lote['restante'])
+                desconto['origens'].append({'data': lote['data'], 'horas': usado})
+                desconto['faltando'] -= usado
+                lote['restante'] -= usado
+                if not desconto['faltando']:
+                    pendentes.popleft()
+            continue
+        desconto = {**movimento, 'horas': -movimento['horas'], 'origens': [], 'faltando': -movimento['horas']}
+        descontos.append(desconto)
+        for lote in lotes:
+            if not desconto['faltando']:
+                break
+            usado = min(desconto['faltando'], lote['restante'])
+            if usado:
+                desconto['origens'].append({'data': lote['data'], 'horas': usado})
+                desconto['faltando'] -= usado
+                lote['restante'] -= usado
+        if desconto['faltando']:
+            pendentes.append(desconto)
+
+    meses = {}
+    for lote in lotes:
+        chave = (lote['data'].year, lote['data'].month)
+        mes = meses.setdefault(chave, {'gerado': timedelta(), 'restante': timedelta()})
+        mes['gerado'] += lote['gerado']
+        mes['restante'] += lote['restante']
+    devedor = sum((desconto['faltando'] for desconto in descontos), timedelta())
+    disponivel = sum((lote['restante'] for lote in lotes), timedelta())
+    return {
+        'meses': [
+            {'ano': ano, 'mes': mes, **valores, 'usado': valores['gerado'] - valores['restante']}
+            for (ano, mes), valores in sorted(meses.items())
+        ],
+        'descontos': descontos,
+        'disponivel': disponivel,
+        'devedor': devedor,
+        'saldo': disponivel - devedor,
+    }
+
+
+def _nome_do_mes(ano, mes):
+    return f'{MESES[mes - 1]} de {ano}'
+
+
+def quadro_banco_horas(funcionario):
+    """Banco de horas por mês de origem, pronto para a tela: totais, horas por mês e descontos com a origem."""
+    banco = banco_horas_por_origem(funcionario)
+    descontos = []
+    for desconto in banco['descontos']:
+        por_mes = defaultdict(timedelta)
+        for origem in desconto['origens']:
+            por_mes[(origem['data'].year, origem['data'].month)] += origem['horas']
+        saiu_de = [f'{_nome_do_mes(ano, mes)} ({formatar_timedelta(horas)})' for (ano, mes), horas in por_mes.items()]
+        if desconto['faltando']:
+            saiu_de.append(f'saldo devedor ({formatar_timedelta(desconto["faltando"])})')
+        descontos.append({
+            'data': desconto['data'],
+            'motivo': ROTULOS_MOVIMENTO[desconto['tipo']],
+            'horas': formatar_timedelta(desconto['horas']),
+            'saiu_de': saiu_de,
+        })
+    return {
+        'saldo': formatar_saldo(banco['saldo']),
+        'saldo_negativo': banco['saldo'] < timedelta(),
+        'disponivel': formatar_timedelta(banco['disponivel']),
+        'devedor': formatar_timedelta(banco['devedor']) if banco['devedor'] else None,
+        'meses': [
+            {
+                'nome': _nome_do_mes(mes['ano'], mes['mes']),
+                'gerado': formatar_timedelta(mes['gerado']),
+                'usado': formatar_timedelta(mes['usado']),
+                'restante': formatar_timedelta(mes['restante']),
+                'esgotado': not mes['restante'],
+            }
+            for mes in banco['meses']
+        ],
+        'descontos': descontos,
+    }
 
 
 def aviso_do_dia(usuario, data, configuracao=None):

@@ -1654,3 +1654,86 @@ class ImportacaoPlanilhaTests(TestCase):
         self.assertEqual(self._importar(_planilha([self.dia_util])).status_code, 403)
         self.assertFalse(RegistroPonto.objects.exists())
 
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class BancoHorasPorOrigemTests(TestCase):
+    """Descontos saem das horas positivas mais antigas; o total é sempre o de saldo_banco_horas."""
+
+    def setUp(self):
+        from .models import Jornada, VinculoJornada
+
+        self.gestor = User.objects.create_user('gestor_banco', first_name='Gil')
+        self.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        self.gestor.perfil.save()
+        self.pessoa = User.objects.create_user('pessoa_banco', first_name='Bia')
+        self.pessoa.perfil.gestor = self.gestor.perfil
+        self.pessoa.perfil.save()
+        # Jornada sem dias de trabalho: sem faltas no meio, cada dia trabalhado vira crédito inteiro.
+        jornada = Jornada.objects.create(nome='Sem expediente', semana={})
+        VinculoJornada.objects.create(perfil=self.pessoa.perfil, jornada=jornada, inicio=date(2026, 1, 1), semana={})
+        self.hoje = date(2026, 9, 30)
+
+    def _horas(self, dia, horas):
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(dia, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(dia, 8 + horas))
+
+    def _compensacao(self, dia, horas):
+        from .models import Folga
+
+        Folga.objects.create(
+            funcionario=self.pessoa, data=dia, tipo=Folga.COMPENSACAO, horas_abatidas=horas, motivo='Teste',
+            lancada_por=self.gestor,
+        )
+
+    def test_folga_desconta_do_mes_mais_antigo(self):
+        from .services import banco_horas_por_origem, saldo_banco_horas
+
+        self._horas(date(2026, 7, 4), 10)
+        self._horas(date(2026, 8, 1), 10)
+        self._compensacao(date(2026, 9, 15), timedelta(hours=7, minutes=45))
+
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            banco = banco_horas_por_origem(self.pessoa)
+            saldo = saldo_banco_horas(self.pessoa)
+
+        restantes = [(m['mes'], m['restante']) for m in banco['meses']]
+        self.assertEqual(restantes, [(7, timedelta(hours=2, minutes=15)), (8, timedelta(hours=10))])
+        origem = {'data': date(2026, 7, 4), 'horas': timedelta(hours=7, minutes=45)}
+        self.assertEqual(banco['descontos'][0]['origens'], [origem])
+        self.assertEqual(banco['saldo'], saldo)
+        self.assertEqual(saldo, timedelta(hours=12, minutes=15))
+
+    def test_desconto_sem_horas_vira_devedor_e_e_pago_pelo_proximo_credito(self):
+        from .services import banco_horas_por_origem
+
+        self._horas(date(2026, 6, 6), 2)
+        self._compensacao(date(2026, 6, 10), timedelta(hours=5))
+        self._horas(date(2026, 7, 4), 10)
+
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            banco = banco_horas_por_origem(self.pessoa)
+
+        origens = [(o['data'].month, o['horas']) for o in banco['descontos'][0]['origens']]
+        self.assertEqual(origens, [(6, timedelta(hours=2)), (7, timedelta(hours=3))])
+        self.assertEqual((banco['devedor'], banco['saldo']), (timedelta(), timedelta(hours=7)))
+
+    def test_tela_mostra_o_banco_conforme_o_papel(self):
+        outra = User.objects.create_user('fora_da_equipe', first_name='Rui')
+        self._horas(date(2026, 7, 4), 10)
+        self._compensacao(date(2026, 9, 15), timedelta(hours=7, minutes=45))
+
+        self.client.force_login(self.pessoa)
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            propria = self.client.get(reverse('banco_de_horas'), {'funcionario': outra.pk})
+        self.assertContains(propria, '+2h15min')
+        self.assertContains(propria, 'julho de 2026 (7h45min)')
+        self.assertNotContains(propria, 'name="funcionario"')
+        self.assertNotContains(propria, 'Rui')
+
+        self.client.force_login(self.gestor)
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            da_equipe = self.client.get(reverse('banco_de_horas'), {'funcionario': self.pessoa.pk})
+            de_fora = self.client.get(reverse('banco_de_horas'), {'funcionario': outra.pk})
+        self.assertContains(da_equipe, '<h2 id="titulo-saldo">Bia</h2>', html=False)
+        self.assertContains(da_equipe, 'name="funcionario"')
+        self.assertContains(de_fora, '<h2 id="titulo-saldo">Gil</h2>', html=False)

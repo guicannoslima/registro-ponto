@@ -42,6 +42,7 @@ urlpatterns = [
     path('ponto/aprovar/<int:solicitacao_id>/', views.aprovar_solicitacao, name='aprovar_solicitacao'),
     path('ponto/historico/', views.historico_alteracoes, name='historico_alteracoes'),
     path('ponto/relatorios/', views.relatorio_ponto, name='relatorio_ponto'),
+    path('ponto/banco-de-horas/', views.banco_de_horas, name='banco_de_horas'),
     path('ponto/relatorio/pdf/', views.exportar_relatorio_pdf, name='exportar_relatorio_pdf'),
     path('ponto/relatorio/pdf/visualizar/', views.visualizar_relatorio_pdf, name='visualizar_relatorio_pdf'),
     path('ponto/cadastro_usuario/', views.cadastro_usuario, name='cadastro_usuario'),

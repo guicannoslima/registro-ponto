@@ -27,6 +27,7 @@
                             <a href="{% url 'ponto_facial' %}">Registrar por câmera</a>
                             <a href="{% url 'solicitar_criacao' %}">Solicitar ajuste de ponto</a>
                             <a href="{% url 'relatorio_ponto' %}">Relatório de ponto</a>
+                            <a href="{% url 'banco_de_horas' %}">Banco de horas</a>
                             <a href="{% url 'meu_perfil' %}">Meu perfil</a>
                             {% if user.perfil.papel == 'admin' %}
                                 <a href="{% url 'importar_planilha' %}">Importar planilha de ponto</a>

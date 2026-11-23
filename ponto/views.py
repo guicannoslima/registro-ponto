@@ -71,6 +71,7 @@ from .permissoes import funcionarios_visiveis
 from .relatorios import calcular_horas_dia, calcular_progresso, montar_relatorio
 from .services import (
     _gestor,
+    _pessoas,
     aviso_do_dia,
     cancelar_folga,
     configuracao_jornada,
@@ -84,6 +85,7 @@ from .services import (
     pessoas_para_cadastro_facial,
     pessoas_para_relatorio,
     preparar_cartao_ponto,
+    quadro_banco_horas,
     registrar_batida,
     registrar_ponto_facial,
     remover_cadastro_facial,
@@ -938,6 +940,20 @@ def feriado_formulario(request, feriado_id=None):
         messages.success(request, 'Feriado salvo.')
         return redirect(f"{reverse('feriados')}?ano={item.data.year}")
     return render(request, 'ponto/feriado_formulario.html', {'form': form})
+
+
+@login_required
+@require_http_methods(['GET'])
+def banco_de_horas(request):
+    """Colaborador vê o próprio banco; gestor, o seu e o da equipe; administrador, o de todos."""
+    pessoas = _pessoas(request.user).order_by('first_name', 'last_name', 'username')
+    escolhida = request.GET.get('funcionario', '')
+    pessoa = pessoas.filter(pk=escolhida if escolhida.isdigit() else request.user.pk).first() or request.user
+    return render(request, 'ponto/banco_de_horas.html', {
+        'pessoa': pessoa,
+        'pessoas': pessoas if pessoas.count() > 1 else None,
+        'banco': quadro_banco_horas(pessoa),
+    })
 
 
 @administrador_required
