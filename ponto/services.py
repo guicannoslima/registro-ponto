@@ -20,6 +20,8 @@ from .constants import (
     DIAS_ABREVIADOS,
     DIAS_UTEIS,
     FACIAL_LIMIAR,
+    FATOR_DOMINGO,
+    FATOR_DOMINGO_COM_FOLGA,
     FERIADOS_NACIONAIS,
     HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
@@ -144,6 +146,9 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
                 observacao = 'Feriado'
             if horarios and dia['status'] != 'Completo':
                 observacao += ' · Incompleto'
+        if dia.get('fator', 1) != 1:
+            # Domingo: a coluna EXTRAS já traz as horas com o adicional.
+            observacao = f'Dom. +{round((dia["fator"] - 1) * 100)}%'
 
         for chave, valor in (('normais', normais), ('faltas', faltas), ('extras', extras), ('carga', carga)):
             if valor:
@@ -434,6 +439,29 @@ def saldo_do_dia(trabalhado, carga):
     return timedelta() if abs(diferenca) <= TOLERANCIA_SALDO else diferenca
 
 
+def fator_do_dia(funcionario, data, configuracao, dias_com_batida=None, vinculos=None, feriados=None, folgas=None):
+    """Quanto vale cada hora trabalhada no dia: 1, ou o adicional de domingo sem expediente previsto.
+
+    No domingo a hora vale o dobro; se a semana seguinte (segunda a sábado) tiver folga, feriado ou dia sem
+    expediente que não foi trabalhado, vale 40% a mais. dias_com_batida (datas), vinculos, feriados e folgas podem
+    vir pré-carregados, como em configuracao_jornada.
+    """
+    if data.weekday() != 6 or configuracao['util']:
+        return 1
+    semana = [data + timedelta(days=dias) for dias in range(1, 7)]
+    if dias_com_batida is None:
+        momentos = RegistroPonto.objects.filter(
+            funcionario=funcionario, ativo=True, data_hora__date__range=(semana[0], semana[-1])
+        ).values_list('data_hora', flat=True)
+        dias_com_batida = {timezone.localtime(momento).date() for momento in momentos}
+    for dia in semana:
+        configuracao_do_dia = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)
+        sem_expediente = not configuracao_do_dia['util'] and dia not in dias_com_batida
+        if configuracao_do_dia['folga'] or configuracao_do_dia['feriado'] or sem_expediente:
+            return FATOR_DOMINGO_COM_FOLGA
+    return FATOR_DOMINGO
+
+
 def saldo_banco_horas(funcionario, ate=None):
     """Banco de horas acumulado desde a primeira batida, como nos sistemas de RH.
 
@@ -446,8 +474,10 @@ def saldo_banco_horas(funcionario, ate=None):
     """
     hoje = timezone.localdate()
     limite = min(ate, hoje) if ate else hoje
+    # O domingo olha a semana seguinte: batidas e feriados vão até 6 dias depois do limite.
+    ate_a_semana = limite + timedelta(days=6)
     por_dia = defaultdict(dict)
-    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=limite)
+    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=ate_a_semana)
     for registro in registros.only('tipo', 'data_hora'):
         por_dia[timezone.localtime(registro.data_hora).date()][registro.tipo] = registro.data_hora
 
@@ -459,14 +489,19 @@ def saldo_banco_horas(funcionario, ate=None):
 
     inicio = min(por_dia)
     vinculos = list(funcionario.perfil.jornadas.all())
-    feriados = {f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, limite))}
+    feriados = {
+        f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, ate_a_semana))
+    }
     folgas = {f.data: f for f in folgas_ativas}
+    dias_com_batida = set(por_dia)
     dia = inicio
     while dia <= limite:
-        carga = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)['carga']
+        configuracao = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)
+        carga = configuracao['carga']
         horarios = por_dia.get(dia, {})
         if RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios:
-            saldo += saldo_do_dia(tempo_trabalhado(horarios), carga)
+            fator = fator_do_dia(funcionario, dia, configuracao, dias_com_batida, vinculos, feriados, folgas)
+            saldo += saldo_do_dia(tempo_trabalhado(horarios) * fator, carga)
         elif not horarios and dia < hoje:
             saldo -= carga
         dia += timedelta(days=1)

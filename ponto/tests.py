@@ -1385,6 +1385,48 @@ class FolgasBancoHorasTests(TestCase):
         # Parando na segunda, a compensação de terça ainda não abate.
         self.assertEqual(ate_segunda, timedelta(hours=1, minutes=15))
 
+    def _domingo_trabalhado(self):
+        """Domingo de 4h e uma semana seguinte de segunda a sábado com jornada exata (sábado de 2h)."""
+        domingo = self.segunda + timedelta(days=6)
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(domingo, 9))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(domingo, 13))
+        for dias in range(1, 6):
+            _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(domingo + timedelta(days=dias), 8))
+            _batida(self.pessoa, RegistroPonto.SAIDA, _momento(domingo + timedelta(days=dias), 15, 45))
+        sabado = domingo + timedelta(days=6)
+        return domingo, sabado
+
+    def test_domingo_vale_o_dobro_sem_folga_na_semana_seguinte(self):
+        from .services import configuracao_jornada, fator_do_dia, saldo_banco_horas
+
+        domingo, sabado = self._domingo_trabalhado()
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(sabado, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(sabado, 10))
+
+        self.assertEqual(fator_do_dia(self.pessoa, domingo, configuracao_jornada(self.pessoa, domingo)), 2)
+        with patch('django.utils.timezone.localdate', return_value=sabado):
+            # domingo 4h x 2 = 8h, mais as 2h do sábado
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=10))
+            item = montar_relatorio(None, self.pessoa, domingo, domingo, False)[0]
+            linha = preparar_cartao_ponto(item, domingo, domingo)['cartao']['linhas'][0]
+        self.assertEqual((linha['extras'], linha['observacao']), ('08:00', 'Dom. +100%'))
+
+    def test_domingo_vale_40_por_cento_com_folga_ou_sabado_livre(self):
+        from .models import Folga
+        from .services import configuracao_jornada, fator_do_dia, saldo_banco_horas
+
+        domingo, sabado = self._domingo_trabalhado()
+
+        configuracao = configuracao_jornada(self.pessoa, domingo)
+        self.assertEqual(fator_do_dia(self.pessoa, domingo, configuracao), 1.4)  # sábado sem trabalho
+        with patch('django.utils.timezone.localdate', return_value=sabado + timedelta(days=1)):
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=5, minutes=36))  # 4h x 1,4
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(sabado, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(sabado, 10))
+        self._folga(domingo + timedelta(days=3), Folga.DISPENSA)
+        self.assertEqual(fator_do_dia(self.pessoa, domingo, configuracao), 1.4)  # folga na quarta
+        self.assertEqual(fator_do_dia(self.pessoa, sabado, configuracao_jornada(self.pessoa, sabado)), 1)
+
     def test_hhmm_com_sinal(self):
         from .utils import hhmm_com_sinal
 

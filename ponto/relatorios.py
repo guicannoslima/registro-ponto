@@ -2,7 +2,7 @@ from datetime import timedelta
 
 from .constants import JORNADA_DIARIA, TOLERANCIA_SALDO
 from .models import RegistroPonto
-from .services import configuracao_jornada, saldo_do_dia, tempo_trabalhado
+from .services import configuracao_jornada, fator_do_dia, saldo_do_dia, tempo_trabalhado
 
 
 def calcular_horas_dia(funcionario,data):
@@ -21,10 +21,14 @@ def calcular_horas_dia(funcionario,data):
 
     esperado = None
     diferenca = None
+    fator = 1
     if completo:
         trabalhado = tempo_trabalhado(horarios)
-        esperado = configuracao_jornada(funcionario, data)['carga']
-        diferenca = saldo_do_dia(trabalhado, esperado)
+        configuracao = configuracao_jornada(funcionario, data)
+        esperado = configuracao['carga']
+        # Domingo trabalhado vale mais: o adicional entra no saldo, não nas horas trabalhadas.
+        fator = fator_do_dia(funcionario, data, configuracao)
+        diferenca = saldo_do_dia(trabalhado * fator, esperado)
     else:
         trabalhado = None
 
@@ -32,6 +36,7 @@ def calcular_horas_dia(funcionario,data):
         'tempo_trabalhado': trabalhado,
         'esperado': esperado,
         'diferenca': diferenca,
+        'fator': fator,
         'completo': completo,
         'horarios': horarios,
         }
@@ -50,6 +55,7 @@ def calcular_relatorio_periodo(funcionario, data_inicio, data_fim):
                 'tempo_trabalhado': resultado['tempo_trabalhado'],
                 'esperado': resultado['esperado'],
                 'diferenca': resultado['diferenca'],
+                'fator': resultado['fator'],
                 'horarios': resultado['horarios']
             })
         else:

@@ -12,6 +12,11 @@ JORNADA_DIARIA = timedelta(hours=7, minutes=45)
 # Diferenças de até 10 minutos, para mais ou para menos, não entram no saldo do dia
 TOLERANCIA_SALDO = timedelta(minutes=10)
 
+# Domingo trabalhado sem expediente previsto: a hora vale o dobro (+100%). Se a semana seguinte, de segunda a
+# sábado, tiver folga, feriado ou dia sem expediente não trabalhado (como o sábado), vale 40% a mais.
+FATOR_DOMINGO = 2
+FATOR_DOMINGO_COM_FOLGA = 1.4
+
 # Espera mínima entre duas batidas, contra cliques repetidos
 INTERVALO_MINIMO_MINUTOS = 10
 
