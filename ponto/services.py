@@ -48,7 +48,7 @@ from .models import (
     VinculoJornada,
 )
 from .permissoes import funcionarios_visiveis
-from .utils import formatar_timedelta, hhmm
+from .utils import formatar_timedelta, hhmm, hhmm_com_sinal
 
 
 def proximo_tipo(registros, tipos=None):
@@ -109,6 +109,7 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
     manuais = {(timezone.localtime(r.data_hora).date(), r.tipo) for r in registros if r.registrado_manualmente}
 
     totais = {'normais': timedelta(), 'faltas': timedelta(), 'extras': timedelta(), 'carga': timedelta()}
+    compensacoes = timedelta()
     linhas = []
     for dia in item['relatorio']:
         data, horarios = dia['data'], dia['horarios']
@@ -134,6 +135,8 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             observacao = 'Falta'
 
         folga = configuracao['folga']
+        if folga and folga.tipo == Folga.COMPENSACAO and folga.horas_abatidas:
+            compensacoes += folga.horas_abatidas
         if folga or configuracao['feriado']:
             if folga:
                 observacao = 'Folga comp.' if folga.tipo == Folga.COMPENSACAO else 'Folga'
@@ -180,10 +183,21 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             pares = list(pares) + [('', '')] * (3 - len(pares))
         item['horario'].append({'nome': nome.upper(), 'pares': pares})
     item['jornada_nome'] = configuracao['nome']
+    # Mesma regra do banco de horas: extras menos faltas menos as folgas de compensação do período.
+    saldo_periodo = totais['extras'] - totais['faltas'] - compensacoes
+    data_saldo = min(data_fim, hoje)
     item['cartao'] = {
         'linhas': linhas,
         'totais': {chave: hhmm(valor) or '00:00' for chave, valor in totais.items()},
         'tem_manual': bool(manuais),
+        'banco': {
+            'extras': hhmm(totais['extras']) or '00:00',
+            'faltas': hhmm(totais['faltas']) or '00:00',
+            'compensacoes': hhmm(compensacoes) or '00:00',
+            'saldo_periodo': hhmm_com_sinal(saldo_periodo),
+            'saldo_acumulado': hhmm_com_sinal(saldo_banco_horas(item['funcionario'], ate=data_saldo)),
+            'data_saldo': data_saldo,
+        },
     }
     return item
 
@@ -420,31 +434,35 @@ def saldo_do_dia(trabalhado, carga):
     return timedelta() if abs(diferenca) <= TOLERANCIA_SALDO else diferenca
 
 
-def saldo_banco_horas(funcionario):
+def saldo_banco_horas(funcionario, ate=None):
     """Banco de horas acumulado desde a primeira batida, como nos sistemas de RH.
 
     Cada dia completo soma a diferença entre o trabalhado e a carga (com a tolerância); dia de carga prevista
     já passado sem nenhuma batida desconta a carga inteira. Feriados e folgas têm carga zero, então o trabalho
     nesses dias vira crédito. Folgas de compensação abatem as horas registradas no lançamento, inclusive as
     agendadas. Dias com batidas, mas sem entrada ou saída, ficam fora até o ajuste.
+
+    Com `ate` anterior a hoje, o saldo para nesse dia: só contam os dias e as compensações até ele.
     """
     hoje = timezone.localdate()
+    limite = min(ate, hoje) if ate else hoje
     por_dia = defaultdict(dict)
-    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=hoje)
+    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=limite)
     for registro in registros.only('tipo', 'data_hora'):
         por_dia[timezone.localtime(registro.data_hora).date()][registro.tipo] = registro.data_hora
 
     folgas_ativas = list(Folga.objects.filter(funcionario=funcionario, ativa=True))
-    saldo = -sum((f.horas_abatidas or timedelta() for f in folgas_ativas), timedelta())
+    abatidas = [f for f in folgas_ativas if not ate or ate >= hoje or f.data <= ate]
+    saldo = -sum((f.horas_abatidas or timedelta() for f in abatidas), timedelta())
     if not por_dia:
         return saldo
 
     inicio = min(por_dia)
     vinculos = list(funcionario.perfil.jornadas.all())
-    feriados = {f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, hoje))}
+    feriados = {f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, limite))}
     folgas = {f.data: f for f in folgas_ativas}
     dia = inicio
-    while dia <= hoje:
+    while dia <= limite:
         carga = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)['carga']
         horarios = por_dia.get(dia, {})
         if RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios:

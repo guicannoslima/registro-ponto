@@ -1318,6 +1318,36 @@ class FolgasBancoHorasTests(TestCase):
             self._folga(self.segunda + timedelta(days=7), Folga.COMPENSACAO, timedelta(hours=7, minutes=45))
             self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=1, minutes=15 + 120 - 3 * 465))
 
+    def test_cartao_mostra_saldo_do_banco_com_as_compensacoes(self):
+        from .models import Folga
+        from .services import saldo_banco_horas
+
+        terca, quarta = self.segunda + timedelta(days=1), self.segunda + timedelta(days=2)
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(self.segunda, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(self.segunda, 17))  # 9h: +1h15
+        self._folga(terca, Folga.COMPENSACAO, timedelta(hours=7, minutes=45))
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(quarta, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(quarta, 15, 45))  # jornada exata
+        with patch('django.utils.timezone.localdate', return_value=quarta):
+            item = montar_relatorio(None, self.pessoa, self.segunda, quarta, False)[0]
+            banco = preparar_cartao_ponto(item, self.segunda, quarta)['cartao']['banco']
+            ate_segunda = saldo_banco_horas(self.pessoa, ate=self.segunda)
+
+        self.assertEqual(
+            (banco['extras'], banco['faltas'], banco['compensacoes']), ('01:15', '00:00', '07:45')
+        )
+        self.assertEqual((banco['saldo_periodo'], banco['saldo_acumulado']), ('-06:30', '-06:30'))
+        self.assertEqual(banco['data_saldo'], quarta)
+        # Parando na segunda, a compensação de terça ainda não abate.
+        self.assertEqual(ate_segunda, timedelta(hours=1, minutes=15))
+
+    def test_hhmm_com_sinal(self):
+        from .utils import hhmm_com_sinal
+
+        self.assertEqual(hhmm_com_sinal(timedelta(hours=56, minutes=27)), '+56:27')
+        self.assertEqual(hhmm_com_sinal(-timedelta(hours=6, minutes=12)), '-06:12')
+        self.assertEqual(hhmm_com_sinal(timedelta(seconds=30)), '00:00')
+
     def test_folga_zera_carga_e_marca_cartao(self):
         from .models import Folga
         from .services import configuracao_jornada
