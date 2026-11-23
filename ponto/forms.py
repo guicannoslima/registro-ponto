@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES
+from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES, PLANILHA_MAX_BYTES
 from .email import cifrar_senha
 from .models import (
     ConfiguracaoEmail,
@@ -492,3 +492,22 @@ class FolgaForm(forms.Form):
                 f'{data:%d/%m/%Y} já não tem expediente previsto ({detalhes}). Escolha outra data.'
             )
         return dados
+
+
+class ImportarPlanilhaForm(forms.Form):
+    planilha = forms.FileField(
+        label='Planilha de banco de horas',
+        widget=forms.FileInput(
+            attrs={'accept': '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
+        ),
+        help_text='Arquivo .xlsx de até 5 MB, com o CPF na aba Resumo e uma aba por mês.',
+        error_messages={'required': 'Escolha a planilha que será importada.'},
+    )
+
+    def clean_planilha(self):
+        planilha = self.cleaned_data['planilha']
+        if not planilha.name.lower().endswith('.xlsx'):
+            raise forms.ValidationError('Envie a planilha no formato .xlsx.')
+        if planilha.size > PLANILHA_MAX_BYTES:
+            raise forms.ValidationError('Escolha uma planilha de até 5 MB.')
+        return planilha

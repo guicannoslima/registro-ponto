@@ -16,6 +16,7 @@ urlpatterns = [
     path('administracao/usuarios/novo/', views.usuario_formulario, name='usuario_criar'),
     path('administracao/usuarios/<int:usuario_id>/', views.usuario_formulario, name='usuario_editar'),
     path('administracao/email/', views.configurar_email, name='configurar_email'),
+    path('administracao/importar-planilha/', views.importar_planilha, name='importar_planilha'),
     path('ponto/camera/', views.ponto_facial, name='ponto_facial'),
     path('ponto/camera/cadastro/', views.cadastro_facial, name='cadastro_facial'),
     path('ponto/camera/abrir-terminal/', views.abrir_terminal, name='abrir_terminal'),

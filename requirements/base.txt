@@ -11,3 +11,4 @@ whitenoise==6.9.0  # arquivos estáticos (middleware e storage no settings)
 opencv-python-headless==4.13.0.92  # reconhecimento facial local (YuNet e SFace)
 numpy==2.5.5  # vetores do reconhecimento facial
 cryptography==50.0.2  # proteção da senha SMTP salva no banco
+openpyxl==3.1.5  # leitura das planilhas de ponto retroativo

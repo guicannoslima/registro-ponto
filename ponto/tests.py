@@ -1398,3 +1398,143 @@ class FolgasBancoHorasTests(TestCase):
         self.assertEqual(aviso_do_dia(self.pessoa, self.segunda)['titulo'], 'Feriado: Feriado local')
         self.assertEqual(aviso_do_dia(self.pessoa, self.segunda + timedelta(days=5))['titulo'], 'Folga semanal')
         self.assertIsNone(aviso_do_dia(self.pessoa, self.segunda + timedelta(days=1)))
+
+
+def _planilha(dias, cpf='02264845643'):
+    """Planilha de banco de horas no formato importado: CPF em Resumo!B3 e uma aba de mês a partir da linha 5."""
+    from openpyxl import Workbook
+
+    livro = Workbook()
+    livro.active.title = 'Resumo'
+    livro['Resumo']['B3'] = cpf
+    aba = livro.create_sheet('Outubro 2026')
+    aba.append(['Banco de Horas — Outubro 2026'])
+    for numero, (dia, marcado, horas) in enumerate(dias, start=5):
+        aba.cell(row=numero, column=1, value=datetime.combine(dia, time()))
+        aba.cell(row=numero, column=3, value=marcado)
+        for coluna, hora in enumerate(horas, start=4):
+            aba.cell(row=numero, column=coluna, value=hora)
+    aba.cell(row=len(dias) + 6, column=9, value='Total do mês:')
+    arquivo = BytesIO()
+    livro.save(arquivo)
+    return SimpleUploadedFile('banco_de_horas.xlsx', arquivo.getvalue())
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class ImportacaoPlanilhaTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('admin_planilha', first_name='Caio')
+        self.admin.perfil.papel = Perfil.PAPEL_ADMIN
+        self.admin.perfil.save()
+        self.pessoa = User.objects.create_user('gui_planilha', first_name='Guilherme', last_name='Lima')
+        self.pessoa.perfil.cpf = '02264845643'
+        self.pessoa.perfil.save()
+        self.client.force_login(self.admin)
+        self.dia_util = (date(2026, 10, 1), None, [time(8), time(12), time(13), time(16, 15), time(16, 30), time(18)])
+
+    def _importar(self, planilha):
+        return self.client.post(reverse('importar_planilha'), {'planilha': planilha}, follow=True)
+
+    def test_importa_batidas_folgas_e_respeita_feriados_cadastrados(self):
+        from .models import Feriado, Folga
+
+        Feriado.objects.create(data=date(2026, 10, 12), nome='Nossa Senhora Aparecida')
+        zerado = [time(0), time(0), time(0), time(16, 15), time(16, 30), time(0)]
+        planilha = _planilha([
+            self.dia_util,
+            (date(2026, 10, 9), 'S', []),
+            (date(2026, 10, 12), 'S', []),
+            (date(2026, 10, 16), None, zerado),
+            (date(2026, 10, 18), None, [time(11, 45), None, None, None, None, time(16, 50)]),
+            (date(2026, 10, 20), 's', zerado),
+            (date(2026, 10, 24), None, []),
+        ])
+
+        resposta = self._importar(planilha)
+
+        self.assertContains(resposta, 'Planilha de Guilherme Lima importada: 8 batidas e 3 folgas.')
+        horarios = [
+            timezone.localtime(r.data_hora).strftime('%d %H:%M')
+            for r in RegistroPonto.objects.filter(funcionario=self.pessoa, ativo=True)
+        ]
+        self.assertEqual(horarios, [
+            '01 08:00', '01 12:00', '01 13:00', '01 16:15', '01 16:30', '01 18:00', '18 11:45', '18 16:50',
+        ])
+        self.assertFalse(RegistroPonto.objects.filter(registrado_manualmente=False).exists())
+        criacoes = HistoricoAlteracaoPonto.objects.filter(tipo_acao=HistoricoAlteracaoPonto.CRIACAO_MANUAL)
+        self.assertEqual(criacoes.count(), 8)
+        lancadas = Folga.objects.filter(funcionario=self.pessoa)
+        folgas = {f.data.day: (f.tipo, f.motivo, f.horas_abatidas) for f in lancadas}
+        self.assertEqual(folgas, {
+            9: (Folga.DISPENSA, 'Day-Off', None),
+            16: (Folga.COMPENSACAO, 'Compensação do banco de horas', timedelta(hours=7, minutes=45)),
+            20: (Folga.DISPENSA, 'Folga negociada', None),
+        })
+
+    def test_planilha_substitui_batidas_e_folgas_do_mesmo_dia(self):
+        from .models import Folga
+
+        antiga = _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(date(2026, 10, 1), 9))
+        outro_dia = _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(date(2026, 10, 2), 9))
+        folga = Folga.objects.create(
+            funcionario=self.pessoa, data=date(2026, 10, 1), tipo=Folga.DISPENSA, motivo='Antiga',
+            lancada_por=self.admin,
+        )
+
+        resposta = self._importar(_planilha([self.dia_util]))
+
+        self.assertContains(resposta, 'Substituídas: 1 batidas e 1 folgas que já estavam no sistema.')
+        antiga.refresh_from_db()
+        outro_dia.refresh_from_db()
+        folga.refresh_from_db()
+        self.assertFalse(antiga.ativo)
+        self.assertTrue(outro_dia.ativo)
+        self.assertFalse(folga.ativa)
+        self.assertTrue(antiga.historico.filter(tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO).exists())
+
+    def test_cpf_digitado_como_numero_recupera_o_zero_da_frente(self):
+        from .services import ler_planilha_ponto
+
+        cpf, batidas, folgas, avisos = ler_planilha_ponto(_planilha([self.dia_util], cpf=2264845643))
+
+        self.assertEqual(cpf, '02264845643')
+        self.assertEqual(len(batidas), 6)
+        self.assertEqual((folgas, avisos), ([], []))
+
+    def test_dia_fora_de_ordem_e_datas_futuras_viram_avisos(self):
+        fora_de_ordem = (date(2026, 10, 2), None, [time(13), time(12), None, None, None, time(18)])
+
+        with patch('django.utils.timezone.localdate', return_value=date(2026, 9, 30)):
+            resposta = self._importar(_planilha([self.dia_util, fora_de_ordem]))
+
+        self.assertContains(resposta, '02/10/2026: os horários estão fora de ordem. O dia não foi importado.')
+        self.assertContains(resposta, 'Batidas em datas futuras não foram importadas: 01/10/2026.')
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_cpf_sem_cadastro_nao_grava_nada(self):
+        resposta = self._importar(_planilha([self.dia_util], cpf='11122233344'))
+
+        self.assertContains(resposta, 'Nenhum colaborador cadastrado com o CPF 111.222.333-44.')
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_arquivo_que_nao_e_planilha_e_recusado(self):
+        resposta = self._importar(SimpleUploadedFile('ponto.xlsx', b'nao sou uma planilha'))
+
+        self.assertContains(resposta, 'Não foi possível abrir o arquivo. Envie a planilha no formato .xlsx.')
+
+    def test_menu_meu_ponto_mostra_importacao_so_para_administrador(self):
+        link = f'href="{reverse("importar_planilha")}"'
+
+        self.assertContains(self.client.get(reverse('painel')), link)
+        self.admin.perfil.papel = Perfil.PAPEL_GESTOR
+        self.admin.perfil.save()
+        self.assertNotContains(self.client.get(reverse('painel')), link)
+
+    def test_somente_administrador_importa(self):
+        self.admin.perfil.papel = Perfil.PAPEL_GESTOR
+        self.admin.perfil.save()
+
+        self.assertEqual(self.client.get(reverse('importar_planilha')).status_code, 403)
+        self.assertEqual(self._importar(_planilha([self.dia_util])).status_code, 403)
+        self.assertFalse(RegistroPonto.objects.exists())
+

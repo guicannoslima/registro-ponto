@@ -1,0 +1,31 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}Importar planilha de ponto - Registro de Ponto{% endblock %}
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>Importar planilha de ponto</h1>
+            <p class="apoio">Lança batidas e folgas retroativas a partir da planilha de banco de horas do colaborador.</p>
+        </div>
+    </header>
+    <section class="cartao-interno">
+        <form method="post" enctype="multipart/form-data" class="campos" novalidate>
+            {% csrf_token %}
+            {% include 'ponto/_erros_formulario.html' %}
+            {% include 'ponto/_campo.html' with campo=form.planilha %}
+            <ul class="apoio">
+                <li>O colaborador é encontrado pelo CPF da aba Resumo.</li>
+                <li>Cada aba de mês vira batidas: entrada, almoço, café e saída.</li>
+                <li>Dia com os horários em 00:00 vira folga de compensação, que abate do banco de horas.</li>
+                <li>Dia marcado com "S" vira folga negociada, a menos que já seja feriado no sistema.</li>
+                <li>Nos dias importados, a planilha substitui as batidas e folgas que já estavam no sistema. As
+                    batidas substituídas ficam no histórico de alterações.</li>
+            </ul>
+            <div class="acoes">
+                <button class="btn" type="submit">Importar planilha</button>
+                <a class="btn btn--secundario" href="{% url 'painel' %}">Cancelar</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

@@ -37,7 +37,7 @@ from .constants import (
     USUARIOS_POR_PAGINA,
 )
 from .email import BackendEmail
-from .exceptions import ErroBatida, ErroFacial, SemRosto
+from .exceptions import ErroBatida, ErroFacial, ErroImportacao, SemRosto
 from .forms import (
     AnoFeriadosForm,
     CadastroForm,
@@ -46,6 +46,7 @@ from .forms import (
     FolgaForm,
     FotoPerfilForm,
     HistoricoFiltroForm,
+    ImportarPlanilhaForm,
     JornadaForm,
     MotivoExclusaoForm,
     MotivoRejeicaoForm,
@@ -75,6 +76,7 @@ from .services import (
     configuracao_jornada,
     efeito_da_folga,
     estado_cadastro_facial,
+    importar_planilha_ponto,
     jornadas_para_listagem,
     lancar_folgas,
     linha_do_dia,
@@ -903,6 +905,30 @@ def feriado_formulario(request, feriado_id=None):
         messages.success(request, 'Feriado salvo.')
         return redirect(f"{reverse('feriados')}?ano={item.data.year}")
     return render(request, 'ponto/feriado_formulario.html', {'form': form})
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def importar_planilha(request):
+    form = ImportarPlanilhaForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            resultado = importar_planilha_ponto(form.cleaned_data['planilha'], request.user)
+        except ErroImportacao as exc:
+            form.add_error('planilha', str(exc))
+        else:
+            nome = resultado['pessoa'].get_full_name() or resultado['pessoa'].username
+            texto = f'Planilha de {nome} importada: {resultado["batidas"]} batidas e {resultado["folgas"]} folgas.'
+            if resultado['batidas_substituidas'] or resultado['folgas_substituidas']:
+                texto += (
+                    f' Substituídas: {resultado["batidas_substituidas"]} batidas e '
+                    f'{resultado["folgas_substituidas"]} folgas que já estavam no sistema.'
+                )
+            messages.success(request, texto)
+            for aviso in resultado['avisos']:
+                messages.warning(request, aviso)
+            return redirect('importar_planilha')
+    return render(request, 'ponto/importar_planilha.html', {'form': form})
 
 
 @gestor_required

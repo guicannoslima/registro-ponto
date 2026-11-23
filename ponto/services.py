@@ -1,18 +1,22 @@
 """Regras, consultas e preparação dos dados de negócio do registro de ponto."""
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from io import BytesIO
 from uuid import uuid4
+from zipfile import BadZipFile
 
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 from PIL import Image, ImageOps
 
 from .constants import (
+    COLUNAS_RELATORIO,
     DIAS_ABREVIADOS,
     DIAS_UTEIS,
     FACIAL_LIMIAR,
@@ -20,12 +24,29 @@ from .constants import (
     HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
+    MOTIVO_COMPENSACAO_IMPORTADA,
+    MOTIVO_FOLGA_IMPORTADA,
+    MOTIVOS_FOLGA_IMPORTADA_POR_DATA,
+    PLANILHA_ABA_RESUMO,
+    PLANILHA_CELULA_CPF,
+    PLANILHA_COLUNA_DATA,
+    PLANILHA_COLUNA_FOLGA,
+    PLANILHA_PRIMEIRA_LINHA,
     ROTULOS_CURTOS,
     TOLERANCIA_SALDO,
 )
-from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial
+from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial, ErroImportacao
 from .facial import extrair_vetor, identificar
-from .models import CadastroFacial, Feriado, Folga, Jornada, Perfil, RegistroPonto, VinculoJornada
+from .models import (
+    CadastroFacial,
+    Feriado,
+    Folga,
+    HistoricoAlteracaoPonto,
+    Jornada,
+    Perfil,
+    RegistroPonto,
+    VinculoJornada,
+)
 from .permissoes import funcionarios_visiveis
 from .utils import formatar_timedelta, hhmm
 
@@ -585,4 +606,159 @@ def efeito_da_folga(funcionarios, dados):
         'efeito_data': data,
         'efeito_compensacao': compensacao,
         'efeito_insuficiente': [linha['pessoa'].get_full_name() for linha in linhas if linha['negativo']],
+    }
+
+
+def _hora_da_celula(valor):
+    """Horário de uma célula da planilha, ou None se estiver vazia. ValueError se não for um horário."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None
+    if isinstance(valor, datetime):
+        return valor.time().replace(second=0, microsecond=0)
+    if isinstance(valor, time):
+        return valor.replace(second=0, microsecond=0)
+    if isinstance(valor, timedelta) and timedelta() <= valor < timedelta(days=1):
+        return (datetime.min + valor).time().replace(second=0, microsecond=0)
+    if isinstance(valor, str):
+        return datetime.strptime(valor.strip(), '%H:%M').time()
+    raise ValueError(valor)
+
+
+def _ler_dia_da_planilha(dia, linha, batidas, folgas, avisos):
+    marcado = str(linha[PLANILHA_COLUNA_FOLGA - 1] or '').strip().upper() == 'S'
+    horas = {}
+    for coluna, tipo in COLUNAS_RELATORIO.items():
+        valor = linha[coluna - 1] if len(linha) >= coluna else None
+        try:
+            hora = _hora_da_celula(valor)
+        except ValueError:
+            avisos.append(f'{dia:%d/%m/%Y}: horário "{valor}" não reconhecido. O dia não foi importado.')
+            return
+        if hora is not None:
+            horas[tipo] = hora
+
+    meia_noite = time(0, 0)
+    if marcado:
+        if any(hora != meia_noite for hora in horas.values()):
+            avisos.append(f'{dia:%d/%m/%Y}: marcado como feriado ou folga; os horários do dia foram ignorados.')
+        motivo = MOTIVOS_FOLGA_IMPORTADA_POR_DATA.get(dia, MOTIVO_FOLGA_IMPORTADA)
+        folgas.append({'data': dia, 'tipo': Folga.DISPENSA, 'motivo': motivo})
+        return
+    if not horas:
+        return
+    # O café fica de fora: nos dias de folga a planilha mantém 16:15 e 16:30 e zera o resto.
+    cafe = (RegistroPonto.SAIDA_CAFE, RegistroPonto.VOLTA_CAFE)
+    principais = [hora for tipo, hora in horas.items() if tipo not in cafe]
+    if principais and all(hora == meia_noite for hora in principais):
+        folgas.append({'data': dia, 'tipo': Folga.COMPENSACAO, 'motivo': MOTIVO_COMPENSACAO_IMPORTADA})
+        return
+    ordenadas = [horas[tipo] for tipo in RegistroPonto.ORDEM_TIPOS if tipo in horas]
+    if any(antes >= depois for antes, depois in zip(ordenadas, ordenadas[1:], strict=False)):
+        avisos.append(f'{dia:%d/%m/%Y}: os horários estão fora de ordem. O dia não foi importado.')
+        return
+    batidas.extend((dia, tipo, hora) for tipo, hora in horas.items())
+
+
+def ler_planilha_ponto(arquivo):
+    """Lê a planilha de banco de horas: o CPF da aba Resumo e, nas abas de mês, batidas e folgas.
+
+    Devolve (cpf, batidas, folgas, avisos): batidas como (data, tipo, hora), folgas como dicionários com
+    data, tipo e motivo, e avisos dos dias que não puderam ser lidos.
+    """
+    try:
+        livro = load_workbook(arquivo, data_only=True)
+    except (BadZipFile, InvalidFileException, KeyError, OSError) as exc:
+        raise ErroImportacao('Não foi possível abrir o arquivo. Envie a planilha no formato .xlsx.') from exc
+    if PLANILHA_ABA_RESUMO not in livro.sheetnames:
+        raise ErroImportacao(f'A planilha não tem a aba {PLANILHA_ABA_RESUMO}.')
+
+    linha_cpf, coluna_cpf = PLANILHA_CELULA_CPF
+    bruto = livro[PLANILHA_ABA_RESUMO].cell(row=linha_cpf, column=coluna_cpf).value
+    if bruto is None:
+        raise ErroImportacao('CPF não encontrado na aba Resumo, célula B3.')
+    if isinstance(bruto, float) and bruto.is_integer():
+        bruto = int(bruto)
+    # Digitado como número no Excel, o CPF perde os zeros da frente.
+    cpf = ''.join(letra for letra in str(bruto) if letra.isdigit()).zfill(11)
+    if len(cpf) != 11:
+        raise ErroImportacao('CPF inválido na aba Resumo. Ele deve ter 11 dígitos.')
+
+    batidas, folgas, avisos = [], [], []
+    for aba in livro.worksheets:
+        if aba.title == PLANILHA_ABA_RESUMO:
+            continue
+        for linha in aba.iter_rows(min_row=PLANILHA_PRIMEIRA_LINHA, values_only=True):
+            dia = linha[PLANILHA_COLUNA_DATA - 1] if linha else None
+            if isinstance(dia, datetime):
+                dia = dia.date()
+            if isinstance(dia, date):
+                _ler_dia_da_planilha(dia, linha, batidas, folgas, avisos)
+    return cpf, batidas, folgas, avisos
+
+
+@transaction.atomic
+def importar_planilha_ponto(arquivo, responsavel):
+    """Grava as batidas e folgas da planilha. Nos dias importados, o que já existia no sistema é substituído.
+
+    Batidas substituídas ficam inativas e entram no histórico; folgas substituídas são canceladas. Dias com
+    "S" que já são feriado no sistema ficam como estão.
+    """
+    cpf, batidas, folgas, avisos = ler_planilha_ponto(arquivo)
+    perfil = Perfil.objects.select_related('user').filter(cpf=cpf).first()
+    if perfil is None:
+        raise ErroImportacao(f'Nenhum colaborador cadastrado com o CPF {cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}.')
+    pessoa = perfil.user
+
+    hoje = timezone.localdate()
+    futuras = sorted({dia for dia, _, _ in batidas if dia > hoje})
+    if futuras:
+        datas = ', '.join(f'{dia:%d/%m/%Y}' for dia in futuras)
+        avisos.append(f'Batidas em datas futuras não foram importadas: {datas}.')
+        batidas = [batida for batida in batidas if batida[0] <= hoje]
+    dispensas = [folga['data'] for folga in folgas if folga['tipo'] == Folga.DISPENSA]
+    feriados = set(Feriado.objects.filter(data__in=dispensas, dispensa_expediente=True).values_list('data', flat=True))
+    folgas = [folga for folga in folgas if folga['data'] not in feriados]
+    dias = {dia for dia, _, _ in batidas} | {folga['data'] for folga in folgas}
+
+    nome = getattr(arquivo, 'name', '') or 'de ponto'
+    motivo = f'Importação da planilha {nome}.'
+    substituidas = list(RegistroPonto.objects.filter(funcionario=pessoa, ativo=True, data_hora__date__in=dias))
+    HistoricoAlteracaoPonto.objects.bulk_create(
+        HistoricoAlteracaoPonto(
+            registro=registro,
+            tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO,
+            realizado_por=responsavel,
+            motivo=f'Substituída pela importação da planilha {nome}.',
+        )
+        for registro in substituidas
+    )
+    RegistroPonto.objects.filter(pk__in=[registro.pk for registro in substituidas]).update(ativo=False)
+    folgas_canceladas = list(Folga.objects.filter(funcionario=pessoa, ativa=True, data__in=dias))
+    for folga in folgas_canceladas:
+        cancelar_folga(folga, responsavel)
+
+    for dia, tipo, hora in sorted(batidas):
+        registro = RegistroPonto.objects.create(
+            funcionario=pessoa,
+            tipo=tipo,
+            data_hora=timezone.make_aware(datetime.combine(dia, hora)),
+            registrado_manualmente=True,
+            observacao=motivo,
+        )
+        HistoricoAlteracaoPonto.objects.create(
+            registro=registro,
+            tipo_acao=HistoricoAlteracaoPonto.CRIACAO_MANUAL,
+            realizado_por=responsavel,
+            motivo=motivo,
+        )
+    for folga in sorted(folgas, key=lambda item: item['data']):
+        lancar_folgas([pessoa], folga['data'], folga['tipo'], folga['motivo'], responsavel)
+
+    return {
+        'pessoa': pessoa,
+        'batidas': len(batidas),
+        'folgas': len(folgas),
+        'batidas_substituidas': len(substituidas),
+        'folgas_substituidas': len(folgas_canceladas),
+        'avisos': avisos,
     }
