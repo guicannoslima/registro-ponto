@@ -234,6 +234,17 @@ class TelasInternasTests(TestCase):
         entrada.refresh_from_db()
         self.assertFalse(entrada.ativo)
 
+    def test_gestor_nao_exclui_batida_de_fora_da_equipe(self):
+        outra = User.objects.create_user('outra_pessoa', first_name='Outra')
+        batida = _batida(outra, RegistroPonto.ENTRADA, _momento(self.hoje, 8))
+        self.client.force_login(self.gestor)
+
+        resposta = self.client.post(reverse('excluir_ponto', args=[batida.id]), {'motivo': 'Tentativa.'})
+
+        self.assertEqual(resposta.status_code, 404)
+        batida.refresh_from_db()
+        self.assertTrue(batida.ativo)
+
     def test_rejeitar_sem_motivo_mostra_o_erro(self):
         solicitacao = SolicitacaoAjustePonto.objects.create(
             funcionario=self.funcionario,

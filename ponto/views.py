@@ -283,7 +283,10 @@ def excluir_ponto(request, registro_id):
         messages.error(request, 'Somente os gestores podem excluir pontos.')
         return redirect('painel')
 
-    registro = get_object_or_404(RegistroPonto, id=registro_id)
+    # Só batidas ativas de quem o usuário enxerga: gestor exclui da própria equipe, administrador de todos.
+    registro = get_object_or_404(
+        RegistroPonto, id=registro_id, ativo=True, funcionario__in=funcionarios_visiveis(request.user)
+    )
 
     if request.method == 'POST':
         motivo_exclusao = MotivoExclusaoForm(request.POST)
