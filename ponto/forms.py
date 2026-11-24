@@ -149,7 +149,7 @@ class CadastroForm(forms.Form):
     last_name = forms.CharField(label = 'Sobrenome', max_length=150)
     cpf = forms.CharField(label = 'CPF', max_length=14)
     email = forms.EmailField(label = 'E-mail')
-    funcao = forms.ModelChoiceField(label = 'Função',queryset=Funcao.objects.all(), empty_label="Selecione suas função")
+    funcao = forms.ModelChoiceField(label = 'Função',queryset=Funcao.objects.all(), empty_label="Selecione sua função")
 
     def clean_cpf(self):
         cpf = self.cleaned_data.get('cpf')
