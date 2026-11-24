@@ -70,6 +70,7 @@ a reexecução pula a criação da conta; nesse caso, use `docker compose exec w
 | `test_usuario_comum_recebe_perfil_de_funcionario` | `create_user` gera perfil **Colaborador** |
 | `test_superusuario_acessa_o_painel_sem_erro` | O painel abre para o superusuário (status 200) |
 | `test_cadastro_pela_tela_preenche_o_perfil_criado_automaticamente` | O cadastro grava CPF e função num perfil único |
+| `test_cadastro_lista_as_funcoes_iniciais` | O cadastro lista as quatro funções que a migração `0014` cria em todo banco novo |
 | `ApresentacaoTests` (5) | Linha do dia, situação, saldo com sinal, junção de nomes e fim de semana fora do relatório |
 | `TelasInternasTests` (8) | Botão com a próxima batida, aviso de pendências, equipe, batidas no lançamento manual, exclusão, rejeição sem motivo, filtro do histórico e nome completo no relatório |
 

@@ -89,6 +89,14 @@ class PerfilAutomaticoTests(TestCase):
         self.assertEqual(perfil.funcao, funcao)
         self.assertEqual(Perfil.objects.filter(user__username='maria').count(), 1)
 
+    def test_cadastro_lista_as_funcoes_iniciais(self):
+        resposta = self.client.get(reverse('cadastro_usuario'))
+
+        self.assertContains(resposta, 'Selecione sua função')
+        funcoes = ('Auxiliar de Suporte', 'Programador Júnior', 'Supervisora Financeira', 'Coordenadora de Processos')
+        for nome in funcoes:
+            self.assertContains(resposta, f'>{nome}</option>')
+
 
 def _batida(usuario, tipo, quando, **extra):
     return RegistroPonto.objects.create(funcionario=usuario, tipo=tipo, data_hora=quando, **extra)
