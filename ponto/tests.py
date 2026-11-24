@@ -234,6 +234,50 @@ class TelasInternasTests(TestCase):
         entrada.refresh_from_db()
         self.assertFalse(entrada.ativo)
 
+    def test_lancamento_manual_permite_excluir_batidas_de_dias_anteriores(self):
+        dia = self.hoje - timedelta(days=30)
+        entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(dia, 8))
+        repetida = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(dia, 8, 2))
+        self.client.force_login(self.gestor)
+
+        resposta = self.client.get(
+            reverse('criar_ponto_manual'), {'parcial': '1', 'funcionario': self.funcionario.id, 'data': dia.isoformat()}
+        )
+
+        self.assertContains(resposta, f"{reverse('excluir_ponto', args=[entrada.id])}?voltar=manual")
+        self.assertContains(resposta, f"{reverse('excluir_ponto', args=[repetida.id])}?voltar=manual")
+        self.assertContains(resposta, 'Entrada (repetida)')
+
+    def test_exclusao_pelo_lancamento_manual_volta_para_o_mesmo_dia(self):
+        dia = self.hoje - timedelta(days=30)
+        entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(dia, 8))
+        self.client.force_login(self.gestor)
+        url = f"{reverse('excluir_ponto', args=[entrada.id])}?voltar=manual"
+        destino = f"{reverse('criar_ponto_manual')}?funcionario={self.funcionario.id}&data={dia.isoformat()}"
+
+        self.assertContains(self.client.get(url), f'href="{destino.replace("&", "&amp;")}"')
+        resposta = self.client.post(url, {'motivo': 'Batida duplicada.'})
+
+        self.assertRedirects(resposta, destino)
+        entrada.refresh_from_db()
+        self.assertFalse(entrada.ativo)
+        self.assertTrue(entrada.historico.filter(tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO).exists())
+        # De volta ao lançamento, o formulário e o painel continuam no dia ajustado.
+        retorno = self.client.get(destino)
+        self.assertContains(retorno, f'value="{dia.isoformat()}T00:00"')
+        self.assertContains(retorno, f'data-dia="{dia.isoformat()}"')
+
+    def test_gestor_nao_exclui_batida_de_fora_da_equipe(self):
+        outra = User.objects.create_user('outra_pessoa', first_name='Outra')
+        batida = _batida(outra, RegistroPonto.ENTRADA, _momento(self.hoje, 8))
+        self.client.force_login(self.gestor)
+
+        resposta = self.client.post(reverse('excluir_ponto', args=[batida.id]), {'motivo': 'Tentativa.'})
+
+        self.assertEqual(resposta.status_code, 404)
+        batida.refresh_from_db()
+        self.assertTrue(batida.ativo)
+
     def test_rejeitar_sem_motivo_mostra_o_erro(self):
         solicitacao = SolicitacaoAjustePonto.objects.create(
             funcionario=self.funcionario,
@@ -1318,6 +1362,78 @@ class FolgasBancoHorasTests(TestCase):
             self._folga(self.segunda + timedelta(days=7), Folga.COMPENSACAO, timedelta(hours=7, minutes=45))
             self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=1, minutes=15 + 120 - 3 * 465))
 
+    def test_cartao_mostra_saldo_do_banco_com_as_compensacoes(self):
+        from .models import Folga
+        from .services import saldo_banco_horas
+
+        terca, quarta = self.segunda + timedelta(days=1), self.segunda + timedelta(days=2)
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(self.segunda, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(self.segunda, 17))  # 9h: +1h15
+        self._folga(terca, Folga.COMPENSACAO, timedelta(hours=7, minutes=45))
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(quarta, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(quarta, 15, 45))  # jornada exata
+        with patch('django.utils.timezone.localdate', return_value=quarta):
+            item = montar_relatorio(None, self.pessoa, self.segunda, quarta, False)[0]
+            banco = preparar_cartao_ponto(item, self.segunda, quarta)['cartao']['banco']
+            ate_segunda = saldo_banco_horas(self.pessoa, ate=self.segunda)
+
+        self.assertEqual(
+            (banco['extras'], banco['faltas'], banco['compensacoes']), ('01:15', '00:00', '07:45')
+        )
+        self.assertEqual((banco['saldo_periodo'], banco['saldo_acumulado']), ('-06:30', '-06:30'))
+        self.assertEqual(banco['data_saldo'], quarta)
+        # Parando na segunda, a compensação de terça ainda não abate.
+        self.assertEqual(ate_segunda, timedelta(hours=1, minutes=15))
+
+    def _domingo_trabalhado(self):
+        """Domingo de 4h e uma semana seguinte de segunda a sábado com jornada exata (sábado de 2h)."""
+        domingo = self.segunda + timedelta(days=6)
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(domingo, 9))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(domingo, 13))
+        for dias in range(1, 6):
+            _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(domingo + timedelta(days=dias), 8))
+            _batida(self.pessoa, RegistroPonto.SAIDA, _momento(domingo + timedelta(days=dias), 15, 45))
+        sabado = domingo + timedelta(days=6)
+        return domingo, sabado
+
+    def test_domingo_vale_o_dobro_sem_folga_na_semana_seguinte(self):
+        from .services import configuracao_jornada, fator_do_dia, saldo_banco_horas
+
+        domingo, sabado = self._domingo_trabalhado()
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(sabado, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(sabado, 10))
+
+        self.assertEqual(fator_do_dia(self.pessoa, domingo, configuracao_jornada(self.pessoa, domingo)), 2)
+        with patch('django.utils.timezone.localdate', return_value=sabado):
+            # domingo 4h x 2 = 8h, mais as 2h do sábado
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=10))
+            item = montar_relatorio(None, self.pessoa, domingo, domingo, False)[0]
+            linha = preparar_cartao_ponto(item, domingo, domingo)['cartao']['linhas'][0]
+        self.assertEqual((linha['extras'], linha['observacao']), ('08:00', 'Dom. +100%'))
+
+    def test_domingo_vale_40_por_cento_com_folga_ou_sabado_livre(self):
+        from .models import Folga
+        from .services import configuracao_jornada, fator_do_dia, saldo_banco_horas
+
+        domingo, sabado = self._domingo_trabalhado()
+
+        configuracao = configuracao_jornada(self.pessoa, domingo)
+        self.assertEqual(fator_do_dia(self.pessoa, domingo, configuracao), 1.4)  # sábado sem trabalho
+        with patch('django.utils.timezone.localdate', return_value=sabado + timedelta(days=1)):
+            self.assertEqual(saldo_banco_horas(self.pessoa), timedelta(hours=5, minutes=36))  # 4h x 1,4
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(sabado, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(sabado, 10))
+        self._folga(domingo + timedelta(days=3), Folga.DISPENSA)
+        self.assertEqual(fator_do_dia(self.pessoa, domingo, configuracao), 1.4)  # folga na quarta
+        self.assertEqual(fator_do_dia(self.pessoa, sabado, configuracao_jornada(self.pessoa, sabado)), 1)
+
+    def test_hhmm_com_sinal(self):
+        from .utils import hhmm_com_sinal
+
+        self.assertEqual(hhmm_com_sinal(timedelta(hours=56, minutes=27)), '+56:27')
+        self.assertEqual(hhmm_com_sinal(-timedelta(hours=6, minutes=12)), '-06:12')
+        self.assertEqual(hhmm_com_sinal(timedelta(seconds=30)), '00:00')
+
     def test_folga_zera_carga_e_marca_cartao(self):
         from .models import Folga
         from .services import configuracao_jornada
@@ -1398,3 +1514,226 @@ class FolgasBancoHorasTests(TestCase):
         self.assertEqual(aviso_do_dia(self.pessoa, self.segunda)['titulo'], 'Feriado: Feriado local')
         self.assertEqual(aviso_do_dia(self.pessoa, self.segunda + timedelta(days=5))['titulo'], 'Folga semanal')
         self.assertIsNone(aviso_do_dia(self.pessoa, self.segunda + timedelta(days=1)))
+
+
+def _planilha(dias, cpf='02264845643'):
+    """Planilha de banco de horas no formato importado: CPF em Resumo!B3 e uma aba de mês a partir da linha 5."""
+    from openpyxl import Workbook
+
+    livro = Workbook()
+    livro.active.title = 'Resumo'
+    livro['Resumo']['B3'] = cpf
+    aba = livro.create_sheet('Outubro 2026')
+    aba.append(['Banco de Horas — Outubro 2026'])
+    for numero, (dia, marcado, horas) in enumerate(dias, start=5):
+        aba.cell(row=numero, column=1, value=datetime.combine(dia, time()))
+        aba.cell(row=numero, column=3, value=marcado)
+        for coluna, hora in enumerate(horas, start=4):
+            aba.cell(row=numero, column=coluna, value=hora)
+    aba.cell(row=len(dias) + 6, column=9, value='Total do mês:')
+    arquivo = BytesIO()
+    livro.save(arquivo)
+    return SimpleUploadedFile('banco_de_horas.xlsx', arquivo.getvalue())
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class ImportacaoPlanilhaTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('admin_planilha', first_name='Caio')
+        self.admin.perfil.papel = Perfil.PAPEL_ADMIN
+        self.admin.perfil.save()
+        self.pessoa = User.objects.create_user('gui_planilha', first_name='Guilherme', last_name='Lima')
+        self.pessoa.perfil.cpf = '02264845643'
+        self.pessoa.perfil.save()
+        self.client.force_login(self.admin)
+        self.dia_util = (date(2026, 10, 1), None, [time(8), time(12), time(13), time(16, 15), time(16, 30), time(18)])
+
+    def _importar(self, planilha):
+        return self.client.post(reverse('importar_planilha'), {'planilha': planilha}, follow=True)
+
+    def test_importa_batidas_folgas_e_respeita_feriados_cadastrados(self):
+        from .models import Feriado, Folga
+
+        Feriado.objects.create(data=date(2026, 10, 12), nome='Nossa Senhora Aparecida')
+        zerado = [time(0), time(0), time(0), time(16, 15), time(16, 30), time(0)]
+        planilha = _planilha([
+            self.dia_util,
+            (date(2026, 10, 9), 'S', []),
+            (date(2026, 10, 12), 'S', []),
+            (date(2026, 10, 16), None, zerado),
+            (date(2026, 10, 18), None, [time(11, 45), None, None, None, None, time(16, 50)]),
+            (date(2026, 10, 20), 's', zerado),
+            (date(2026, 10, 24), None, []),
+        ])
+
+        resposta = self._importar(planilha)
+
+        self.assertContains(resposta, 'Planilha de Guilherme Lima importada: 8 batidas e 3 folgas.')
+        horarios = [
+            timezone.localtime(r.data_hora).strftime('%d %H:%M')
+            for r in RegistroPonto.objects.filter(funcionario=self.pessoa, ativo=True)
+        ]
+        self.assertEqual(horarios, [
+            '01 08:00', '01 12:00', '01 13:00', '01 16:15', '01 16:30', '01 18:00', '18 11:45', '18 16:50',
+        ])
+        self.assertFalse(RegistroPonto.objects.filter(registrado_manualmente=False).exists())
+        criacoes = HistoricoAlteracaoPonto.objects.filter(tipo_acao=HistoricoAlteracaoPonto.CRIACAO_MANUAL)
+        self.assertEqual(criacoes.count(), 8)
+        lancadas = Folga.objects.filter(funcionario=self.pessoa)
+        folgas = {f.data.day: (f.tipo, f.motivo, f.horas_abatidas) for f in lancadas}
+        self.assertEqual(folgas, {
+            9: (Folga.DISPENSA, 'Day-Off', None),
+            16: (Folga.COMPENSACAO, 'Compensação do banco de horas', timedelta(hours=7, minutes=45)),
+            20: (Folga.DISPENSA, 'Folga negociada', None),
+        })
+
+    def test_planilha_substitui_batidas_e_folgas_do_mesmo_dia(self):
+        from .models import Folga
+
+        antiga = _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(date(2026, 10, 1), 9))
+        outro_dia = _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(date(2026, 10, 2), 9))
+        folga = Folga.objects.create(
+            funcionario=self.pessoa, data=date(2026, 10, 1), tipo=Folga.DISPENSA, motivo='Antiga',
+            lancada_por=self.admin,
+        )
+
+        resposta = self._importar(_planilha([self.dia_util]))
+
+        self.assertContains(resposta, 'Substituídas: 1 batidas e 1 folgas que já estavam no sistema.')
+        antiga.refresh_from_db()
+        outro_dia.refresh_from_db()
+        folga.refresh_from_db()
+        self.assertFalse(antiga.ativo)
+        self.assertTrue(outro_dia.ativo)
+        self.assertFalse(folga.ativa)
+        self.assertTrue(antiga.historico.filter(tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO).exists())
+
+    def test_cpf_digitado_como_numero_recupera_o_zero_da_frente(self):
+        from .services import ler_planilha_ponto
+
+        cpf, batidas, folgas, avisos = ler_planilha_ponto(_planilha([self.dia_util], cpf=2264845643))
+
+        self.assertEqual(cpf, '02264845643')
+        self.assertEqual(len(batidas), 6)
+        self.assertEqual((folgas, avisos), ([], []))
+
+    def test_dia_fora_de_ordem_e_datas_futuras_viram_avisos(self):
+        fora_de_ordem = (date(2026, 10, 2), None, [time(13), time(12), None, None, None, time(18)])
+
+        with patch('django.utils.timezone.localdate', return_value=date(2026, 9, 30)):
+            resposta = self._importar(_planilha([self.dia_util, fora_de_ordem]))
+
+        self.assertContains(resposta, '02/10/2026: os horários estão fora de ordem. O dia não foi importado.')
+        self.assertContains(resposta, 'Batidas em datas futuras não foram importadas: 01/10/2026.')
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_cpf_sem_cadastro_nao_grava_nada(self):
+        resposta = self._importar(_planilha([self.dia_util], cpf='11122233344'))
+
+        self.assertContains(resposta, 'Nenhum colaborador cadastrado com o CPF 111.222.333-44.')
+        self.assertFalse(RegistroPonto.objects.exists())
+
+    def test_arquivo_que_nao_e_planilha_e_recusado(self):
+        resposta = self._importar(SimpleUploadedFile('ponto.xlsx', b'nao sou uma planilha'))
+
+        self.assertContains(resposta, 'Não foi possível abrir o arquivo. Envie a planilha no formato .xlsx.')
+
+    def test_menu_meu_ponto_mostra_importacao_so_para_administrador(self):
+        link = f'href="{reverse("importar_planilha")}"'
+
+        self.assertContains(self.client.get(reverse('painel')), link)
+        self.admin.perfil.papel = Perfil.PAPEL_GESTOR
+        self.admin.perfil.save()
+        self.assertNotContains(self.client.get(reverse('painel')), link)
+
+    def test_somente_administrador_importa(self):
+        self.admin.perfil.papel = Perfil.PAPEL_GESTOR
+        self.admin.perfil.save()
+
+        self.assertEqual(self.client.get(reverse('importar_planilha')).status_code, 403)
+        self.assertEqual(self._importar(_planilha([self.dia_util])).status_code, 403)
+        self.assertFalse(RegistroPonto.objects.exists())
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
+class BancoHorasPorOrigemTests(TestCase):
+    """Descontos saem das horas positivas mais antigas; o total é sempre o de saldo_banco_horas."""
+
+    def setUp(self):
+        from .models import Jornada, VinculoJornada
+
+        self.gestor = User.objects.create_user('gestor_banco', first_name='Gil')
+        self.gestor.perfil.papel = Perfil.PAPEL_GESTOR
+        self.gestor.perfil.save()
+        self.pessoa = User.objects.create_user('pessoa_banco', first_name='Bia')
+        self.pessoa.perfil.gestor = self.gestor.perfil
+        self.pessoa.perfil.save()
+        # Jornada sem dias de trabalho: sem faltas no meio, cada dia trabalhado vira crédito inteiro.
+        jornada = Jornada.objects.create(nome='Sem expediente', semana={})
+        VinculoJornada.objects.create(perfil=self.pessoa.perfil, jornada=jornada, inicio=date(2026, 1, 1), semana={})
+        self.hoje = date(2026, 9, 30)
+
+    def _horas(self, dia, horas):
+        _batida(self.pessoa, RegistroPonto.ENTRADA, _momento(dia, 8))
+        _batida(self.pessoa, RegistroPonto.SAIDA, _momento(dia, 8 + horas))
+
+    def _compensacao(self, dia, horas):
+        from .models import Folga
+
+        Folga.objects.create(
+            funcionario=self.pessoa, data=dia, tipo=Folga.COMPENSACAO, horas_abatidas=horas, motivo='Teste',
+            lancada_por=self.gestor,
+        )
+
+    def test_folga_desconta_do_mes_mais_antigo(self):
+        from .services import banco_horas_por_origem, saldo_banco_horas
+
+        self._horas(date(2026, 7, 4), 10)
+        self._horas(date(2026, 8, 1), 10)
+        self._compensacao(date(2026, 9, 15), timedelta(hours=7, minutes=45))
+
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            banco = banco_horas_por_origem(self.pessoa)
+            saldo = saldo_banco_horas(self.pessoa)
+
+        restantes = [(m['mes'], m['restante']) for m in banco['meses']]
+        self.assertEqual(restantes, [(7, timedelta(hours=2, minutes=15)), (8, timedelta(hours=10))])
+        origem = {'data': date(2026, 7, 4), 'horas': timedelta(hours=7, minutes=45)}
+        self.assertEqual(banco['descontos'][0]['origens'], [origem])
+        self.assertEqual(banco['saldo'], saldo)
+        self.assertEqual(saldo, timedelta(hours=12, minutes=15))
+
+    def test_desconto_sem_horas_vira_devedor_e_e_pago_pelo_proximo_credito(self):
+        from .services import banco_horas_por_origem
+
+        self._horas(date(2026, 6, 6), 2)
+        self._compensacao(date(2026, 6, 10), timedelta(hours=5))
+        self._horas(date(2026, 7, 4), 10)
+
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            banco = banco_horas_por_origem(self.pessoa)
+
+        origens = [(o['data'].month, o['horas']) for o in banco['descontos'][0]['origens']]
+        self.assertEqual(origens, [(6, timedelta(hours=2)), (7, timedelta(hours=3))])
+        self.assertEqual((banco['devedor'], banco['saldo']), (timedelta(), timedelta(hours=7)))
+
+    def test_tela_mostra_o_banco_conforme_o_papel(self):
+        outra = User.objects.create_user('fora_da_equipe', first_name='Rui')
+        self._horas(date(2026, 7, 4), 10)
+        self._compensacao(date(2026, 9, 15), timedelta(hours=7, minutes=45))
+
+        self.client.force_login(self.pessoa)
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            propria = self.client.get(reverse('banco_de_horas'), {'funcionario': outra.pk})
+        self.assertContains(propria, '+2h15min')
+        self.assertContains(propria, 'julho de 2026 (7h45min)')
+        self.assertNotContains(propria, 'name="funcionario"')
+        self.assertNotContains(propria, 'Rui')
+
+        self.client.force_login(self.gestor)
+        with patch('django.utils.timezone.localdate', return_value=self.hoje):
+            da_equipe = self.client.get(reverse('banco_de_horas'), {'funcionario': self.pessoa.pk})
+            de_fora = self.client.get(reverse('banco_de_horas'), {'funcionario': outra.pk})
+        self.assertContains(da_equipe, '<h2 id="titulo-saldo">Bia</h2>', html=False)
+        self.assertContains(da_equipe, 'name="funcionario"')
+        self.assertContains(de_fora, '<h2 id="titulo-saldo">Gil</h2>', html=False)

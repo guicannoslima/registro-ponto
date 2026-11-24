@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from functools import wraps
 from smtplib import SMTPException
 from urllib.parse import urlencode
@@ -37,7 +37,7 @@ from .constants import (
     USUARIOS_POR_PAGINA,
 )
 from .email import BackendEmail
-from .exceptions import ErroBatida, ErroFacial, SemRosto
+from .exceptions import ErroBatida, ErroFacial, ErroImportacao, SemRosto
 from .forms import (
     AnoFeriadosForm,
     CadastroForm,
@@ -46,6 +46,7 @@ from .forms import (
     FolgaForm,
     FotoPerfilForm,
     HistoricoFiltroForm,
+    ImportarPlanilhaForm,
     JornadaForm,
     MotivoExclusaoForm,
     MotivoRejeicaoForm,
@@ -70,11 +71,13 @@ from .permissoes import funcionarios_visiveis
 from .relatorios import calcular_horas_dia, calcular_progresso, montar_relatorio
 from .services import (
     _gestor,
+    _pessoas,
     aviso_do_dia,
     cancelar_folga,
     configuracao_jornada,
     efeito_da_folga,
     estado_cadastro_facial,
+    importar_planilha_ponto,
     jornadas_para_listagem,
     lancar_folgas,
     linha_do_dia,
@@ -82,6 +85,7 @@ from .services import (
     pessoas_para_cadastro_facial,
     pessoas_para_relatorio,
     preparar_cartao_ponto,
+    quadro_banco_horas,
     registrar_batida,
     registrar_ponto_facial,
     remover_cadastro_facial,
@@ -224,11 +228,27 @@ def _contexto_batidas_do_dia(funcionarios, funcionario_id, data_texto):
         data = date.fromisoformat((data_texto or '')[:10])
     except (ValueError, TypeError, User.DoesNotExist):
         return {'funcionario_contexto': None}
+    registros = _registros_do_dia(funcionario, data)
+    linha = linha_do_dia(registros)
+    na_linha = {passo['registro'].pk for passo in linha if passo['registro']}
     return {
         'funcionario_contexto': funcionario,
         'data_contexto': data,
-        'linha_contexto': linha_do_dia(_registros_do_dia(funcionario, data)),
+        'linha_contexto': linha,
+        # Batidas repetidas do mesmo tipo ficam fora da linha; aparecem à parte para poderem ser excluídas.
+        'repetidas_contexto': [registro for registro in registros if registro.pk not in na_linha],
     }
+
+
+def _destino_apos_exclusao(request, registro):
+    """Volta ao lançamento manual com a pessoa e o dia da batida quando a exclusão veio de lá; senão, à Equipe."""
+    if request.GET.get('voltar') == 'manual':
+        parametros = urlencode({
+            'funcionario': registro.funcionario_id,
+            'data': timezone.localtime(registro.data_hora).date().isoformat(),
+        })
+        return f"{reverse('criar_ponto_manual')}?{parametros}"
+    return reverse('equipe')
 
 
 @login_required
@@ -268,6 +288,11 @@ def criar_ponto_manual(request):
         inicial = {}
         if funcionario_id and funcionarios.filter(pk=funcionario_id).exists():
             inicial['funcionario'] = funcionario_id
+        try:
+            # Volta de uma exclusão: o formulário já abre no dia que estava sendo ajustado; falta só a hora.
+            inicial['data_hora'] = datetime.combine(date.fromisoformat(request.GET.get('data', '')), time())
+        except ValueError:
+            pass
         form = RegistroManualForm(funcionarios=funcionarios, initial=inicial)
 
     contexto = {'form': form}
@@ -281,7 +306,11 @@ def excluir_ponto(request, registro_id):
         messages.error(request, 'Somente os gestores podem excluir pontos.')
         return redirect('painel')
 
-    registro = get_object_or_404(RegistroPonto, id=registro_id)
+    # Só batidas ativas de quem o usuário enxerga: gestor exclui da própria equipe, administrador de todos.
+    registro = get_object_or_404(
+        RegistroPonto, id=registro_id, ativo=True, funcionario__in=funcionarios_visiveis(request.user)
+    )
+    destino = _destino_apos_exclusao(request, registro)
 
     if request.method == 'POST':
         motivo_exclusao = MotivoExclusaoForm(request.POST)
@@ -289,13 +318,21 @@ def excluir_ponto(request, registro_id):
             registro.ativo = False
             registro.save()
             HistoricoAlteracaoPonto.objects.create(
-                tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO, registro=registro, realizado_por=request.user, motivo=motivo_exclusao.cleaned_data['motivo']
-             )
+                tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO,
+                registro=registro,
+                realizado_por=request.user,
+                motivo=motivo_exclusao.cleaned_data['motivo'],
+            )
             messages.success(request, 'Batida excluída. A alteração está no histórico.')
-            return redirect('equipe')
+            return redirect(destino)
     else:
         motivo_exclusao = MotivoExclusaoForm()
-    return render (request, 'ponto/excluir_ponto.html', {'form': motivo_exclusao, 'registro': registro})
+    return render(request, 'ponto/excluir_ponto.html', {
+        'form': motivo_exclusao,
+        'registro': registro,
+        'destino': destino,
+        'veio_do_manual': request.GET.get('voltar') == 'manual',
+    })
 
 
 @login_required
@@ -903,6 +940,44 @@ def feriado_formulario(request, feriado_id=None):
         messages.success(request, 'Feriado salvo.')
         return redirect(f"{reverse('feriados')}?ano={item.data.year}")
     return render(request, 'ponto/feriado_formulario.html', {'form': form})
+
+
+@login_required
+@require_http_methods(['GET'])
+def banco_de_horas(request):
+    """Colaborador vê o próprio banco; gestor, o seu e o da equipe; administrador, o de todos."""
+    pessoas = _pessoas(request.user).order_by('first_name', 'last_name', 'username')
+    escolhida = request.GET.get('funcionario', '')
+    pessoa = pessoas.filter(pk=escolhida if escolhida.isdigit() else request.user.pk).first() or request.user
+    return render(request, 'ponto/banco_de_horas.html', {
+        'pessoa': pessoa,
+        'pessoas': pessoas if pessoas.count() > 1 else None,
+        'banco': quadro_banco_horas(pessoa),
+    })
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def importar_planilha(request):
+    form = ImportarPlanilhaForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            resultado = importar_planilha_ponto(form.cleaned_data['planilha'], request.user)
+        except ErroImportacao as exc:
+            form.add_error('planilha', str(exc))
+        else:
+            nome = resultado['pessoa'].get_full_name() or resultado['pessoa'].username
+            texto = f'Planilha de {nome} importada: {resultado["batidas"]} batidas e {resultado["folgas"]} folgas.'
+            if resultado['batidas_substituidas'] or resultado['folgas_substituidas']:
+                texto += (
+                    f' Substituídas: {resultado["batidas_substituidas"]} batidas e '
+                    f'{resultado["folgas_substituidas"]} folgas que já estavam no sistema.'
+                )
+            messages.success(request, texto)
+            for aviso in resultado['avisos']:
+                messages.warning(request, aviso)
+            return redirect('importar_planilha')
+    return render(request, 'ponto/importar_planilha.html', {'form': form})
 
 
 @gestor_required

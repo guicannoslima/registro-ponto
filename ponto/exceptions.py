@@ -19,3 +19,7 @@ class CadastroFacialAusente(ErroFacial):
 
 class SemRosto(ErroFacial):
     """Nenhum rosto foi encontrado no enquadramento da câmera."""
+
+
+class ErroImportacao(Exception):
+    """A planilha de ponto não pode ser lida ou não corresponde a um colaborador."""

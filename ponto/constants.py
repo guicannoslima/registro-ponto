@@ -1,6 +1,6 @@
 """Constantes do app ponto: regras de jornada, limites das telas e textos fixos da interface."""
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from .models import RegistroPonto
 
@@ -11,6 +11,11 @@ JORNADA_DIARIA = timedelta(hours=7, minutes=45)
 
 # Diferenças de até 10 minutos, para mais ou para menos, não entram no saldo do dia
 TOLERANCIA_SALDO = timedelta(minutes=10)
+
+# Domingo trabalhado sem expediente previsto: a hora vale o dobro (+100%). Se a semana seguinte, de segunda a
+# sábado, tiver folga, feriado ou dia sem expediente não trabalhado (como o sábado), vale 40% a mais.
+FATOR_DOMINGO = 2
+FATOR_DOMINGO_COM_FOLGA = 1.4
 
 # Espera mínima entre duas batidas, contra cliques repetidos
 INTERVALO_MINIMO_MINUTOS = 10
@@ -106,3 +111,31 @@ FERIADOS_NACIONAIS = (
     (11, 20, 'Dia Nacional de Zumbi e da Consciência Negra'),
     (12, 25, 'Natal'),
 )
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Importação da planilha de banco de horas (ponto retroativo)
+# ---------------------------------------------------------------------------------------------------------------------
+PLANILHA_MAX_BYTES = 5 * 1024 * 1024
+PLANILHA_ABA_RESUMO = 'Resumo'
+# CPF do colaborador na aba Resumo: linha 3, coluna B
+PLANILHA_CELULA_CPF = (3, 2)
+# Nas abas de mês, os dias começam na linha 5: data na coluna A e "S" na coluna C para feriado ou folga
+PLANILHA_PRIMEIRA_LINHA = 5
+PLANILHA_COLUNA_DATA = 1
+PLANILHA_COLUNA_FOLGA = 3
+
+# Colunas D a I das abas de mês, na ordem das batidas
+COLUNAS_RELATORIO = {
+    4: RegistroPonto.ENTRADA,
+    5: RegistroPonto.SAIDA_ALMOCO,
+    6: RegistroPonto.VOLTA_ALMOCO,
+    7: RegistroPonto.SAIDA_CAFE,
+    8: RegistroPonto.VOLTA_CAFE,
+    9: RegistroPonto.SAIDA,
+}
+
+# Dia marcado com "S" e sem feriado cadastrado vira folga de dispensa com este motivo
+MOTIVO_FOLGA_IMPORTADA = 'Folga negociada'
+MOTIVOS_FOLGA_IMPORTADA_POR_DATA = {date(2026, 10, 9): 'Day-Off'}
+# Dia com os horários em 00:00 vira folga de compensação
+MOTIVO_COMPENSACAO_IMPORTADA = 'Compensação do banco de horas'

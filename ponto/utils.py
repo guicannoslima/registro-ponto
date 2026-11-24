@@ -102,6 +102,16 @@ def hhmm(delta):
     return f'{minutos // 60:02d}:{minutos % 60:02d}'
 
 
+def hhmm_com_sinal(delta):
+    """Saldo no formato do cartão ponto, com sinal ASCII para a fonte do PDF: '+56:27', '-06:12' ou '00:00'."""
+    minutos = int(delta.total_seconds() / 60)
+    if minutos == 0:
+        return '00:00'
+    sinal = '+' if minutos > 0 else '-'
+    horas, resto = divmod(abs(minutos), 60)
+    return f'{sinal}{horas:02d}:{resto:02d}'
+
+
 def formatar_timedelta(delta):
     total = delta.total_seconds()
     

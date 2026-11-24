@@ -6,15 +6,27 @@
                 <span class="lista-batidas__nome">{{ passo.nome }}</span>
                 {% if passo.registro %}
                     <span class="lista-batidas__hora">{{ passo.registro.data_hora|time:"H:i" }}</span>
+                    <a href="{% url 'excluir_ponto' passo.registro.id %}?voltar=manual" class="link lista-batidas__acao"
+                       aria-label="Excluir {{ passo.nome|lower }} das {{ passo.registro.data_hora|time:'H:i' }}">Excluir</a>
                 {% else %}
                     <span class="lista-batidas__hora lista-batidas__hora--vazia" aria-label="sem batida">—</span>
+                    <span class="lista-batidas__acao" aria-hidden="true"></span>
                 {% endif %}
+            </li>
+        {% endfor %}
+        {% for registro in repetidas_contexto %}
+            <li class="lista-batidas__repetida">
+                <span class="lista-batidas__nome">{{ registro.get_tipo_display }} (repetida)</span>
+                <span class="lista-batidas__hora">{{ registro.data_hora|time:"H:i" }}</span>
+                <a href="{% url 'excluir_ponto' registro.id %}?voltar=manual" class="link lista-batidas__acao"
+                   aria-label="Excluir {{ registro.get_tipo_display|lower }} repetida das {{ registro.data_hora|time:'H:i' }}">Excluir</a>
             </li>
         {% endfor %}
     </ul>
     <hr class="divisoria">
-    <p class="apoio pequeno">Atualiza ao escolher a pessoa e a data, para evitar batida duplicada.</p>
+    <p class="apoio pequeno">Atualiza ao escolher a pessoa e a data, para evitar batida duplicada. Use Excluir para
+        retirar uma batida errada; ela continua no histórico de alterações.</p>
 {% else %}
     <h2>Batidas já registradas</h2>
-    <p class="apoio">Escolha o colaborador e a data para ver as batidas que ele já tem no dia.</p>
+    <p class="apoio">Escolha o colaborador e a data para ver as batidas que ele já tem no dia e excluir as que estiverem erradas.</p>
 {% endif %}

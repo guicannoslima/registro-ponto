@@ -1,33 +1,57 @@
 """Regras, consultas e preparação dos dados de negócio do registro de ponto."""
 
-from collections import defaultdict
-from datetime import date, datetime, timedelta
+from collections import defaultdict, deque
+from datetime import date, datetime, time, timedelta
 from io import BytesIO
 from uuid import uuid4
+from zipfile import BadZipFile
 
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Exists, OuterRef
 from django.utils import timezone
+from openpyxl import load_workbook
+from openpyxl.utils.exceptions import InvalidFileException
 from PIL import Image, ImageOps
 
 from .constants import (
+    COLUNAS_RELATORIO,
     DIAS_ABREVIADOS,
     DIAS_UTEIS,
     FACIAL_LIMIAR,
+    FATOR_DOMINGO,
+    FATOR_DOMINGO_COM_FOLGA,
     FERIADOS_NACIONAIS,
     HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
+    MESES,
+    MOTIVO_COMPENSACAO_IMPORTADA,
+    MOTIVO_FOLGA_IMPORTADA,
+    MOTIVOS_FOLGA_IMPORTADA_POR_DATA,
+    PLANILHA_ABA_RESUMO,
+    PLANILHA_CELULA_CPF,
+    PLANILHA_COLUNA_DATA,
+    PLANILHA_COLUNA_FOLGA,
+    PLANILHA_PRIMEIRA_LINHA,
     ROTULOS_CURTOS,
     TOLERANCIA_SALDO,
 )
-from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial
+from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial, ErroImportacao
 from .facial import extrair_vetor, identificar
-from .models import CadastroFacial, Feriado, Folga, Jornada, Perfil, RegistroPonto, VinculoJornada
+from .models import (
+    CadastroFacial,
+    Feriado,
+    Folga,
+    HistoricoAlteracaoPonto,
+    Jornada,
+    Perfil,
+    RegistroPonto,
+    VinculoJornada,
+)
 from .permissoes import funcionarios_visiveis
-from .utils import formatar_timedelta, hhmm
+from .utils import formatar_saldo, formatar_timedelta, hhmm, hhmm_com_sinal
 
 
 def proximo_tipo(registros, tipos=None):
@@ -88,6 +112,7 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
     manuais = {(timezone.localtime(r.data_hora).date(), r.tipo) for r in registros if r.registrado_manualmente}
 
     totais = {'normais': timedelta(), 'faltas': timedelta(), 'extras': timedelta(), 'carga': timedelta()}
+    compensacoes = timedelta()
     linhas = []
     for dia in item['relatorio']:
         data, horarios = dia['data'], dia['horarios']
@@ -113,6 +138,8 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             observacao = 'Falta'
 
         folga = configuracao['folga']
+        if folga and folga.tipo == Folga.COMPENSACAO and folga.horas_abatidas:
+            compensacoes += folga.horas_abatidas
         if folga or configuracao['feriado']:
             if folga:
                 observacao = 'Folga comp.' if folga.tipo == Folga.COMPENSACAO else 'Folga'
@@ -120,6 +147,9 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
                 observacao = 'Feriado'
             if horarios and dia['status'] != 'Completo':
                 observacao += ' · Incompleto'
+        if dia.get('fator', 1) != 1:
+            # Domingo: a coluna EXTRAS já traz as horas com o adicional.
+            observacao = f'Dom. +{round((dia["fator"] - 1) * 100)}%'
 
         for chave, valor in (('normais', normais), ('faltas', faltas), ('extras', extras), ('carga', carga)):
             if valor:
@@ -159,10 +189,21 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
             pares = list(pares) + [('', '')] * (3 - len(pares))
         item['horario'].append({'nome': nome.upper(), 'pares': pares})
     item['jornada_nome'] = configuracao['nome']
+    # Mesma regra do banco de horas: extras menos faltas menos as folgas de compensação do período.
+    saldo_periodo = totais['extras'] - totais['faltas'] - compensacoes
+    data_saldo = min(data_fim, hoje)
     item['cartao'] = {
         'linhas': linhas,
         'totais': {chave: hhmm(valor) or '00:00' for chave, valor in totais.items()},
         'tem_manual': bool(manuais),
+        'banco': {
+            'extras': hhmm(totais['extras']) or '00:00',
+            'faltas': hhmm(totais['faltas']) or '00:00',
+            'compensacoes': hhmm(compensacoes) or '00:00',
+            'saldo_periodo': hhmm_com_sinal(saldo_periodo),
+            'saldo_acumulado': hhmm_com_sinal(saldo_banco_horas(item['funcionario'], ate=data_saldo)),
+            'data_saldo': data_saldo,
+        },
     }
     return item
 
@@ -399,39 +440,193 @@ def saldo_do_dia(trabalhado, carga):
     return timedelta() if abs(diferenca) <= TOLERANCIA_SALDO else diferenca
 
 
-def saldo_banco_horas(funcionario):
+def fator_do_dia(funcionario, data, configuracao, dias_com_batida=None, vinculos=None, feriados=None, folgas=None):
+    """Quanto vale cada hora trabalhada no dia: 1, ou o adicional de domingo sem expediente previsto.
+
+    No domingo a hora vale o dobro; se a semana seguinte (segunda a sábado) tiver folga, feriado ou dia sem
+    expediente que não foi trabalhado, vale 40% a mais. dias_com_batida (datas), vinculos, feriados e folgas podem
+    vir pré-carregados, como em configuracao_jornada.
+    """
+    if data.weekday() != 6 or configuracao['util']:
+        return 1
+    semana = [data + timedelta(days=dias) for dias in range(1, 7)]
+    if dias_com_batida is None:
+        momentos = RegistroPonto.objects.filter(
+            funcionario=funcionario, ativo=True, data_hora__date__range=(semana[0], semana[-1])
+        ).values_list('data_hora', flat=True)
+        dias_com_batida = {timezone.localtime(momento).date() for momento in momentos}
+    for dia in semana:
+        configuracao_do_dia = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)
+        sem_expediente = not configuracao_do_dia['util'] and dia not in dias_com_batida
+        if configuracao_do_dia['folga'] or configuracao_do_dia['feriado'] or sem_expediente:
+            return FATOR_DOMINGO_COM_FOLGA
+    return FATOR_DOMINGO
+
+
+MOVIMENTO_DIA = 'dia'
+MOVIMENTO_FALTA = 'falta'
+MOVIMENTO_COMPENSACAO = 'compensacao'
+ROTULOS_MOVIMENTO = {
+    MOVIMENTO_DIA: 'Dia abaixo da jornada',
+    MOVIMENTO_FALTA: 'Falta',
+    MOVIMENTO_COMPENSACAO: 'Folga de compensação',
+}
+
+
+def saldo_banco_horas(funcionario, ate=None):
     """Banco de horas acumulado desde a primeira batida, como nos sistemas de RH.
 
     Cada dia completo soma a diferença entre o trabalhado e a carga (com a tolerância); dia de carga prevista
     já passado sem nenhuma batida desconta a carga inteira. Feriados e folgas têm carga zero, então o trabalho
     nesses dias vira crédito. Folgas de compensação abatem as horas registradas no lançamento, inclusive as
     agendadas. Dias com batidas, mas sem entrada ou saída, ficam fora até o ajuste.
+
+    Com `ate` anterior a hoje, o saldo para nesse dia: só contam os dias e as compensações até ele.
+    """
+    return sum((movimento['horas'] for movimento in movimentos_banco_horas(funcionario, ate)), timedelta())
+
+
+def movimentos_banco_horas(funcionario, ate=None):
+    """Cada crédito e débito do banco de horas, dia a dia, com a regra de saldo_banco_horas.
+
+    Devolve dicionários com data, horas (positivas ou negativas) e tipo (dia, falta ou compensação).
     """
     hoje = timezone.localdate()
+    limite = min(ate, hoje) if ate else hoje
+    # O domingo olha a semana seguinte: batidas e feriados vão até 6 dias depois do limite.
+    ate_a_semana = limite + timedelta(days=6)
     por_dia = defaultdict(dict)
-    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=hoje)
+    registros = RegistroPonto.objects.filter(funcionario=funcionario, ativo=True, data_hora__date__lte=ate_a_semana)
     for registro in registros.only('tipo', 'data_hora'):
         por_dia[timezone.localtime(registro.data_hora).date()][registro.tipo] = registro.data_hora
 
     folgas_ativas = list(Folga.objects.filter(funcionario=funcionario, ativa=True))
-    saldo = -sum((f.horas_abatidas or timedelta() for f in folgas_ativas), timedelta())
+    abatidas = [f for f in folgas_ativas if not ate or ate >= hoje or f.data <= ate]
+    movimentos = [
+        {'data': f.data, 'horas': -f.horas_abatidas, 'tipo': MOVIMENTO_COMPENSACAO}
+        for f in abatidas
+        if f.horas_abatidas
+    ]
     if not por_dia:
-        return saldo
+        return sorted(movimentos, key=lambda movimento: movimento['data'])
 
     inicio = min(por_dia)
     vinculos = list(funcionario.perfil.jornadas.all())
-    feriados = {f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, hoje))}
+    feriados = {
+        f.data: f for f in Feriado.objects.filter(dispensa_expediente=True, data__range=(inicio, ate_a_semana))
+    }
     folgas = {f.data: f for f in folgas_ativas}
+    dias_com_batida = set(por_dia)
     dia = inicio
-    while dia <= hoje:
-        carga = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)['carga']
+    while dia <= limite:
+        configuracao = configuracao_jornada(funcionario, dia, vinculos, feriados, folgas)
+        carga = configuracao['carga']
         horarios = por_dia.get(dia, {})
         if RegistroPonto.ENTRADA in horarios and RegistroPonto.SAIDA in horarios:
-            saldo += saldo_do_dia(tempo_trabalhado(horarios), carga)
-        elif not horarios and dia < hoje:
-            saldo -= carga
+            fator = fator_do_dia(funcionario, dia, configuracao, dias_com_batida, vinculos, feriados, folgas)
+            horas = saldo_do_dia(tempo_trabalhado(horarios) * fator, carga)
+            if horas:
+                movimentos.append({'data': dia, 'horas': horas, 'tipo': MOVIMENTO_DIA})
+        elif not horarios and dia < hoje and carga:
+            movimentos.append({'data': dia, 'horas': -carga, 'tipo': MOVIMENTO_FALTA})
         dia += timedelta(days=1)
-    return saldo
+    # No mesmo dia, o crédito entra antes do débito.
+    return sorted(movimentos, key=lambda movimento: (movimento['data'], movimento['horas'] < timedelta()))
+
+
+def banco_horas_por_origem(funcionario):
+    """Banco de horas com a compensação pela ordem de origem: cada débito sai das horas positivas mais antigas.
+
+    Cada dia positivo forma um lote com a data em que as horas foram feitas. Dias negativos, faltas e folgas de
+    compensação consomem os lotes do mais antigo para o mais novo; sem horas disponíveis, o débito fica como
+    saldo devedor e é pago pelos próximos dias positivos. O total é o mesmo de saldo_banco_horas: a ordem só
+    define de onde as horas saem (e, quando houver prazo de vencimento, quais vencem primeiro).
+    """
+    lotes, descontos, pendentes = [], [], deque()
+    for movimento in movimentos_banco_horas(funcionario):
+        if movimento['horas'] > timedelta():
+            lote = {'data': movimento['data'], 'gerado': movimento['horas'], 'restante': movimento['horas']}
+            lotes.append(lote)
+            while pendentes and lote['restante']:
+                desconto = pendentes[0]
+                usado = min(desconto['faltando'], lote['restante'])
+                desconto['origens'].append({'data': lote['data'], 'horas': usado})
+                desconto['faltando'] -= usado
+                lote['restante'] -= usado
+                if not desconto['faltando']:
+                    pendentes.popleft()
+            continue
+        desconto = {**movimento, 'horas': -movimento['horas'], 'origens': [], 'faltando': -movimento['horas']}
+        descontos.append(desconto)
+        for lote in lotes:
+            if not desconto['faltando']:
+                break
+            usado = min(desconto['faltando'], lote['restante'])
+            if usado:
+                desconto['origens'].append({'data': lote['data'], 'horas': usado})
+                desconto['faltando'] -= usado
+                lote['restante'] -= usado
+        if desconto['faltando']:
+            pendentes.append(desconto)
+
+    meses = {}
+    for lote in lotes:
+        chave = (lote['data'].year, lote['data'].month)
+        mes = meses.setdefault(chave, {'gerado': timedelta(), 'restante': timedelta()})
+        mes['gerado'] += lote['gerado']
+        mes['restante'] += lote['restante']
+    devedor = sum((desconto['faltando'] for desconto in descontos), timedelta())
+    disponivel = sum((lote['restante'] for lote in lotes), timedelta())
+    return {
+        'meses': [
+            {'ano': ano, 'mes': mes, **valores, 'usado': valores['gerado'] - valores['restante']}
+            for (ano, mes), valores in sorted(meses.items())
+        ],
+        'descontos': descontos,
+        'disponivel': disponivel,
+        'devedor': devedor,
+        'saldo': disponivel - devedor,
+    }
+
+
+def _nome_do_mes(ano, mes):
+    return f'{MESES[mes - 1]} de {ano}'
+
+
+def quadro_banco_horas(funcionario):
+    """Banco de horas por mês de origem, pronto para a tela: totais, horas por mês e descontos com a origem."""
+    banco = banco_horas_por_origem(funcionario)
+    descontos = []
+    for desconto in banco['descontos']:
+        por_mes = defaultdict(timedelta)
+        for origem in desconto['origens']:
+            por_mes[(origem['data'].year, origem['data'].month)] += origem['horas']
+        saiu_de = [f'{_nome_do_mes(ano, mes)} ({formatar_timedelta(horas)})' for (ano, mes), horas in por_mes.items()]
+        if desconto['faltando']:
+            saiu_de.append(f'saldo devedor ({formatar_timedelta(desconto["faltando"])})')
+        descontos.append({
+            'data': desconto['data'],
+            'motivo': ROTULOS_MOVIMENTO[desconto['tipo']],
+            'horas': formatar_timedelta(desconto['horas']),
+            'saiu_de': saiu_de,
+        })
+    return {
+        'saldo': formatar_saldo(banco['saldo']),
+        'saldo_negativo': banco['saldo'] < timedelta(),
+        'disponivel': formatar_timedelta(banco['disponivel']),
+        'devedor': formatar_timedelta(banco['devedor']) if banco['devedor'] else None,
+        'meses': [
+            {
+                'nome': _nome_do_mes(mes['ano'], mes['mes']),
+                'gerado': formatar_timedelta(mes['gerado']),
+                'usado': formatar_timedelta(mes['usado']),
+                'restante': formatar_timedelta(mes['restante']),
+                'esgotado': not mes['restante'],
+            }
+            for mes in banco['meses']
+        ],
+        'descontos': descontos,
+    }
 
 
 def aviso_do_dia(usuario, data, configuracao=None):
@@ -585,4 +780,159 @@ def efeito_da_folga(funcionarios, dados):
         'efeito_data': data,
         'efeito_compensacao': compensacao,
         'efeito_insuficiente': [linha['pessoa'].get_full_name() for linha in linhas if linha['negativo']],
+    }
+
+
+def _hora_da_celula(valor):
+    """Horário de uma célula da planilha, ou None se estiver vazia. ValueError se não for um horário."""
+    if valor is None or (isinstance(valor, str) and not valor.strip()):
+        return None
+    if isinstance(valor, datetime):
+        return valor.time().replace(second=0, microsecond=0)
+    if isinstance(valor, time):
+        return valor.replace(second=0, microsecond=0)
+    if isinstance(valor, timedelta) and timedelta() <= valor < timedelta(days=1):
+        return (datetime.min + valor).time().replace(second=0, microsecond=0)
+    if isinstance(valor, str):
+        return datetime.strptime(valor.strip(), '%H:%M').time()
+    raise ValueError(valor)
+
+
+def _ler_dia_da_planilha(dia, linha, batidas, folgas, avisos):
+    marcado = str(linha[PLANILHA_COLUNA_FOLGA - 1] or '').strip().upper() == 'S'
+    horas = {}
+    for coluna, tipo in COLUNAS_RELATORIO.items():
+        valor = linha[coluna - 1] if len(linha) >= coluna else None
+        try:
+            hora = _hora_da_celula(valor)
+        except ValueError:
+            avisos.append(f'{dia:%d/%m/%Y}: horário "{valor}" não reconhecido. O dia não foi importado.')
+            return
+        if hora is not None:
+            horas[tipo] = hora
+
+    meia_noite = time(0, 0)
+    if marcado:
+        if any(hora != meia_noite for hora in horas.values()):
+            avisos.append(f'{dia:%d/%m/%Y}: marcado como feriado ou folga; os horários do dia foram ignorados.')
+        motivo = MOTIVOS_FOLGA_IMPORTADA_POR_DATA.get(dia, MOTIVO_FOLGA_IMPORTADA)
+        folgas.append({'data': dia, 'tipo': Folga.DISPENSA, 'motivo': motivo})
+        return
+    if not horas:
+        return
+    # O café fica de fora: nos dias de folga a planilha mantém 16:15 e 16:30 e zera o resto.
+    cafe = (RegistroPonto.SAIDA_CAFE, RegistroPonto.VOLTA_CAFE)
+    principais = [hora for tipo, hora in horas.items() if tipo not in cafe]
+    if principais and all(hora == meia_noite for hora in principais):
+        folgas.append({'data': dia, 'tipo': Folga.COMPENSACAO, 'motivo': MOTIVO_COMPENSACAO_IMPORTADA})
+        return
+    ordenadas = [horas[tipo] for tipo in RegistroPonto.ORDEM_TIPOS if tipo in horas]
+    if any(antes >= depois for antes, depois in zip(ordenadas, ordenadas[1:], strict=False)):
+        avisos.append(f'{dia:%d/%m/%Y}: os horários estão fora de ordem. O dia não foi importado.')
+        return
+    batidas.extend((dia, tipo, hora) for tipo, hora in horas.items())
+
+
+def ler_planilha_ponto(arquivo):
+    """Lê a planilha de banco de horas: o CPF da aba Resumo e, nas abas de mês, batidas e folgas.
+
+    Devolve (cpf, batidas, folgas, avisos): batidas como (data, tipo, hora), folgas como dicionários com
+    data, tipo e motivo, e avisos dos dias que não puderam ser lidos.
+    """
+    try:
+        livro = load_workbook(arquivo, data_only=True)
+    except (BadZipFile, InvalidFileException, KeyError, OSError) as exc:
+        raise ErroImportacao('Não foi possível abrir o arquivo. Envie a planilha no formato .xlsx.') from exc
+    if PLANILHA_ABA_RESUMO not in livro.sheetnames:
+        raise ErroImportacao(f'A planilha não tem a aba {PLANILHA_ABA_RESUMO}.')
+
+    linha_cpf, coluna_cpf = PLANILHA_CELULA_CPF
+    bruto = livro[PLANILHA_ABA_RESUMO].cell(row=linha_cpf, column=coluna_cpf).value
+    if bruto is None:
+        raise ErroImportacao('CPF não encontrado na aba Resumo, célula B3.')
+    if isinstance(bruto, float) and bruto.is_integer():
+        bruto = int(bruto)
+    # Digitado como número no Excel, o CPF perde os zeros da frente.
+    cpf = ''.join(letra for letra in str(bruto) if letra.isdigit()).zfill(11)
+    if len(cpf) != 11:
+        raise ErroImportacao('CPF inválido na aba Resumo. Ele deve ter 11 dígitos.')
+
+    batidas, folgas, avisos = [], [], []
+    for aba in livro.worksheets:
+        if aba.title == PLANILHA_ABA_RESUMO:
+            continue
+        for linha in aba.iter_rows(min_row=PLANILHA_PRIMEIRA_LINHA, values_only=True):
+            dia = linha[PLANILHA_COLUNA_DATA - 1] if linha else None
+            if isinstance(dia, datetime):
+                dia = dia.date()
+            if isinstance(dia, date):
+                _ler_dia_da_planilha(dia, linha, batidas, folgas, avisos)
+    return cpf, batidas, folgas, avisos
+
+
+@transaction.atomic
+def importar_planilha_ponto(arquivo, responsavel):
+    """Grava as batidas e folgas da planilha. Nos dias importados, o que já existia no sistema é substituído.
+
+    Batidas substituídas ficam inativas e entram no histórico; folgas substituídas são canceladas. Dias com
+    "S" que já são feriado no sistema ficam como estão.
+    """
+    cpf, batidas, folgas, avisos = ler_planilha_ponto(arquivo)
+    perfil = Perfil.objects.select_related('user').filter(cpf=cpf).first()
+    if perfil is None:
+        raise ErroImportacao(f'Nenhum colaborador cadastrado com o CPF {cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}.')
+    pessoa = perfil.user
+
+    hoje = timezone.localdate()
+    futuras = sorted({dia for dia, _, _ in batidas if dia > hoje})
+    if futuras:
+        datas = ', '.join(f'{dia:%d/%m/%Y}' for dia in futuras)
+        avisos.append(f'Batidas em datas futuras não foram importadas: {datas}.')
+        batidas = [batida for batida in batidas if batida[0] <= hoje]
+    dispensas = [folga['data'] for folga in folgas if folga['tipo'] == Folga.DISPENSA]
+    feriados = set(Feriado.objects.filter(data__in=dispensas, dispensa_expediente=True).values_list('data', flat=True))
+    folgas = [folga for folga in folgas if folga['data'] not in feriados]
+    dias = {dia for dia, _, _ in batidas} | {folga['data'] for folga in folgas}
+
+    nome = getattr(arquivo, 'name', '') or 'de ponto'
+    motivo = f'Importação da planilha {nome}.'
+    substituidas = list(RegistroPonto.objects.filter(funcionario=pessoa, ativo=True, data_hora__date__in=dias))
+    HistoricoAlteracaoPonto.objects.bulk_create(
+        HistoricoAlteracaoPonto(
+            registro=registro,
+            tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO,
+            realizado_por=responsavel,
+            motivo=f'Substituída pela importação da planilha {nome}.',
+        )
+        for registro in substituidas
+    )
+    RegistroPonto.objects.filter(pk__in=[registro.pk for registro in substituidas]).update(ativo=False)
+    folgas_canceladas = list(Folga.objects.filter(funcionario=pessoa, ativa=True, data__in=dias))
+    for folga in folgas_canceladas:
+        cancelar_folga(folga, responsavel)
+
+    for dia, tipo, hora in sorted(batidas):
+        registro = RegistroPonto.objects.create(
+            funcionario=pessoa,
+            tipo=tipo,
+            data_hora=timezone.make_aware(datetime.combine(dia, hora)),
+            registrado_manualmente=True,
+            observacao=motivo,
+        )
+        HistoricoAlteracaoPonto.objects.create(
+            registro=registro,
+            tipo_acao=HistoricoAlteracaoPonto.CRIACAO_MANUAL,
+            realizado_por=responsavel,
+            motivo=motivo,
+        )
+    for folga in sorted(folgas, key=lambda item: item['data']):
+        lancar_folgas([pessoa], folga['data'], folga['tipo'], folga['motivo'], responsavel)
+
+    return {
+        'pessoa': pessoa,
+        'batidas': len(batidas),
+        'folgas': len(folgas),
+        'batidas_substituidas': len(substituidas),
+        'folgas_substituidas': len(folgas_canceladas),
+        'avisos': avisos,
     }

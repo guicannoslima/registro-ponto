@@ -57,12 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!funcionario.value) {
             return;
         }
-        const data = (dataHora.value || '').slice(0, 10) || painel.dataset.hoje;
+        // Sem data no formulário, mantém o último dia mostrado no painel (por exemplo, ao voltar de uma exclusão).
+        const data = (dataHora.value || '').slice(0, 10) || painel.dataset.dia || painel.dataset.hoje;
         const parametros = new URLSearchParams({ parcial: '1', funcionario: funcionario.value, data });
         fetch(`${painel.dataset.url}?${parametros}`)
             .then((resposta) => (resposta.ok ? resposta.text() : Promise.reject(resposta.status)))
             .then((html) => {
                 painel.innerHTML = html;
+                painel.dataset.dia = data;
             })
             .catch(() => {
                 // Sem o painel atualizado o formulário continua funcionando normalmente.

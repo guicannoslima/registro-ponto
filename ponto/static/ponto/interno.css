@@ -220,6 +220,15 @@
     color: var(--perigo);
 }
 
+.principal-interno .messages .warning {
+    background: var(--atencao-fundo);
+    color: var(--atencao);
+}
+
+.principal-interno .messages li + li {
+    margin-top: 8px;
+}
+
 .aviso {
     padding: 12px 16px;
     border-radius: 8px;
@@ -621,6 +630,15 @@
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     text-align: right;
+}
+
+.lista-batidas__acao {
+    width: 56px;
+    text-align: right;
+}
+
+.lista-batidas__repetida .lista-batidas__nome {
+    color: var(--atencao);
 }
 
 .lista-batidas__hora--vazia {

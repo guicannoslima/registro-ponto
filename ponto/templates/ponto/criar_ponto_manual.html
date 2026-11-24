@@ -31,7 +31,8 @@
         </section>
 
         <aside class="cartao-interno" id="batidas-do-dia" aria-live="polite"
-               data-url="{% url 'criar_ponto_manual' %}" data-hoje="{% now 'Y-m-d' %}">
+               data-url="{% url 'criar_ponto_manual' %}" data-hoje="{% now 'Y-m-d' %}"
+               {% if data_contexto %}data-dia="{{ data_contexto|date:'Y-m-d' }}"{% endif %}>
             {% include 'ponto/_batidas_do_dia.html' %}
         </aside>
     </div>

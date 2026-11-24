@@ -1,0 +1,105 @@
+{% extends 'ponto/base_interna.html' %}
+
+{% block title %}Banco de horas - Registro de Ponto{% endblock %}
+
+{% block conteudo %}
+<div class="pagina">
+    <header class="titulo-pagina">
+        <div class="titulo-pagina__texto">
+            <h1>Banco de horas</h1>
+            <p class="apoio">Saldo calculado dia a dia. Folgas de compensação, faltas e dias abaixo da jornada descontam
+                primeiro das horas mais antigas.</p>
+        </div>
+    </header>
+
+    {% if pessoas %}
+        <section class="cartao-interno" aria-label="Escolher colaborador">
+            <form method="get" class="busca-usuarios">
+                <div class="campo">
+                    <label for="banco-funcionario">Colaborador</label>
+                    <select id="banco-funcionario" name="funcionario">
+                        {% for item in pessoas %}
+                            <option value="{{ item.pk }}"{% if item.pk == pessoa.pk %} selected{% endif %}>{{ item.get_full_name|default:item.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="busca-usuarios__acoes">
+                    <button class="btn btn--secundario" type="submit">Ver banco de horas</button>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+
+    <section class="cartao-interno" aria-labelledby="titulo-saldo">
+        <h2 id="titulo-saldo">{{ pessoa.get_full_name|default:pessoa.username }}</h2>
+        <dl class="resumo">
+            <dt>Saldo atual</dt>
+            <dd class="numero">{{ banco.saldo }}</dd>
+            <dt>Horas disponíveis</dt>
+            <dd class="numero">{{ banco.disponivel }}</dd>
+            {% if banco.devedor %}
+                <dt>Saldo devedor</dt>
+                <dd class="numero">{{ banco.devedor }}</dd>
+            {% endif %}
+        </dl>
+    </section>
+
+    <section class="cartao-interno" aria-labelledby="titulo-meses">
+        <h2 id="titulo-meses">Horas por mês de origem</h2>
+        <p class="apoio">De cada mês: as horas extras feitas, quanto já foi usado para compensar e quanto ainda sobra.</p>
+        <div class="tabela-rolagem">
+            <table class="tabela-interna">
+                <thead>
+                    <tr>
+                        <th scope="col">Mês</th>
+                        <th scope="col" class="direita">Horas feitas</th>
+                        <th scope="col" class="direita">Usadas</th>
+                        <th scope="col" class="direita">Disponíveis</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mes in banco.meses %}
+                        <tr>
+                            <td>{{ mes.nome|capfirst }}</td>
+                            <td class="direita numero">{{ mes.gerado }}</td>
+                            <td class="direita numero">{{ mes.usado }}</td>
+                            <td class="direita numero">{% if mes.esgotado %}<span class="selo selo--neutro">Esgotado</span>{% else %}{{ mes.restante }}{% endif %}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4">Ainda não há horas extras no banco.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="cartao-interno" aria-labelledby="titulo-descontos">
+        <h2 id="titulo-descontos">Descontos</h2>
+        <p class="apoio">Cada desconto e de quais meses as horas saíram.</p>
+        <div class="tabela-rolagem">
+            <table class="tabela-interna">
+                <thead>
+                    <tr>
+                        <th scope="col">Data</th>
+                        <th scope="col">Motivo</th>
+                        <th scope="col" class="direita">Horas</th>
+                        <th scope="col">Saiu de</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for desconto in banco.descontos %}
+                        <tr>
+                            <td class="numero">{{ desconto.data|date:'d/m/Y' }}</td>
+                            <td>{{ desconto.motivo }}</td>
+                            <td class="direita numero">{{ desconto.horas }}</td>
+                            <td>{{ desconto.saiu_de|join:', ' }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="4">Nenhum desconto no banco de horas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+{% endblock %}
