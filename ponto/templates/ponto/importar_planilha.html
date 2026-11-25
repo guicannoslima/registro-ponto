@@ -12,9 +12,11 @@
         <form method="post" enctype="multipart/form-data" class="campos" novalidate>
             {% csrf_token %}
             {% include 'ponto/_erros_formulario.html' %}
+            {% include 'ponto/_campo.html' with campo=form.funcionario %}
             {% include 'ponto/_campo.html' with campo=form.planilha %}
             <ul class="apoio">
-                <li>O colaborador é encontrado pelo CPF da aba Resumo.</li>
+                <li>As batidas e folgas vão para o colaborador escolhido. Se o CPF da aba Resumo for de outra
+                    pessoa cadastrada, nada é importado.</li>
                 <li>Cada aba de mês vira batidas: entrada, almoço, café e saída.</li>
                 <li>Dia com os horários em 00:00 vira folga de compensação, que abate do banco de horas.</li>
                 <li>Dia marcado com "S" vira folga negociada, a menos que já seja feriado no sistema.</li>

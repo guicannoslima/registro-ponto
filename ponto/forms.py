@@ -495,14 +495,25 @@ class FolgaForm(forms.Form):
 
 
 class ImportarPlanilhaForm(forms.Form):
+    funcionario = FuncionarioChoiceField(
+        label='Colaborador',
+        queryset=User.objects.none(),
+        empty_label='Selecione o colaborador',
+        error_messages={'required': 'Escolha para quem a planilha será importada.'},
+    )
     planilha = forms.FileField(
         label='Planilha de banco de horas',
         widget=forms.FileInput(
             attrs={'accept': '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}
         ),
-        help_text='Arquivo .xlsx de até 5 MB, com o CPF na aba Resumo e uma aba por mês.',
+        help_text='Arquivo .xlsx de até 5 MB, com uma aba por mês.',
         error_messages={'required': 'Escolha a planilha que será importada.'},
     )
+
+    def __init__(self, *args, funcionarios=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if funcionarios is not None:
+            self.fields['funcionario'].queryset = funcionarios
 
     def clean_planilha(self):
         planilha = self.cleaned_data['planilha']
