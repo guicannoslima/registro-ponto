@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from .models import Perfil
+
 
 def funcionarios_visiveis(usuario):
     perfil = usuario.perfil

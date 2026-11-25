@@ -1,7 +1,9 @@
 # Ponto de retomada
 
-Estado em 19/11/2026, revisão `c542991` publicada em `origin/main`; instalação automática em `9aacf61`, local, sem push. Esta página diz o que já
+Estado em 25/11/2026, revisão `844b0b7` publicada em `origin/main`. Esta página diz o que já
 foi feito, o que está pendente e como continuar o trabalho sem repetir o que já se decidiu.
+O que entrou de 23 a 25/11 está em [Revisão de 23 a 25/11](#revisão-de-23-a-2511--planilha-banco-de-horas-e-ajustes);
+o texto logo abaixo é o histórico até 19/11.
 
 Revisão local posterior, sem push: reconhecimento facial pessoal e terminal compartilhado
 implementados; dependências e modelos instalados, migração `0007` aplicada no banco local.
@@ -57,14 +59,16 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 
 | Área | Estado |
 | --- | --- |
-| Ambiente | Python 3.12 em `.venv`, Django 5.2 LTS, PostgreSQL local; Docker validado ([Implantação](IMPLANTACAO.md)) |
+| Ambiente | `venv` do PyCharm (Python 3.13), Django 5.2 LTS, PostgreSQL local; Docker Desktop local na porta 8000 ([Implantação](IMPLANTACAO.md)) |
+| Produção | `srv-ponto`, https://ponto.primecartorios.com.br, HTTPS com renovação automática; câmera testada pelo usuário em 25/11 |
 | Telas internas | Redesenhadas a partir da proposta aprovada no Figcraft ([design](../design/README.md)) |
 | Página inicial | Abas **Hoje**, **Ontem** e **Sua equipe** (gestor), anel da jornada e linha do dia |
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 111 testes em `ponto/tests.py`, suíte completa aprovada em 19/11 ([Testes](TESTES.md)) |
-| Folgas e banco de horas | Gestão › Folgas (dispensa e compensação), banco de horas desde a primeira batida, aviso do dia no painel ([Uso](USO.md#folgas-e-banco-de-horas)) |
+| Testes | 136 testes em `ponto/tests.py`; em 25/11, 135 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
+| Folgas e banco de horas | Gestão › Folgas, banco de horas desde a primeira batida com adicional de domingo, tela por mês de origem e saldo no cartão ponto ([Uso](USO.md#folgas-e-banco-de-horas)) |
+| Planilha retroativa | Importação de `.xlsx` de banco de horas; o administrador acha o colaborador pelo CPF e o gestor escolhe o colaborador |
 | Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
 | Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
@@ -96,10 +100,13 @@ batendo ou não o café, e o painel conta o tempo de café em andamento. Não me
   teste. Em 25/11 a suíte rodou num container temporário com o código montado
   (`docker compose run --rm --no-deps -v "${PWD}:/app" -v /app/staticfiles --entrypoint python
   web manage.py test ponto`): 135 de 136, só a falha conhecida da foto de perfil.
-- **Lint:** `ruff check .` acusa 20 avisos, todos de código anterior ao Ruff (linhas longas em
-  `views.py` e `urls.py`, imports fora de ordem, avisos de Django nos models).
-- **Testes de regra:** cálculo de horas e permissões ainda sem testes próprios
-  ([próximas coberturas](TESTES.md#próximas-coberturas)).
+- **Lint:** em 25/11 os imports e as linhas longas foram corrigidos, sem mudança de
+  comportamento. Restam três avisos em `ponto/models.py`, deixados de propósito porque mudam
+  o sistema: DJ008 (sem `__str__` em `HistoricoAlteracaoPonto` e `SolicitacaoAjustePonto`,
+  muda o texto no admin) e DJ001 (`null=True` no `tipo` da solicitação, exige migração).
+- **Próximos, combinados com o usuário em 25/11 para depois do próximo ajuste:** testes
+  próprios do cálculo de horas e das permissões ([próximas coberturas](TESTES.md#próximas-coberturas))
+  e a permissão para o usuário do PostgreSQL local criar o banco de teste.
 
 ## Ambiente local
 
@@ -113,6 +120,12 @@ batendo ou não o café, e o painel conta o tempo de café em andamento. Não me
   `bruno`, `carla`, `diego`, `elisa` colaboradores; senha `senha-forte-123`). Para usar:
   `DB_NAME=registro_ponto_design python manage.py runserver 127.0.0.1:8766`. Pode ser apagado.
 - O usuário roda o servidor pelo PyCharm na porta 8000; use outra porta para testes.
+- Docker Desktop local configurado em 25/11 (depois de ativar a Plataforma de Máquina Virtual):
+  `compose.yaml` publica a mesma porta 8000, por escolha do usuário, então PyCharm e Docker
+  não rodam juntos. O banco do Docker é separado e começa vazio. Guia de comandos entregue em
+  PDF na área de trabalho do usuário.
+- Em 25/11 o `venv` do PyCharm recebeu as dependências de `requirements/development.txt`
+  (faltava o `openpyxl` da importação de planilha). Reinstale ao puxar mudanças em `requirements/`.
 - `.idea/` não é versionada; a configuração recomendada está em [Desenvolvimento](DESENVOLVIMENTO.md#pycharm).
 
 ## Design no Figcraft
@@ -227,8 +240,8 @@ Certbot instalado; TXT publicado e conferido no DNS público do Google. Usuário
 confirmação de certificado emitido, válido até **20/02/2027**, em
 `/etc/letsencrypt/live/ponto.primecartorios.com.br/`. Reexecutou o instalador sem erros e
 confirmou acesso HTTPS sem aviso e login com administrador. Pacote Nginx
-`1.24.0-2ubuntu7.21`, configuração válida, serviço reiniciado e ativo. Teste específico
-da câmera ainda sem confirmação.
+`1.24.0-2ubuntu7.21`, configuração válida, serviço reiniciado e ativo. Câmera testada e
+funcionando em produção, confirmado pelo usuário em 25/11.
 
 **Renovação automática configurada:** plugin `python3-certbot-dns-cloudflare` instalado,
 credencial em `/etc/letsencrypt/cloudflare.ini` com permissão 600. `certbot reconfigure`
@@ -240,3 +253,29 @@ agendada e uma renovação real ainda não foram observadas.
 [Estado e procedimento](INSTALACAO.md#https-manual-e-automação-posterior--22112026).
 
 Continuar orientando o usuário uma etapa por vez, aguardando a saída de cada etapa.
+
+## Revisão de 23 a 25/11 — planilha, banco de horas e ajustes
+
+Publicada em `origin/main` pelos PRs #2 a #4 e pelos commits de 25/11. Migração `0014`
+(funções iniciais) entra em todo banco novo.
+
+- **Importação de planilha retroativa** (`b5f89ee`, `8aaff08`): Meu ponto › Importar planilha
+  de ponto recebe o `.xlsx` de banco de horas. O administrador encontra o colaborador pelo CPF
+  da aba Resumo; o gestor escolhe o colaborador. Cada aba de mês vira batidas, inclusive o café.
+  Dia com horários em 00:00 vira folga de compensação e dia com "S", folga negociada, salvo
+  feriado. Nos dias importados a planilha prevalece: batidas existentes ficam inativas no
+  histórico e folgas são canceladas. Datas futuras e horários fora de ordem viram avisos.
+- **Saldo no cartão ponto** (`94638f8`): quadro Banco de horas abaixo dos totais do PDF, com
+  extras, faltas, compensações, saldo do período e saldo acumulado.
+- **Adicional de domingo** (`2a4a668`): domingo sem expediente previsto vale +100%; +40% se a
+  semana seguinte tiver folga, feriado ou dia sem expediente não trabalhado. Entra no banco e
+  nas EXTRAS do cartão, com a observação Dom. +100% ou Dom. +40%.
+- **Banco de horas por mês de origem** (`9cde5c3`): Meu ponto › Banco de horas. Cada dia
+  positivo forma um lote; compensações, faltas e dias abaixo da jornada consomem os lotes do
+  mais antigo para o mais novo. Base para a validade das horas, ainda sem regra.
+- **Exclusão pelo lançamento manual** (`1e0f856`) e **exclusão restrita à equipe visível**
+  (`47690e4`).
+- **Funções iniciais em todo banco novo** (`039f965`).
+- **25/11:** decisão do café (conta como hora trabalhada; ver decisões pendentes), aprovação e
+  rejeição só de pedidos pendentes (`8a7ad8e`), `venv` atualizado, Docker local e limpeza do
+  Ruff sem mudança de comportamento.

@@ -129,10 +129,10 @@ class Perfil(models.Model):
 
     foto = models.ImageField(upload_to='perfis/', blank=True, verbose_name='foto de perfil')
 
+    cpf = models.CharField(max_length=11, unique=True, null=True, blank=True)
+
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} ({self.get_papel_display()})"
-
-    cpf = models.CharField(max_length=11, unique=True, null=True, blank=True)
 
 class RegistroPonto(models.Model):
 

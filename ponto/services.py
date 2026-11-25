@@ -836,8 +836,9 @@ def _ler_dia_da_planilha(dia, linha, batidas, folgas, avisos):
 def ler_planilha_ponto(arquivo):
     """Lê a planilha de banco de horas: o CPF da aba Resumo e, nas abas de mês, batidas e folgas.
 
-    Devolve (cpf, batidas, folgas, avisos), com cpf None quando a célula B3 está vazia: batidas como (data, tipo, hora), folgas como dicionários com
-    data, tipo e motivo, e avisos dos dias que não puderam ser lidos.
+    Devolve (cpf, batidas, folgas, avisos), com cpf None quando a célula B3 está vazia: batidas como
+    (data, tipo, hora), folgas como dicionários com data, tipo e motivo, e avisos dos dias que não
+    puderam ser lidos.
     """
     try:
         livro = load_workbook(arquivo, data_only=True)

@@ -471,7 +471,11 @@ def rejeitar_solicitacao(request, solicitacao_id):
             return redirect ('solicitacoes_pendentes')
     else:
         motivo_rejeicao = MotivoRejeicaoForm()
-    return render (request, 'ponto/rejeitar_solicitacao.html', {'solicitacao': solicitacao, 'motivo_rejeicao': motivo_rejeicao})
+    return render(
+        request,
+        'ponto/rejeitar_solicitacao.html',
+        {'solicitacao': solicitacao, 'motivo_rejeicao': motivo_rejeicao},
+    )
 
 
 @login_required

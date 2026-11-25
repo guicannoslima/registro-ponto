@@ -1,5 +1,7 @@
 from django.contrib import admin
-from .models import Perfil, RegistroPonto, HistoricoAlteracaoPonto, SolicitacaoAjustePonto, Funcao
+
+from .models import Funcao, HistoricoAlteracaoPonto, Perfil, RegistroPonto, SolicitacaoAjustePonto
+
 
 @admin.register(Perfil)
 class PerfilAdmin(admin.ModelAdmin):
