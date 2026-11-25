@@ -300,6 +300,62 @@ class TelasInternasTests(TestCase):
 
         self.assertContains(resposta, 'Informe o motivo da rejeição para continuar.')
 
+    def _pedido_de_saida(self):
+        return SolicitacaoAjustePonto.objects.create(
+            funcionario=self.funcionario,
+            tipo_acao=SolicitacaoAjustePonto.CRIACAO,
+            tipo=RegistroPonto.SAIDA,
+            data_hora=_momento(self.hoje, 17),
+            motivo_funcionario='Esqueci a saída.',
+        )
+
+    def test_aprovar_duas_vezes_nao_duplica_a_batida(self):
+        solicitacao = self._pedido_de_saida()
+        self.client.force_login(self.gestor)
+        url = reverse('aprovar_solicitacao', args=[solicitacao.id])
+
+        self.client.post(url)
+        repetida = self.client.post(url, follow=True)
+
+        self.assertContains(repetida, 'Esta solicitação já foi analisada.')
+        saidas = RegistroPonto.objects.filter(funcionario=self.funcionario, tipo=RegistroPonto.SAIDA)
+        inclusoes = HistoricoAlteracaoPonto.objects.filter(tipo_acao=HistoricoAlteracaoPonto.CRIACAO_MANUAL)
+        self.assertEqual(saidas.count(), 1)
+        self.assertEqual(inclusoes.count(), 1)
+
+    def test_aprovar_exclusao_duas_vezes_registra_um_historico(self):
+        entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(self.hoje, 8))
+        solicitacao = SolicitacaoAjustePonto.objects.create(
+            funcionario=self.funcionario,
+            tipo_acao=SolicitacaoAjustePonto.EXCLUSAO,
+            registro=entrada,
+            motivo_funcionario='Bati sem querer.',
+        )
+        self.client.force_login(self.gestor)
+        url = reverse('aprovar_solicitacao', args=[solicitacao.id])
+
+        self.client.post(url)
+        self.client.post(url)
+
+        entrada.refresh_from_db()
+        self.assertFalse(entrada.ativo)
+        self.assertEqual(entrada.historico.filter(tipo_acao=HistoricoAlteracaoPonto.EXCLUSAO).count(), 1)
+
+    def test_pedido_aprovado_nao_pode_ser_rejeitado(self):
+        solicitacao = self._pedido_de_saida()
+        self.client.force_login(self.gestor)
+        self.client.post(reverse('aprovar_solicitacao', args=[solicitacao.id]))
+        url = reverse('rejeitar_solicitacao', args=[solicitacao.id])
+
+        tela = self.client.get(url)
+        resposta = self.client.post(url, {'motivo_rejeicao': 'Mudei de ideia.'})
+
+        self.assertRedirects(tela, reverse('solicitacoes_pendentes'), fetch_redirect_response=False)
+        self.assertRedirects(resposta, reverse('solicitacoes_pendentes'), fetch_redirect_response=False)
+        solicitacao.refresh_from_db()
+        self.assertEqual(solicitacao.status, SolicitacaoAjustePonto.APROVADO)
+        self.assertEqual(solicitacao.motivo_rejeicao, '')
+
     def test_historico_filtra_por_acao(self):
         entrada = _batida(self.funcionario, RegistroPonto.ENTRADA, _momento(self.hoje, 8))
         HistoricoAlteracaoPonto.objects.create(

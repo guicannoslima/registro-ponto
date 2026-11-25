@@ -12,6 +12,7 @@ from django.contrib.staticfiles import finders
 from django.core.exceptions import ImproperlyConfigured
 from django.core.mail import EmailMessage
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Q
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -440,12 +441,24 @@ def solicitacoes_pendentes(request):
     return render(request, 'ponto/solicitacoes_pendentes.html', {'solicitacoes': solicitacoes})
 
 
+def _solicitacao_ja_analisada(request, solicitacao):
+    """Aprovar ou rejeitar só vale para pedido pendente: repetir a aprovação duplicaria a batida."""
+    if solicitacao.status == SolicitacaoAjustePonto.PENDENTE:
+        return None
+    messages.error(request, 'Esta solicitação já foi analisada.')
+    return redirect('solicitacoes_pendentes')
+
+
 @login_required
+@transaction.atomic
 def rejeitar_solicitacao(request, solicitacao_id):
-    solicitacao = get_object_or_404(SolicitacaoAjustePonto, id=solicitacao_id)
     if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
         messages.error(request, 'Somente gestores tem acesso a essa página.')
         return redirect ('painel')
+    # O bloqueio da linha impede que dois cliques ao mesmo tempo analisem o mesmo pedido.
+    solicitacao = get_object_or_404(SolicitacaoAjustePonto.objects.select_for_update(), id=solicitacao_id)
+    if analisada := _solicitacao_ja_analisada(request, solicitacao):
+        return analisada
 
     if request.method == 'POST':
         motivo_rejeicao = MotivoRejeicaoForm(request.POST)
@@ -463,11 +476,14 @@ def rejeitar_solicitacao(request, solicitacao_id):
 
 @login_required
 @require_POST
+@transaction.atomic
 def aprovar_solicitacao(request, solicitacao_id):
-    solicitacao = get_object_or_404(SolicitacaoAjustePonto, id=solicitacao_id)
     if request.user.perfil.papel == Perfil.PAPEL_FUNCIONARIO:
         messages.error(request, 'Somente gestores podem aprovar.')
         return redirect ('painel')
+    solicitacao = get_object_or_404(SolicitacaoAjustePonto.objects.select_for_update(), id=solicitacao_id)
+    if analisada := _solicitacao_ja_analisada(request, solicitacao):
+        return analisada
     if solicitacao.tipo_acao == SolicitacaoAjustePonto.CRIACAO:
         registro = RegistroPonto.objects.create(
             tipo = solicitacao.tipo,
