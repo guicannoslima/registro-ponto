@@ -956,13 +956,16 @@ def banco_de_horas(request):
     })
 
 
-@administrador_required
+@gestor_required
 @require_http_methods(['GET', 'POST'])
 def importar_planilha(request):
-    form = ImportarPlanilhaForm(request.POST or None, request.FILES or None)
+    funcionarios = funcionarios_visiveis(request.user).filter(is_active=True).order_by('first_name', 'last_name')
+    form = ImportarPlanilhaForm(request.POST or None, request.FILES or None, funcionarios=funcionarios)
     if request.method == 'POST' and form.is_valid():
         try:
-            resultado = importar_planilha_ponto(form.cleaned_data['planilha'], request.user)
+            resultado = importar_planilha_ponto(
+                form.cleaned_data['planilha'], form.cleaned_data['funcionario'], request.user
+            )
         except ErroImportacao as exc:
             form.add_error('planilha', str(exc))
         else:

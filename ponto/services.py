@@ -836,7 +836,7 @@ def _ler_dia_da_planilha(dia, linha, batidas, folgas, avisos):
 def ler_planilha_ponto(arquivo):
     """Lê a planilha de banco de horas: o CPF da aba Resumo e, nas abas de mês, batidas e folgas.
 
-    Devolve (cpf, batidas, folgas, avisos): batidas como (data, tipo, hora), folgas como dicionários com
+    Devolve (cpf, batidas, folgas, avisos), com cpf None quando a célula B3 está vazia: batidas como (data, tipo, hora), folgas como dicionários com
     data, tipo e motivo, e avisos dos dias que não puderam ser lidos.
     """
     try:
@@ -848,13 +848,12 @@ def ler_planilha_ponto(arquivo):
 
     linha_cpf, coluna_cpf = PLANILHA_CELULA_CPF
     bruto = livro[PLANILHA_ABA_RESUMO].cell(row=linha_cpf, column=coluna_cpf).value
-    if bruto is None:
-        raise ErroImportacao('CPF não encontrado na aba Resumo, célula B3.')
     if isinstance(bruto, float) and bruto.is_integer():
         bruto = int(bruto)
     # Digitado como número no Excel, o CPF perde os zeros da frente.
-    cpf = ''.join(letra for letra in str(bruto) if letra.isdigit()).zfill(11)
-    if len(cpf) != 11:
+    digitos = ''.join(letra for letra in str(bruto or '') if letra.isdigit())
+    cpf = digitos.zfill(11) if digitos else None
+    if cpf and len(cpf) != 11:
         raise ErroImportacao('CPF inválido na aba Resumo. Ele deve ter 11 dígitos.')
 
     batidas, folgas, avisos = [], [], []
@@ -871,17 +870,21 @@ def ler_planilha_ponto(arquivo):
 
 
 @transaction.atomic
-def importar_planilha_ponto(arquivo, responsavel):
-    """Grava as batidas e folgas da planilha. Nos dias importados, o que já existia no sistema é substituído.
+def importar_planilha_ponto(arquivo, pessoa, responsavel):
+    """Grava as batidas e folgas da planilha para a pessoa escolhida na tela.
 
-    Batidas substituídas ficam inativas e entram no histórico; folgas substituídas são canceladas. Dias com
-    "S" que já são feriado no sistema ficam como estão.
+    Nos dias importados, o que já existia no sistema é substituído: batidas ficam inativas e entram no
+    histórico; folgas são canceladas. Dias com "S" que já são feriado no sistema ficam como estão. Se o CPF
+    da planilha pertence a outra pessoa cadastrada, nada é gravado, para não lançar o arquivo errado.
     """
     cpf, batidas, folgas, avisos = ler_planilha_ponto(arquivo)
-    perfil = Perfil.objects.select_related('user').filter(cpf=cpf).first()
-    if perfil is None:
-        raise ErroImportacao(f'Nenhum colaborador cadastrado com o CPF {cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}.')
-    pessoa = perfil.user
+    dono = Perfil.objects.select_related('user').filter(cpf=cpf).exclude(user=pessoa).first() if cpf else None
+    if dono is not None:
+        nome = dono.user.get_full_name() or dono.user.username
+        raise ErroImportacao(
+            f'O CPF da planilha ({cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}) é de {nome}. '
+            'Confira o arquivo ou o colaborador escolhido.'
+        )
 
     hoje = timezone.localdate()
     futuras = sorted({dia for dia, _, _ in batidas if dia > hoje})

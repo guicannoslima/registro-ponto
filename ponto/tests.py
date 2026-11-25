@@ -1556,8 +1556,9 @@ class ImportacaoPlanilhaTests(TestCase):
         self.client.force_login(self.admin)
         self.dia_util = (date(2026, 10, 1), None, [time(8), time(12), time(13), time(16, 15), time(16, 30), time(18)])
 
-    def _importar(self, planilha):
-        return self.client.post(reverse('importar_planilha'), {'planilha': planilha}, follow=True)
+    def _importar(self, planilha, pessoa=None):
+        dados = {'planilha': planilha, 'funcionario': (pessoa or self.pessoa).pk}
+        return self.client.post(reverse('importar_planilha'), dados, follow=True)
 
     def test_importa_batidas_folgas_e_respeita_feriados_cadastrados(self):
         from .models import Feriado, Folga
@@ -1635,10 +1636,23 @@ class ImportacaoPlanilhaTests(TestCase):
         self.assertContains(resposta, 'Batidas em datas futuras não foram importadas: 01/10/2026.')
         self.assertFalse(RegistroPonto.objects.exists())
 
-    def test_cpf_sem_cadastro_nao_grava_nada(self):
+    def test_cpf_sem_cadastro_importa_para_o_colaborador_escolhido(self):
         resposta = self._importar(_planilha([self.dia_util], cpf='11122233344'))
 
-        self.assertContains(resposta, 'Nenhum colaborador cadastrado com o CPF 111.222.333-44.')
+        self.assertContains(resposta, 'Planilha de Guilherme Lima importada: 6 batidas e 0 folgas.')
+        self.assertEqual(RegistroPonto.objects.filter(funcionario=self.pessoa).count(), 6)
+
+    def test_planilha_sem_cpf_importa_para_o_colaborador_escolhido(self):
+        resposta = self._importar(_planilha([self.dia_util], cpf=None))
+
+        self.assertContains(resposta, 'Planilha de Guilherme Lima importada: 6 batidas e 0 folgas.')
+
+    def test_cpf_de_outra_pessoa_nao_grava_nada(self):
+        outra = User.objects.create_user('rafa_planilha', first_name='Rafael', last_name='Souza')
+
+        resposta = self._importar(_planilha([self.dia_util]), pessoa=outra)
+
+        self.assertContains(resposta, 'O CPF da planilha (022.648.456-43) é de Guilherme Lima.')
         self.assertFalse(RegistroPonto.objects.exists())
 
     def test_arquivo_que_nao_e_planilha_e_recusado(self):
@@ -1646,20 +1660,41 @@ class ImportacaoPlanilhaTests(TestCase):
 
         self.assertContains(resposta, 'Não foi possível abrir o arquivo. Envie a planilha no formato .xlsx.')
 
-    def test_menu_meu_ponto_mostra_importacao_so_para_administrador(self):
+    def test_menu_gestao_mostra_importacao_para_gestor_e_administrador(self):
         link = f'href="{reverse("importar_planilha")}"'
 
         self.assertContains(self.client.get(reverse('painel')), link)
         self.admin.perfil.papel = Perfil.PAPEL_GESTOR
         self.admin.perfil.save()
+        self.assertContains(self.client.get(reverse('painel')), link)
+        self.admin.perfil.papel = Perfil.PAPEL_FUNCIONARIO
+        self.admin.perfil.save()
         self.assertNotContains(self.client.get(reverse('painel')), link)
 
-    def test_somente_administrador_importa(self):
+    def test_gestor_importa_somente_para_a_propria_equipe(self):
         self.admin.perfil.papel = Perfil.PAPEL_GESTOR
         self.admin.perfil.save()
+        fora = User.objects.create_user('fora_planilha', first_name='Fora')
+        self.pessoa.perfil.gestor = self.admin.perfil
+        self.pessoa.perfil.save()
 
-        self.assertEqual(self.client.get(reverse('importar_planilha')).status_code, 403)
-        self.assertEqual(self._importar(_planilha([self.dia_util])).status_code, 403)
+        tela = self.client.get(reverse('importar_planilha'))
+        self.assertContains(tela, 'Guilherme Lima')
+        self.assertNotContains(tela, '>Fora<')
+
+        resposta = self._importar(_planilha([self.dia_util], cpf=None), pessoa=fora)
+        self.assertContains(resposta, 'Faça uma escolha válida')
+        self.assertFalse(RegistroPonto.objects.exists())
+
+        resposta = self._importar(_planilha([self.dia_util]))
+        self.assertContains(resposta, 'Planilha de Guilherme Lima importada: 6 batidas e 0 folgas.')
+
+    def test_colaborador_nao_importa(self):
+        self.admin.perfil.papel = Perfil.PAPEL_FUNCIONARIO
+        self.admin.perfil.save()
+
+        self._importar(_planilha([self.dia_util]))
+        self.assertRedirects(self.client.get(reverse('importar_planilha')), reverse('painel'))
         self.assertFalse(RegistroPonto.objects.exists())
 
 
