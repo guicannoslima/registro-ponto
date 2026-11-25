@@ -72,23 +72,30 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 
 ## Decisões pendentes do usuário
 
-1. **Horário impresso no cartão:** `HORARIO_DE_TRABALHO` em `ponto/constants.py`
-   (09:00–12:45, 14:00–16:15, 16:30–18:00) soma **7h30**, mas `JORNADA_DIARIA` é **7h45**.
-   Perguntar qual vale antes de mexer.
-2. **Banco de horas:** implementado sem adicional de 50%/100%, sem validade das horas e sem
-   fechamento por período, e sem tela de extrato para o colaborador. Perguntar se e quando entram.
-3. **Atalho para dias incompletos:** a tabela do relatório na tela, com **Pedir ajuste** e
-   **Lançar ponto**, saiu quando o PDF passou a ser exibido no iframe. Oferecido trazer uma
-   lista curta acima do iframe; sem resposta.
+1. **Banco de horas:** adicional de domingo e tela por mês de origem já entraram (23/11). Sem
+   adicional de 50%/100% em dia útil, validade das horas, fechamento por período e extrato do
+   colaborador. Em 25/11 o usuário disse que configura **depois**; não puxar o assunto antes.
+2. **Atalho para dias incompletos:** a lista com **Pedir ajuste** e **Lançar ponto** acima do
+   iframe do relatório não é necessária agora (resposta de 25/11).
+
+**Decidido em 25/11/2026 — café:** o café **conta como hora trabalhada**. As batidas de saída
+e volta do café só registram que ele foi feito e não entram na conta. A carga de **7h45**
+(`JORNADA_DIARIA`) está certa; o `HORARIO_DE_TRABALHO` impresso no cartão continua mostrando
+o café entre 16:15 e 16:30 só como referência. Conferido no container: o mesmo dia dá 7h45
+batendo ou não o café, e o painel conta o tempo de café em andamento. Não mexer.
 
 ## Pendências conhecidas
 
-- **Controle de acesso (alta prioridade):** `excluir_ponto`, `aprovar_solicitacao` e
-  `rejeitar_solicitacao` buscam o registro só pelo id. Um gestor consegue agir sobre pessoas
-  fora da equipe trocando o id na URL, e uma solicitação já aprovada pode ser aprovada de novo
-  (duplica a batida). Correção: filtrar com `funcionario__in=funcionarios_visiveis(request.user)`
-  e, nas solicitações, `status=PENDENTE`, respondendo 404; cobrir com testes. Já existia antes
-  do redesenho; o usuário foi avisado e ainda não pediu a correção.
+- **Controle de acesso:** `excluir_ponto` filtra pela equipe visível desde 23/11. Em 25/11,
+  `aprovar_solicitacao` e `rejeitar_solicitacao` passaram a aceitar só pedido **pendente**, com
+  bloqueio da linha (`select_for_update`); pedido já analisado volta para a lista com
+  "Esta solicitação já foi analisada." Três testes novos. **Decisão do usuário (25/11):** por
+  enquanto o gestor pode agir sobre qualquer equipe nas solicitações; não adicionar filtro de
+  equipe nelas nem mudar `funcionarios_visiveis` sem novo pedido.
+- **Testes locais:** o usuário do PostgreSQL local não tem permissão para criar o banco de
+  teste. Em 25/11 a suíte rodou num container temporário com o código montado
+  (`docker compose run --rm --no-deps -v "${PWD}:/app" -v /app/staticfiles --entrypoint python
+  web manage.py test ponto`): 135 de 136, só a falha conhecida da foto de perfil.
 - **Lint:** `ruff check .` acusa 20 avisos, todos de código anterior ao Ruff (linhas longas em
   `views.py` e `urls.py`, imports fora de ordem, avisos de Django nos models).
 - **Testes de regra:** cálculo de horas e permissões ainda sem testes próprios
@@ -134,8 +141,9 @@ Se o usuário fechar o app, não reabra sem pedir. Exporte as prévias para `des
 - Constantes em `ponto/constants.py`; lógica de apresentação em `ponto/services.py`.
 - Ruff com 120 colunas; arquivos Python novos sem avisos.
 - Commits em [Conventional Commits](PADROES_DE_DOCUMENTACAO.md#commits) em português, sem a
-  linha `Co-Authored-By`, divididos por assunto, e só quando o usuário pedir. Push também só
-  quando pedido.
+  linha `Co-Authored-By`, divididos por assunto. Desde 25/11 o próprio usuário faz commit e
+  push: ao fim de cada mudança, entregue os comandos `git add` e as mensagens prontas, sem
+  rodar `git commit` nem `git push`.
 - Testes com Docker sobem em projeto e porta próprios e são removidos ao final (containers,
   volume, rede e imagens baixadas só para o teste).
 - O xhtml2pdf ignora `vertical-align` e `valign` em células; para centralizar texto na grade

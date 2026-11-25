@@ -338,8 +338,10 @@ os dias anteriores continuam com sua regra. Editar um modelo não altera víncul
 Para reaplicar os horários editados, marque **Aplicar novamente os horários atuais da jornada
 selecionada** e informe a vigência. O histórico mostra também vínculos futuros.
 Inativar impede novos vínculos, mantendo os existentes. Sem jornada, vale a regra anterior
-(7h45min e seis batidas); a divergência antiga entre essa carga e o horário impresso permanece
-pendente para quem ainda usa essa regra. Novas jornadas têm carga e horários coerentes.
+(7h45min e seis batidas). O café conta como hora trabalhada: as batidas de saída e volta
+do café só registram que ele foi feito e não mudam a conta. Por isso a carga é 7h45min,
+embora o horário impresso no cartão, com o café entre 16:15 e 16:30, some 7h30 fora do café
+(decisão do usuário em 25/11/2026). Novas jornadas seguem a mesma regra.
 
 Painel, sequência automática de batidas e relatórios usam a jornada vigente. Uma jornada
 sem café pede quatro batidas; sem intervalos, duas. No PDF, o quadro contratual mostra
