@@ -72,6 +72,7 @@ a reexecução pula a criação da conta; nesse caso, use `docker compose exec w
 | `test_cadastro_pela_tela_preenche_o_perfil_criado_automaticamente` | O cadastro grava CPF e função num perfil único |
 | `test_cadastro_lista_as_funcoes_iniciais` | O cadastro lista as quatro funções que a migração `0014` cria em todo banco novo |
 | `ApresentacaoTests` (5) | Linha do dia, situação, saldo com sinal, junção de nomes e fim de semana fora do relatório |
+| `CartaoPontoTests` (divisão por mês) | Meses do período pelo calendário, cartões na ordem pessoa e mês com totais de cada mês, PDF de dois meses em duas páginas com cabeçalho e assinaturas de cada mês, e mês de 31 dias com observações longas numa página só |
 | `TelasInternasTests` (8) | Botão com a próxima batida, aviso de pendências, equipe, batidas no lançamento manual, exclusão, rejeição sem motivo, filtro do histórico e nome completo no relatório |
 
 ## Verificações antes do commit
@@ -369,3 +370,14 @@ Resultado final: 43 testes distintos afetados aprovados — os 40 acima e os tr�
 adicionais de sincronização/cadastro/reaplicação; a última execução isolada teve 15 testes
 em `JornadasFeriadosTests`, todos aprovados. Django check e verificação de migrações
 passaram. Ruff sem novos avisos; os avisos antigos de models, views e relatórios permanecem.
+
+## Cartão ponto por mês — 26/11/2026
+
+Pedido do usuário: com mais de um mês no período, o PDF saía como uma tabela corrida, e até um mês
+de 31 dias levava a declaração e as assinaturas para a página seguinte. Agora `montar_cartoes_ponto`
+gera um cartão por pessoa e por mês, cada um numa página, e o espaçamento das linhas foi reduzido.
+Medido com o PDF gerado: outubro (31 dias) termina 27 pt acima da margem inferior e novembro, 38 pt.
+Num caso forçado, com todas as observações em duas linhas, o cartão foi reduzido e ficou numa página.
+
+Suíte completa no container temporário: 164 testes, 163 aprovados e só a falha conhecida da foto
+de perfil. `check`, `makemigrations --check --dry-run` e Ruff nos arquivos alterados passaram.

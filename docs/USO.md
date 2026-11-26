@@ -83,9 +83,15 @@ baixa o arquivo direto. O administrador acessa todos os colaboradores; o gestor,
 seus subordinados; o colaborador, apenas o próprio relatório. A mesma restrição vale para
 visualizar e baixar o PDF, inclusive ao alterar os parâmetros da URL ou marcar toda a equipe.
 
-O **Cartão Ponto** tem uma página por pessoa quando a equipe inteira é gerada. O cartão traz:
+O **Cartão Ponto** sai **um por pessoa e por mês**, cada um numa página: um período de 15/10 a
+10/12 gera os cartões de 15/10 a 31/10, de 01/11 a 30/11 e de 01/12 a 10/12, e com a equipe
+inteira vêm todos os meses de uma pessoa antes da seguinte. Cada cartão cabe inteiro numa folha,
+com as assinaturas, inclusive num mês de 31 dias; se observações em duas linhas fizerem o cartão
+passar da folha, ele é reduzido para caber. Os totais, o banco de horas do período e a declaração
+valem para o mês do cartão, e o saldo acumulado é o do fim desse mês. O cartão traz:
 
-- cabeçalho com a logo, o período e a data de emissão; rodapé com **Página X de Y**;
+- cabeçalho com a logo, o mês do cartão e a data de emissão; rodapé com o período pedido e
+  **Página X de Y**;
 - dados da empresa e do colaborador (nome, CPF, função e gestor) e o horário de trabalho
   de segunda a sexta;
 - uma linha por dia com as 6 batidas (`ENT. 1` a `SAÍ. 3`), **NORMAIS**, **FALTAS**,

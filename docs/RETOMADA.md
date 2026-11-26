@@ -64,9 +64,9 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Telas internas | Redesenhadas a partir da proposta aprovada no Figcraft ([design](../design/README.md)) |
 | Página inicial | Abas **Hoje**, **Ontem** e **Sua equipe** (gestor), anel da jornada e linha do dia |
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
-| PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
+| PDF | Cartão ponto no modelo de mercado, um por pessoa e por mês, cada um inteiro numa página ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 160 testes em `ponto/tests.py`; em 25/11, 159 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
+| Testes | 164 testes em `ponto/tests.py`; em 26/11, 163 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
 | Folgas e banco de horas | Gestão › Folgas, banco de horas desde a primeira batida com adicional de domingo, tela por mês de origem e saldo no cartão ponto ([Uso](USO.md#folgas-e-banco-de-horas)) |
 | Planilha retroativa | Importação de `.xlsx` de banco de horas; o administrador acha o colaborador pelo CPF e o gestor escolhe o colaborador |
 | Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
@@ -130,6 +130,16 @@ exclui. Para o passado não mudar, `configuracao_jornada` e `tipos_da_jornada` t
 o vínculo com cópia de horários mesmo sem a jornada de origem. Testes em `JornadasFeriadosTests`.
 Pranchas **Excluir jornada em uso** e lista de **Jornadas** no Figcraft (página Jornadas e feriados),
 prévias em `design/previas/jornadas-excluir/`.
+
+## Cartão ponto por mês (26/11/2026)
+
+Pedido do usuário. Com mais de um mês no período, o PDF saía misturado. Agora `montar_cartoes_ponto`
+(em `services.py`) divide o período pelos meses do calendário (`meses_do_periodo`) e gera um cartão por
+pessoa e por mês, na ordem pessoa e mês. Cada cartão traz `inicio` e `fim` do mês para o cabeçalho e a
+declaração; o rodapé continua com o período pedido. No template, as linhas da tabela diária ficaram
+mais baixas, a declaração e as assinaturas mais próximas, e cada cartão fica em `.cartao` com
+`-pdf-keep-in-frame-mode: shrink`. Assim, se não couber, o cartão é reduzido em vez de levar parte da
+folha para a página seguinte. Testes em `CartaoPontoTests`.
 
 ## Pendências conhecidas
 
