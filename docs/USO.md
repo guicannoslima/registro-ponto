@@ -266,10 +266,13 @@ Os avisos são notificações do navegador e só chegam **enquanto houver uma ab
 Não há aviso para batida já feita (inclusive pelo terminal compartilhado), em feriado, folga
 ou dia sem expediente.
 
-**Sem a entrada** (decisão do usuário em 25/11/2026), as batidas seguintes não têm lembrete, porque
-o botão de registrar gravaria a entrada no lugar delas. Na hora da primeira batida depois da entrada,
-normalmente a saída para o almoço, chega um único alerta, **Entrada não registrada hoje**, e o clique
-abre **Solicitar ajuste de ponto**. Os avisos da própria entrada continuam normais. Quem tem jornada própria recebe pelos horários dela; os demais, pelo
+**Só a próxima batida pendente avisa** (decisão do usuário em 25/11/2026). O registro segue a ordem
+das batidas, então, se uma não foi feita, o botão gravaria essa no lugar das seguintes. Por isso as
+batidas depois dela não têm lembrete. Quando chega a hora da batida seguinte, chega um único alerta,
+como **Entrada não registrada hoje** ou **Saída almoço não registrada hoje**, e o clique abre
+**Solicitar ajuste de ponto**. O alerta só aparece depois de acabarem os avisos de atraso da batida que
+faltou (no café, que tem só 15 minutos de intervalo, ele vem logo depois do último atraso). A última
+batida do dia, a saída, não tem batida seguinte, então não gera alerta. Quem tem jornada própria recebe pelos horários dela; os demais, pelo
 horário de referência do cartão (09:00, 12:45, 14:00, 16:15, 16:30 e 18:00). O servidor decide
 pelo relógio dele, e a página consulta a cada 30 segundos, então o aviso chega em até 1 minuto.
 Com várias abas abertas, o mesmo aviso aparece uma vez só. O terminal compartilhado não

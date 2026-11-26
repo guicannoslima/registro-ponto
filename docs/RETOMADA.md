@@ -66,7 +66,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 154 testes em `ponto/tests.py`; em 25/11, 153 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
+| Testes | 156 testes em `ponto/tests.py`; em 25/11, 155 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
 | Folgas e banco de horas | Gestão › Folgas, banco de horas desde a primeira batida com adicional de domingo, tela por mês de origem e saldo no cartão ponto ([Uso](USO.md#folgas-e-banco-de-horas)) |
 | Planilha retroativa | Importação de `.xlsx` de banco de horas; o administrador acha o colaborador pelo CPF e o gestor escolhe o colaborador |
 | Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
@@ -102,9 +102,10 @@ Pranchas na página **Lembretes de ponto** do Figcraft (prévias em `design/prev
 - **Página:** o script em `interno.js` só roda quando `base_interna.html` traz `data-lembretes-ponto`
   (função ligada e fora do terminal). Consulta a cada 30 s, guarda no `localStorage` o que já mostrou
   no dia e usa `navigator.locks` entre abas. O Início mostra o aviso de ativar ou o de bloqueado.
-- **Sem entrada:** as batidas seguintes não avisam; a primeira depois da entrada dá um único alerta
-  (`acao: ajuste`) que abre Solicitar ajuste de ponto (decisão do usuário em 25/11).
-- **Testes:** `FuncoesTests` (6) e `LembretesPontoTests` (10).
+- **Só a próxima pendente avisa** (decisão do usuário em 25/11, para todas as batidas): sem uma batida, as
+  seguintes não têm lembrete; na hora da seguinte sai um único alerta "<batida> não registrada hoje"
+  (`acao: ajuste`, abre Solicitar ajuste de ponto), depois dos avisos de atraso da que faltou.
+- **Testes:** `FuncoesTests` (6) e `LembretesPontoTests` (12).
 - **Ainda a fazer:** teste do usuário no navegador. Web Push (aviso com o sistema fechado e no
   celular) fica para depois, se precisar.
 
