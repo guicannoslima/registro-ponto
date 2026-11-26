@@ -218,6 +218,41 @@ def preparar_cartao_ponto(item, data_inicio, data_fim):
     return item
 
 
+def meses_do_periodo(data_inicio, data_fim):
+    """Trechos (início, fim) do período, um por mês do calendário: 15/10 a 10/12 dá 15/10–31/10, 01/11–30/11 e
+    01/12–10/12."""
+    trechos = []
+    inicio = data_inicio
+    while inicio <= data_fim:
+        proximo_mes = (inicio.replace(day=28) + timedelta(days=4)).replace(day=1)
+        fim = min(proximo_mes - timedelta(days=1), data_fim)
+        trechos.append((inicio, fim))
+        inicio = fim + timedelta(days=1)
+    return trechos
+
+
+def montar_cartoes_ponto(funcionarios, funcionario, data_inicio, data_fim, gerar_todos):
+    """Cartões do PDF: um por pessoa e por mês do período, na ordem pessoa e mês, cada um numa página.
+
+    Cada cartão traz em 'inicio' e 'fim' o trecho do mês; totais e saldo do período valem só para esse mês, e o
+    saldo acumulado é o do fim do mês.
+    """
+    from .relatorios import montar_relatorio  # relatorios importa services
+
+    pessoas = list(funcionarios) if gerar_todos else funcionarios
+    por_mes = [
+        (inicio, fim, montar_relatorio(pessoas, funcionario, inicio, fim, gerar_todos))
+        for inicio, fim in meses_do_periodo(data_inicio, data_fim)
+    ]
+    cartoes = []
+    for indice in range(len(por_mes[0][2])):
+        for inicio, fim, relatorio in por_mes:
+            item = relatorio[indice]
+            item['inicio'], item['fim'] = inicio, fim
+            cartoes.append(preparar_cartao_ponto(item, inicio, fim))
+    return cartoes
+
+
 def proximo_tipo_ponto(funcionario):
     hoje = timezone.localdate()
     registros = RegistroPonto.objects.filter(funcionario=funcionario, data_hora__date=hoje, ativo=True)

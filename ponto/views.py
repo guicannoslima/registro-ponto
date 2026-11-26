@@ -73,7 +73,7 @@ from .models import (
     SolicitacaoAjustePonto,
 )
 from .permissoes import funcionarios_visiveis
-from .relatorios import calcular_horas_dia, calcular_progresso, montar_relatorio
+from .relatorios import calcular_horas_dia, calcular_progresso
 from .services import (
     _gestor,
     _pessoas,
@@ -91,10 +91,10 @@ from .services import (
     lembretes_ponto,
     lembretes_ponto_ativos,
     linha_do_dia,
+    montar_cartoes_ponto,
     obter_foto_perfil,
     pessoas_para_cadastro_facial,
     pessoas_para_relatorio,
-    preparar_cartao_ponto,
     quadro_banco_horas,
     registrar_batida,
     registrar_ponto_facial,
@@ -577,11 +577,9 @@ def historico_alteracoes(request):
 def _cartao_ponto_pdf(funcionarios, dados, inline):
     """Gera o PDF do cartão ponto a partir dos dados validados do RelatorioForm."""
     data_inicio, data_fim = dados['data_inicio'], dados['data_fim']
-    relatorio = montar_relatorio(
+    relatorio = montar_cartoes_ponto(
         funcionarios, dados['funcionario'], data_inicio, data_fim, dados.get('gerar_todos')
     )
-    for item in relatorio:
-        preparar_cartao_ponto(item, data_inicio, data_fim)
 
     html = get_template('ponto/relatorio_pdf.html').render({
         'relatorio': relatorio,

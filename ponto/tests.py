@@ -13,6 +13,7 @@ from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
+from pypdf import PdfReader
 
 from .email import BackendEmail, cifrar_senha, decifrar_senha
 from .exceptions import CadastroFacialAusente, ErroFacial, FacialIndisponivel, SemRosto
@@ -29,6 +30,8 @@ from .models import (
 from .relatorios import montar_relatorio
 from .services import (
     linha_do_dia,
+    meses_do_periodo,
+    montar_cartoes_ponto,
     preparar_cartao_ponto,
     registrar_ponto_facial,
     situacao,
@@ -489,6 +492,72 @@ class CartaoPontoTests(TestCase):
         )
 
         self.assertEqual(resposta.status_code, 400)
+
+    def test_meses_do_periodo_seguem_o_calendario(self):
+        self.assertEqual(
+            meses_do_periodo(date(2026, 10, 15), date(2027, 1, 10)),
+            [
+                (date(2026, 10, 15), date(2026, 10, 31)),
+                (date(2026, 11, 1), date(2026, 11, 30)),
+                (date(2026, 12, 1), date(2026, 12, 31)),
+                (date(2027, 1, 1), date(2027, 1, 10)),
+            ],
+        )
+        self.assertEqual(meses_do_periodo(self.segunda, self.terca), [(self.segunda, self.terca)])
+
+    def test_cartoes_saem_por_pessoa_e_por_mes(self):
+        rafael = User.objects.create_user('rafael', password='senha-forte-123', first_name='Rafael')
+        pessoas = User.objects.filter(pk__in=(self.usuario.pk, rafael.pk)).order_by('username')
+
+        cartoes = montar_cartoes_ponto(pessoas, None, date(2026, 10, 20), date(2026, 11, 20), True)
+
+        self.assertEqual(
+            [(c['funcionario'], c['inicio'], c['fim']) for c in cartoes],
+            [
+                (self.usuario, date(2026, 10, 20), date(2026, 10, 31)),
+                (self.usuario, date(2026, 11, 1), date(2026, 11, 20)),
+                (rafael, date(2026, 10, 20), date(2026, 10, 31)),
+                (rafael, date(2026, 11, 1), date(2026, 11, 20)),
+            ],
+        )
+        outubro, novembro = cartoes[0]['cartao'], cartoes[1]['cartao']
+        self.assertEqual(len(outubro['linhas']), 12)
+        self.assertEqual(len(novembro['linhas']), 20)
+        self.assertEqual(outubro['totais']['extras'], '00:00')
+        self.assertEqual(novembro['totais']['extras'], '01:15')
+        self.assertEqual(novembro['banco']['data_saldo'], date(2026, 11, 20))
+
+    def test_pdf_de_varios_meses_tem_um_mes_inteiro_por_pagina(self):
+        self.client.force_login(self.usuario)
+
+        resposta = self.client.post(
+            reverse('exportar_relatorio_pdf'),
+            {'funcionario': self.usuario.id, 'data_inicio': '2026-10-01', 'data_fim': '2026-11-30'},
+        )
+
+        paginas = [pagina.extract_text() for pagina in PdfReader(BytesIO(resposta.content)).pages]
+        self.assertEqual(len(paginas), 2)
+        meses = (('01/10/2026', '31/10/2026'), ('01/11/2026', '30/11/2026'))
+        for pagina, (inicio, fim) in zip(paginas, meses, strict=True):
+            self.assertIn(f'DE {inicio} ATÉ {fim}', pagina)  # cabeçalho do mês
+            self.assertIn('Gestor', pagina)  # assinaturas na mesma folha
+
+    def test_mes_de_31_dias_com_observacoes_longas_cabe_numa_pagina(self):
+        inicio, fim = date(2026, 10, 1), date(2026, 10, 31)
+        cartoes = montar_cartoes_ponto(None, self.usuario, inicio, fim, False)
+        for linha in cartoes[0]['cartao']['linhas']:
+            linha['observacao'] = 'Folga comp. · Incompleto'
+        self.client.force_login(self.usuario)
+
+        with patch('ponto.views.montar_cartoes_ponto', return_value=cartoes):
+            resposta = self.client.post(
+                reverse('exportar_relatorio_pdf'),
+                {'funcionario': self.usuario.id, 'data_inicio': '2026-10-01', 'data_fim': '2026-10-31'},
+            )
+
+        paginas = PdfReader(BytesIO(resposta.content)).pages
+        self.assertEqual(len(paginas), 1)
+        self.assertIn('Gestor', paginas[0].extract_text())
 
 
 def foto():

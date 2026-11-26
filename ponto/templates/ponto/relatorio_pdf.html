@@ -18,6 +18,14 @@
             }
         }
 
+        /*
+         * Um cartão por mês, sempre inteiro numa folha: se um mês de 31 dias com observações em duas linhas
+         * passar da página, o xhtml2pdf reduz o cartão para caber, em vez de levar as assinaturas para a seguinte.
+         */
+        .cartao {
+            -pdf-keep-in-frame-mode: shrink;
+        }
+
         #rodape {
             color: #6b7782;
             font-size: 6.5pt;
@@ -132,7 +140,7 @@
             border-bottom: 1px solid #b9c1c6;
             font-family: Courier, monospace;
             font-size: 8pt;
-            padding: 6px 3px 4px 3px;
+            padding: 4px 3px 2px 3px;
         }
 
         .dias .fim-de-semana td {
@@ -175,7 +183,7 @@
             font-family: Courier, monospace;
             font-size: 8.5pt;
             line-height: 1.35;
-            padding-top: 26px;
+            padding-top: 14px;
         }
 
         .assinaturas td {
@@ -194,12 +202,13 @@
 <div id="rodape">Cartão ponto de {{ data_inicio|date:"d/m/Y" }} a {{ data_fim|date:"d/m/Y" }} &nbsp;|&nbsp; Página <pdf:pagenumber> de <pdf:pagecount></div>
 {% for item in relatorio %}
     {% with cartao=item.cartao funcionario=item.funcionario %}
+    <div class="cartao">
     <table>
         <tr>
             <td style="width: 24%;"><img src="{{ logo }}" style="width: 120px;"></td>
             <td class="separador" style="width: 46%;">
                 <div class="titulo">CARTÃO PONTO</div>
-                <div class="periodo">DE {{ data_inicio|date:"d/m/Y" }} ATÉ {{ data_fim|date:"d/m/Y" }}</div>
+                <div class="periodo">DE {{ item.inicio|date:"d/m/Y" }} ATÉ {{ item.fim|date:"d/m/Y" }}</div>
             </td>
             <td class="emissao" style="width: 30%;">
                 <b>Registro de Ponto</b><br>
@@ -300,10 +309,10 @@
 
     <div class="declaracao">
         Reconheço a exatidão das horas constantes de acordo com minha frequência neste intervalo
-        {{ data_inicio|date:"d/m/Y" }} a {{ data_fim|date:"d/m/Y" }}.
+        {{ item.inicio|date:"d/m/Y" }} a {{ item.fim|date:"d/m/Y" }}.
     </div>
 
-    <table class="assinaturas" style="margin-top: 46px;">
+    <table class="assinaturas" style="margin-top: 34px;">
         <tr>
             <td style="width: 46%;" class="linha-assinatura">{{ funcionario.get_full_name|default:funcionario.username }}</td>
             <td style="width: 8%;"></td>
@@ -312,6 +321,7 @@
             </td>
         </tr>
     </table>
+    </div>
     {% endwith %}
     {% if not forloop.last %}<pdf:nextpage>{% endif %}
 {% endfor %}
