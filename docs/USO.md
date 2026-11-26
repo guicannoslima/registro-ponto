@@ -129,6 +129,7 @@ empresa e o horário impresso ficam em `ponto/constants.py`.
 | `/equipe/` | Batidas do dia da equipe | Gestor e Administrador |
 | `/ponto/criar/` | Lançamento manual de ponto | Gestor e Administrador |
 | `/ponto/excluir/<id>/` | Exclusão de ponto com motivo | Gestor e Administrador |
+| `/administracao/jornadas/<id>/excluir/` | Exclui jornada; se estiver em uso, mostra os efeitos e pede a substituta | Administrador |
 | `/administracao/funcoes/` | Funções e lembretes de ponto | Administrador |
 | `/ponto/lembretes/` | Lembretes de ponto que valem agora, em JSON (consultado pela página) | Todos |
 | `/admin/` | Painel administrativo do Django | Superusuário |
@@ -388,7 +389,13 @@ Para vincular, abra **Administração → Usuários → Editar**, escolha **Jorn
 os dias anteriores continuam com sua regra. Editar um modelo não altera vínculos salvos.
 Para reaplicar os horários editados, marque **Aplicar novamente os horários atuais da jornada
 selecionada** e informe a vigência. O histórico mostra também vínculos futuros.
-Inativar impede novos vínculos, mantendo os existentes. Sem jornada, vale a regra anterior
+Inativar impede novos vínculos, mantendo os existentes. **Excluir** (desde 25/11/2026): a jornada que
+nunca foi vinculada é excluída depois do diálogo de confirmação. A jornada **Em uso** abre uma tela de
+aviso que lista quem a usa hoje e os vínculos agendados, explica os efeitos e exige escolher a
+**jornada que substitui** e marcar que a troca não pode ser desfeita. Ao confirmar, quem usa a jornada
+hoje passa para a substituta a partir de hoje, os vínculos agendados passam para ela na mesma data e
+a jornada sai da lista. Os dias anteriores continuam com os horários antigos, porque cada vínculo
+guarda uma cópia deles. Para só tirar a jornada de novos vínculos, sem excluir, desmarque **Jornada ativa**. Sem jornada, vale a regra anterior
 (7h45min e seis batidas). O café conta como hora trabalhada: as batidas de saída e volta
 do café só registram que ele foi feito e não mudam a conta. Por isso a carga é 7h45min,
 embora o horário impresso no cartão, com o café entre 16:15 e 16:30, some 7h30 fora do café

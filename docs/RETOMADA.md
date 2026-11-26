@@ -66,7 +66,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 156 testes em `ponto/tests.py`; em 25/11, 155 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
+| Testes | 160 testes em `ponto/tests.py`; em 25/11, 159 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
 | Folgas e banco de horas | Gestão › Folgas, banco de horas desde a primeira batida com adicional de domingo, tela por mês de origem e saldo no cartão ponto ([Uso](USO.md#folgas-e-banco-de-horas)) |
 | Planilha retroativa | Importação de `.xlsx` de banco de horas; o administrador acha o colaborador pelo CPF e o gestor escolhe o colaborador |
 | Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
@@ -118,6 +118,18 @@ a partir do `localStorage` antes de desenhar; o botão (`data-tema-alternar`) fi
 estão na seção "tema escuro" no fim de `interno.css`, que também sobrepõe as variáveis do `estilo.css`
 só nesse modo. O logo do escuro é `ponto/static/ponto/logo-escuro.png` (texto claro). Testes em
 `TemaEscuroTests`.
+
+## Excluir jornada (25/11/2026)
+
+Pedido do usuário. Jornada sem vínculo: **Excluir** com o diálogo da aplicação (`form[data-confirmar]` em
+`interno.js`). Jornada **Em uso**: tela `jornada_excluir.html` com o aviso dos efeitos, a **jornada que
+substitui** (só ativas, sem a própria) e a confirmação "não pode ser desfeita" (`ExcluirJornadaForm`).
+`excluir_jornada` em `services.py` vincula a substituta para quem usa hoje (início hoje) e nos vínculos
+agendados (mesma data), solta os vínculos antigos (`jornada=None`, ficam com a cópia `semana`/`nome`) e
+exclui. Para o passado não mudar, `configuracao_jornada` e `tipos_da_jornada` tratam como jornada própria
+o vínculo com cópia de horários mesmo sem a jornada de origem. Testes em `JornadasFeriadosTests`.
+Pranchas **Excluir jornada em uso** e lista de **Jornadas** no Figcraft (página Jornadas e feriados),
+prévias em `design/previas/jornadas-excluir/`.
 
 ## Pendências conhecidas
 
