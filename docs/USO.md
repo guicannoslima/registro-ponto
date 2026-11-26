@@ -218,6 +218,14 @@ O clique em outro grupo fecha o anterior; clique fora ou `Escape` fecha o submen
 Também é possível abrir pelo teclado usando `Tab` e `Enter`. Cabeçalho e conteúdo
 ocupam a largura disponível, com margens de 24 px em 1333 px e de 12 px no celular.
 
+### Tema escuro
+
+**Implementado em 25/11/2026.** O botão com a **lua**, ao lado de **Sair** no cabeçalho, liga o tema
+escuro; no escuro ele vira um **sol** e volta ao claro. O sistema sempre começa claro, e a escolha
+fica salva no navegador (vale para todas as abas abertas nele, mas não em outro computador ou
+navegador). O tema escuro vale só nas telas internas: login, cadastro público, redefinição de senha
+e o PDF do cartão ponto continuam claros. As cores seguem a prancha **Tema escuro** do Figcraft.
+
 ### Cadastrar e configurar usuários
 
 Em **Administração → Usuários**, use **Cadastrar usuário**. Preencha nome, sobrenome,

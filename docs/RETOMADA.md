@@ -66,7 +66,7 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 152 testes em `ponto/tests.py`; em 25/11, 151 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
+| Testes | 154 testes em `ponto/tests.py`; em 25/11, 153 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
 | Folgas e banco de horas | Gestão › Folgas, banco de horas desde a primeira batida com adicional de domingo, tela por mês de origem e saldo no cartão ponto ([Uso](USO.md#folgas-e-banco-de-horas)) |
 | Planilha retroativa | Importação de `.xlsx` de banco de horas; o administrador acha o colaborador pelo CPF e o gestor escolhe o colaborador |
 | Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
@@ -107,6 +107,16 @@ Pranchas na página **Lembretes de ponto** do Figcraft (prévias em `design/prev
 - **Testes:** `FuncoesTests` (6) e `LembretesPontoTests` (10).
 - **Ainda a fazer:** teste do usuário no navegador. Web Push (aviso com o sistema fechado e no
   celular) fica para depois, se precisar.
+
+## Tema escuro — implementado (25/11/2026)
+
+Decisões do usuário: liga **só pelo botão** do cabeçalho (sem seguir o sistema operacional), vale **só
+nas telas internas** e passou antes pelas pranchas (página **Tema escuro** do Figcraft, prévias em
+`design/previas/tema-escuro/`). O `<head>` de `base_interna.html` aplica `data-tema="escuro"` no `<html>`
+a partir do `localStorage` antes de desenhar; o botão (`data-tema-alternar`) fica em `interno.js`. As cores
+estão na seção "tema escuro" no fim de `interno.css`, que também sobrepõe as variáveis do `estilo.css`
+só nesse modo. O logo do escuro é `ponto/static/ponto/logo-escuro.png` (texto claro). Testes em
+`TemaEscuroTests`.
 
 ## Pendências conhecidas
 
