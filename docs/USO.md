@@ -130,6 +130,7 @@ empresa e o horário impresso ficam em `ponto/constants.py`.
 | `/ponto/criar/` | Lançamento manual de ponto | Gestor e Administrador |
 | `/ponto/excluir/<id>/` | Exclusão de ponto com motivo | Gestor e Administrador |
 | `/administracao/funcoes/` | Funções e lembretes de ponto | Administrador |
+| `/ponto/lembretes/` | Lembretes de ponto que valem agora, em JSON (consultado pela página) | Todos |
 | `/admin/` | Painel administrativo do Django | Superusuário |
 
 ## Registro por reconhecimento facial
@@ -242,8 +243,35 @@ ativas têm a função e se os **lembretes de ponto** estão ligados. Não há e
 
 A opção **Enviar lembretes de ponto** vale para todas as pessoas da função, em qualquer papel,
 porque o perfil aponta para a função. Ela começa desligada em todas as funções. Quem não tem
-função não recebe lembretes. Os avisos no navegador são a próxima etapa e ainda não estão
-ativos; a regra combinada está no [ponto de retomada](RETOMADA.md).
+função não recebe lembretes.
+
+#### Como os lembretes funcionam
+
+Os avisos são notificações do navegador e só chegam **enquanto houver uma aba do sistema aberta**
+(pode ficar em segundo plano). Para cada batida prevista na jornada do dia, inclusive o café:
+
+- um aviso **5 minutos antes**, outro **na hora** e, se a batida não for feita, um a cada
+  **2 minutos até 10 minutos de atraso** — no máximo 7 avisos por batida;
+- cada aviso substitui o anterior da mesma batida, com som e destaque de novo;
+- o clique na notificação abre o **Início**, onde fica o botão de registrar.
+
+Não há aviso para batida já feita (inclusive pelo terminal compartilhado), em feriado, folga
+ou dia sem expediente.
+
+**Sem a entrada** (decisão do usuário em 25/11/2026), as batidas seguintes não têm lembrete, porque
+o botão de registrar gravaria a entrada no lugar delas. Na hora da primeira batida depois da entrada,
+normalmente a saída para o almoço, chega um único alerta, **Entrada não registrada hoje**, e o clique
+abre **Solicitar ajuste de ponto**. Os avisos da própria entrada continuam normais. Quem tem jornada própria recebe pelos horários dela; os demais, pelo
+horário de referência do cartão (09:00, 12:45, 14:00, 16:15, 16:30 e 18:00). O servidor decide
+pelo relógio dele, e a página consulta a cada 30 segundos, então o aviso chega em até 1 minuto.
+Com várias abas abertas, o mesmo aviso aparece uma vez só. O terminal compartilhado não
+dispara avisos.
+
+Na primeira vez, o **Início** mostra **Ativar lembretes de ponto**; o navegador pede a
+permissão. Se as notificações estiverem bloqueadas, o Início explica como liberar pelo cadeado
+ao lado do endereço. A permissão exige HTTPS (ou `localhost` em desenvolvimento). No Chrome do
+Android a notificação sem *service worker* não é aceita, então o celular fica sem aviso por
+enquanto.
 
 ### Configurar o envio de e-mails
 
