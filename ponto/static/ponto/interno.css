@@ -1447,3 +1447,130 @@ body:has([data-camera][data-modo="terminal"]) > .principal-interno {
 .principal-interno .saldo-linha small { display: block; color: var(--texto-apoio); font-size: 14px; }
 .principal-interno .saldo-linha__valor { text-align: right; white-space: nowrap; }
 .principal-interno .negativo { color: var(--perigo); font-weight: 600; }
+
+/* ---------- tema escuro ----------
+ * Prancha "Tema escuro" no Figcraft. Ligado só pelo botão do cabeçalho (data-tema="escuro" no <html>, salvo no
+ * navegador) e só nas telas internas: as públicas não carregam este arquivo e o PDF não muda.
+ * Fundos de botão usam um azul mais escuro que o --acao, que no escuro é claro para servir de texto e destaque.
+ */
+html[data-tema="escuro"] {
+    color-scheme: dark;
+    /* Variáveis do estilo.css usadas pelo fundo da página, pelo cabeçalho e pelos títulos */
+    --cor-fundo: #0f1a26;
+    --cor-card: #172434;
+    --cor-borda: #2a3b50;
+    --cor-titulo: #e6edf5;
+    --cor-texto: #e6edf5;
+    --cor-texto-suave: #9fb1c4;
+    --cor-primaria: #8fd0f3;
+    --cor-primaria-escura: #6cc0ee;
+    --cor-erro: #ff8a93;
+}
+
+html[data-tema="escuro"] .principal-interno {
+    --fundo: #0f1a26;
+    --superficie: #172434;
+    --superficie-suave: #1d2c3f;
+    --texto: #e6edf5;
+    --texto-apoio: #9fb1c4;
+    --linha: #2a3b50;
+    --borda-campo: #4a5f76;
+    --trilho: #26374b;
+    --acao: #6cc0ee;
+    --acao-escura: #8fd0f3;
+    --acao-fundo: #15344a;
+    --sucesso: #6fd39c;
+    --sucesso-fundo: #173a2a;
+    --atencao: #f2c46b;
+    --atencao-fundo: #3a2e14;
+    --perigo: #ff8a93;
+    --perigo-escuro: #ffb3b9;
+    --perigo-fundo: #3d1c22;
+    --extra: #e0a93a;
+}
+
+/* Botões e marcadores com fundo de ação: azul escuro para o texto branco continuar legível */
+html[data-tema="escuro"] .principal-interno .btn,
+html[data-tema="escuro"] .principal-interno .chamada__numero,
+html[data-tema="escuro"] .principal-interno .chamada__icone { background: #1f7ab0; }
+html[data-tema="escuro"] .principal-interno .btn:hover { background: #2589c4; color: #ffffff; }
+html[data-tema="escuro"] .principal-interno .btn--secundario { background: #1d2c3f; border-color: #3a5068; color: var(--acao); }
+html[data-tema="escuro"] .principal-interno .btn--secundario:hover { background: var(--acao-fundo); border-color: var(--acao); color: var(--acao-escura); }
+html[data-tema="escuro"] .principal-interno .btn--perigo { background: #c43d48; }
+html[data-tema="escuro"] .principal-interno .btn--perigo:hover { background: #a8323c; }
+html[data-tema="escuro"] .principal-interno .chamada--folga .chamada__icone { background: #2e8b57; }
+html[data-tema="escuro"] .principal-interno .chamada--compensacao .chamada__icone,
+html[data-tema="escuro"] .principal-interno .chamada--atencao .chamada__icone { background: #a8741a; }
+html[data-tema="escuro"] .principal-interno .linha-dia__passo--feito .linha-dia__marco { color: #0f1a26; }
+
+/* Cores que estavam fixas no tema claro */
+html[data-tema="escuro"] .principal-interno .chamada { border-color: #24506e; }
+html[data-tema="escuro"] .principal-interno .chamada--folga { border-color: #2c5a43; }
+html[data-tema="escuro"] .principal-interno .chamada--compensacao,
+html[data-tema="escuro"] .principal-interno .chamada--atencao { border-color: #6b5420; }
+html[data-tema="escuro"] .principal-interno .selo--neutro,
+html[data-tema="escuro"] .aba__contagem { background: #26374b; }
+html[data-tema="escuro"] .linha-dia__marco { border-color: #4a5f76; }
+html[data-tema="escuro"] span.batida-celula { color: #6b7f94; }
+html[data-tema="escuro"] .principal-interno .avatar-generico { background: #1d2c3f; color: #9fb1c4; }
+html[data-tema="escuro"] .principal-interno .avatar-generico svg { fill: #4a5f76; }
+html[data-tema="escuro"] .principal-interno .confirm-dialog { box-shadow: 0 20px 60px #00000080; }
+html[data-tema="escuro"] .principal-interno .confirm-dialog::backdrop { background: #000000a6; }
+html[data-tema="escuro"] .principal-interno .camera-previa { background: #0b131c; }
+html[data-tema="escuro"] .principal-interno .camera-registro-aviso { background: rgb(58 46 20 / 90%); border-top-color: rgb(242 196 107 / 30%); }
+
+/* Campos: fundo mais escuro que o cartão, como na prancha */
+html[data-tema="escuro"] .principal-interno input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html[data-tema="escuro"] .principal-interno select,
+html[data-tema="escuro"] .principal-interno textarea { background: #0f1a26; border-color: var(--borda-campo); color: var(--texto); }
+html[data-tema="escuro"] .principal-interno .campo input:focus,
+html[data-tema="escuro"] .principal-interno .campo select:focus,
+html[data-tema="escuro"] .principal-interno .campo textarea:focus { box-shadow: 0 0 0 3px rgb(108 192 238 / 25%); }
+
+/* Cabeçalho e menu */
+html[data-tema="escuro"] .topo-aplicacao { border-bottom: 1px solid #2a3b50; box-shadow: none; }
+html[data-tema="escuro"] .topo-aplicacao .navegacao__inicio,
+html[data-tema="escuro"] .topo-aplicacao summary { color: #e6edf5; }
+html[data-tema="escuro"] .topo-aplicacao summary:hover,
+html[data-tema="escuro"] .topo-aplicacao details[open] summary,
+html[data-tema="escuro"] .topo-aplicacao .navegacao__inicio:hover { background: #15344a; color: #6cc0ee; }
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens { background: #1d2c3f; border-color: #2a3b50; box-shadow: 0 10px 24px rgb(0 0 0 / 40%); }
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens a,
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens button { color: #e6edf5; }
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens a:hover,
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens button:hover { background: #26374b; color: #6cc0ee; }
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens form { border-top-color: #2a3b50; }
+html[data-tema="escuro"] .topo-aplicacao .menu-grupo__itens p,
+html[data-tema="escuro"] .topo-aplicacao .topo-terminal { color: #9fb1c4; }
+html[data-tema="escuro"] .topo-aplicacao .topo-usuario form button,
+html[data-tema="escuro"] .topo-aplicacao .terminal-encerrar { background: #1f7ab0; }
+html[data-tema="escuro"] .topo-aplicacao :focus-visible { outline-color: #6cc0ee; }
+html[data-tema="escuro"] .voltar-topo { border-color: #1f7ab0; background: #1f7ab0; box-shadow: 0 4px 12px rgb(0 0 0 / 40%); }
+html[data-tema="escuro"] .voltar-topo:hover { background: #2589c4; }
+html[data-tema="escuro"] .voltar-topo:focus-visible { outline-color: #6cc0ee; }
+
+/* Logo: a versão com o texto claro; o "multiply" do estilo.css escureceria a imagem no fundo escuro */
+.logo-topo .logo-topo__escuro { display: none; }
+html[data-tema="escuro"] .logo-topo img { mix-blend-mode: normal; }
+html[data-tema="escuro"] .logo-topo .logo-topo__claro { display: none; }
+html[data-tema="escuro"] .logo-topo .logo-topo__escuro { display: block; }
+
+/* Botão de tema, ao lado do Sair: lua no claro, sol no escuro */
+.topo-aplicacao .topo-usuario .botao-tema {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid #d5dde6;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #18324b;
+}
+.topo-aplicacao .topo-usuario .botao-tema:hover { background: #e5f3fb; color: #0a6ea3; }
+.topo-aplicacao .botao-tema svg { width: 20px; height: 20px; }
+.topo-aplicacao .botao-tema__sol { display: none; }
+html[data-tema="escuro"] .topo-aplicacao .topo-usuario .botao-tema { border-color: #3a5068; background: #1d2c3f; color: #e6edf5; }
+html[data-tema="escuro"] .topo-aplicacao .topo-usuario .botao-tema:hover { background: #26374b; color: #6cc0ee; }
+html[data-tema="escuro"] .topo-aplicacao .botao-tema__lua { display: none; }
+html[data-tema="escuro"] .topo-aplicacao .botao-tema__sol { display: block; }

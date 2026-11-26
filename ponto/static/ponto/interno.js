@@ -304,3 +304,46 @@ document.addEventListener('DOMContentLoaded', () => {
     consultar();
     temporizador = setInterval(consultar, Number(config.dataset.intervalo) * 1000);
 });
+
+// Tema escuro: o botão do cabeçalho alterna e guarda a escolha no navegador. O <head> já aplicou o tema salvo.
+document.addEventListener('DOMContentLoaded', () => {
+    const botao = document.querySelector('[data-tema-alternar]');
+    if (!botao) return;
+    const raiz = document.documentElement;
+    const atualizarBotao = () => {
+        const escuro = raiz.dataset.tema === 'escuro';
+        const rotulo = escuro ? 'Ativar tema claro' : 'Ativar tema escuro';
+        botao.setAttribute('aria-pressed', String(escuro));
+        botao.title = rotulo;
+        botao.setAttribute('aria-label', rotulo);
+    };
+    botao.addEventListener('click', () => {
+        const escuro = raiz.dataset.tema !== 'escuro';
+        if (escuro) {
+            raiz.dataset.tema = 'escuro';
+        } else {
+            delete raiz.dataset.tema;
+        }
+        try {
+            if (escuro) {
+                localStorage.setItem('tema', 'escuro');
+            } else {
+                localStorage.removeItem('tema');
+            }
+        } catch {
+            // Sem armazenamento (modo restrito do navegador): o tema vale só até trocar de página.
+        }
+        atualizarBotao();
+    });
+    // Outra aba trocou o tema: acompanha sem recarregar.
+    window.addEventListener('storage', (evento) => {
+        if (evento.key !== 'tema') return;
+        if (evento.newValue === 'escuro') {
+            raiz.dataset.tema = 'escuro';
+        } else {
+            delete raiz.dataset.tema;
+        }
+        atualizarBotao();
+    });
+    atualizarBotao();
+});

@@ -1609,6 +1609,30 @@ class LembretesPontoTests(TestCase):
 
 
 @override_settings(STORAGES=STORAGES_DE_TESTE)
+class TemaEscuroTests(TestCase):
+    """O tema escuro vale só nas telas internas: botão no cabeçalho e tema salvo aplicado no <head>."""
+
+    def test_telas_internas_trazem_botao_logo_e_script_do_tema(self):
+        pessoa = User.objects.create_user('tema_escuro')
+        self.client.force_login(pessoa)
+        for nome in ('painel', 'relatorio_ponto', 'meu_perfil'):
+            with self.subTest(tela=nome):
+                resposta = self.client.get(reverse(nome))
+                self.assertContains(resposta, 'data-tema-alternar', count=1)
+                self.assertContains(resposta, 'ponto/logo-escuro.png')
+                self.assertContains(resposta, "localStorage.getItem('tema')")
+
+    def test_telas_publicas_continuam_so_no_tema_claro(self):
+        for nome in ('login', 'cadastro_usuario', 'password_reset'):
+            with self.subTest(tela=nome):
+                resposta = self.client.get(reverse(nome))
+                self.assertEqual(resposta.status_code, 200)
+                self.assertNotContains(resposta, 'data-tema-alternar')
+                self.assertNotContains(resposta, "localStorage.getItem('tema')")
+                self.assertNotContains(resposta, 'interno.css')
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
 class FolgasBancoHorasTests(TestCase):
     def setUp(self):
         self.gestor = User.objects.create_user('gestora_folga', first_name='Ana', last_name='Souza')

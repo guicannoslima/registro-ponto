@@ -4,6 +4,8 @@
 {% block classe_main %}principal-interno{% endblock %}
 
 {% block estilos %}
+    {# Aplica o tema salvo antes de desenhar a página, para não piscar o claro ao trocar de tela #}
+    <script>try { if (localStorage.getItem('tema') === 'escuro') document.documentElement.dataset.tema = 'escuro'; } catch (erro) {}</script>
     <link rel="stylesheet" href="{% static 'ponto/interno.css' %}">
 {% endblock %}
 
@@ -21,7 +23,7 @@
 {% block cabecalho %}
     <header class="topo topo-aplicacao">
         <div class="topo-interno">
-            <a href="{% url 'painel' %}" class="logo-topo" aria-label="Página inicial"><img src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia"></a>
+            <a href="{% url 'painel' %}" class="logo-topo" aria-label="Página inicial"><img class="logo-topo__claro" src="{% static 'ponto/logo.png' %}" alt="Prime Tecnologia"><img class="logo-topo__escuro" src="{% static 'ponto/logo-escuro.png' %}" alt="Prime Tecnologia"></a>
             {% if user.is_authenticated %}
                 <nav class="navegacao" aria-label="Menu principal" data-menu>
                     <a class="navegacao__inicio" href="{% url 'painel' %}">Início</a>
@@ -70,6 +72,10 @@
                         <span title="{{ user.get_full_name|default:user.username }}">Bem-vindo, {{ user.first_name|default:user.username }}!</span>
                         <small>{{ user.perfil.funcao.nome|default:user.perfil.get_papel_display }}</small>
                     </div>
+                    <button type="button" class="botao-tema" data-tema-alternar aria-pressed="false" title="Ativar tema escuro" aria-label="Ativar tema escuro">
+                        <svg class="botao-tema__lua" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                        <svg class="botao-tema__sol" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                    </button>
                     <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" title="Sair" aria-label="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4"/><path d="M16 8l4 4-4 4"/><path d="M20 12H9"/></svg></button></form>
                 </div>
             {% elif modo == 'terminal' %}
