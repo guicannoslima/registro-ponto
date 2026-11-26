@@ -1458,6 +1458,157 @@ class FuncoesTests(TestCase):
 
 
 @override_settings(STORAGES=STORAGES_DE_TESTE)
+class LembretesPontoTests(TestCase):
+    """Quarta-feira, 25/11/2026. Sem jornada própria vale o HORARIO_DE_TRABALHO: saída almoço às 12:45."""
+
+    def setUp(self):
+        self.funcao = Funcao.objects.create(nome='Atendente', lembretes_ponto=True)
+        self.pessoa = User.objects.create_user('lembrada', first_name='Bruno')
+        self.pessoa.perfil.funcao = self.funcao
+        self.pessoa.perfil.save()
+        self.dia = date(2026, 11, 25)
+
+    def em(self, hora, minuto, segundo=0, dia=None):
+        return timezone.make_aware(datetime.combine(dia or self.dia, time(hora, minuto, segundo)))
+
+    def bater(self, tipo, hora, minuto, ativo=True):
+        RegistroPonto.objects.create(funcionario=self.pessoa, tipo=tipo, data_hora=self.em(hora, minuto), ativo=ativo)
+
+    def lembretes(self, *instante):
+        from .services import lembretes_ponto
+
+        return lembretes_ponto(self.pessoa, self.em(*instante))
+
+    def test_horarios_previstos_da_regra_anterior_e_da_jornada_propria(self):
+        from .models import Jornada
+        from .services import horarios_previstos, vincular_jornada
+
+        previstos = horarios_previstos(self.pessoa, self.dia)
+        self.assertEqual(previstos[RegistroPonto.ENTRADA], time(9, 0))
+        self.assertEqual(previstos[RegistroPonto.SAIDA_CAFE], time(16, 15))
+        self.assertEqual(previstos[RegistroPonto.SAIDA], time(18, 0))
+        self.assertEqual(len(previstos), 6)
+        vincular_jornada(self.pessoa.perfil, Jornada.objects.get(nome='40h · Seg–sex · 08h'), self.dia)
+        previstos = horarios_previstos(self.pessoa, self.dia)
+        self.assertEqual(list(previstos), [
+            RegistroPonto.ENTRADA, RegistroPonto.SAIDA_ALMOCO, RegistroPonto.VOLTA_ALMOCO, RegistroPonto.SAIDA,
+        ])
+        self.assertEqual(previstos[RegistroPonto.SAIDA_ALMOCO], time(12, 0))
+
+    def test_sem_expediente_nao_ha_horarios(self):
+        from .models import Feriado, Folga
+        from .services import horarios_previstos
+
+        self.assertEqual(horarios_previstos(self.pessoa, date(2026, 11, 28)), {})
+        Folga.objects.create(funcionario=self.pessoa, data=self.dia, tipo=Folga.DISPENSA, motivo='Teste')
+        self.assertEqual(horarios_previstos(self.pessoa, self.dia), {})
+        self.assertEqual(self.lembretes(12, 45), [])
+        Feriado.objects.create(data=date(2026, 11, 26), nome='Feriado local', dispensa_expediente=True)
+        self.assertEqual(horarios_previstos(self.pessoa, date(2026, 11, 26)), {})
+
+    def test_etapas_antes_na_hora_e_atraso(self):
+        self.bater(RegistroPonto.ENTRADA, 9, 0)
+        casos = (
+            ((12, 40), '2026-11-25|saida_almoco|-5', 'Saída almoço em 5 minutos'),
+            ((12, 44, 10), '2026-11-25|saida_almoco|-5', 'Saída almoço em 1 minuto'),
+            ((12, 45, 30), '2026-11-25|saida_almoco|0', 'Hora da saída almoço'),
+            ((12, 49, 40), '2026-11-25|saida_almoco|4', 'Saída almoço atrasada há 4 minutos'),
+            ((12, 56, 59), '2026-11-25|saida_almoco|10', 'Saída almoço atrasada há 11 minutos'),
+        )
+        for instante, id_esperado, titulo in casos:
+            with self.subTest(instante=instante):
+                (lembrete,) = self.lembretes(*instante)
+                self.assertEqual(lembrete['id'], id_esperado)
+                self.assertEqual(lembrete['titulo'], titulo)
+                self.assertEqual(lembrete['tag'], 'lembrete-ponto-2026-11-25-saida_almoco')
+                self.assertEqual(lembrete['corpo'], 'Prevista para 12:45. Clique para registrar o ponto.')
+        self.assertEqual(self.lembretes(12, 39, 59), [])
+        self.assertEqual(self.lembretes(12, 57), [])
+
+    def test_no_maximo_sete_avisos_por_batida(self):
+        self.bater(RegistroPonto.ENTRADA, 9, 0)
+        ids = set()
+        for minuto in range(-10, 20):
+            instante = self.em(12, 45) + timedelta(minutes=minuto)
+            ids.update(item['id'] for item in self.lembretes(instante.hour, instante.minute))
+        self.assertEqual(len(ids), 7)
+
+    def test_batida_feita_nao_gera_aviso_e_cafe_sobreposto_gera_dois(self):
+        self.bater(RegistroPonto.ENTRADA, 9, 0)
+        self.bater(RegistroPonto.SAIDA_ALMOCO, 12, 44)
+        self.assertEqual(self.lembretes(12, 47), [])
+        self.bater(RegistroPonto.VOLTA_ALMOCO, 13, 56, ativo=False)
+        self.assertEqual(len(self.lembretes(14, 1)), 1)
+        titulos = [item['titulo'] for item in self.lembretes(16, 26)]
+        self.assertEqual(titulos, ['Saída café atrasada há 11 minutos', 'Volta café em 4 minutos'])
+
+    def test_funcao_desligada_ou_sem_funcao_nao_recebe(self):
+        self.funcao.lembretes_ponto = False
+        self.funcao.save()
+        self.assertEqual(self.lembretes(12, 45), [])
+        self.pessoa.perfil.funcao = None
+        self.pessoa.perfil.save()
+        self.assertEqual(self.lembretes(12, 45), [])
+
+    def test_sem_entrada_um_alerta_para_pedir_ajuste(self):
+        self.assertEqual([item['titulo'] for item in self.lembretes(9, 0)], ['Hora da entrada'])
+        alertas = [self.lembretes(*instante) for instante in ((12, 40), (12, 45), (12, 56))]
+        for alerta in alertas:
+            self.assertEqual(len(alerta), 1)
+            self.assertEqual(alerta[0]['id'], '2026-11-25|sem_entrada')
+            self.assertEqual(alerta[0]['acao'], 'ajuste')
+            self.assertEqual(alerta[0]['titulo'], 'Entrada não registrada hoje')
+        for instante in ((14, 0), (16, 15), (16, 30), (18, 0)):
+            self.assertEqual(self.lembretes(*instante), [])
+        self.bater(RegistroPonto.ENTRADA, 9, 30)
+        self.assertEqual([item['acao'] for item in self.lembretes(12, 45)], ['registrar'])
+
+    def test_sem_entrada_em_jornada_sem_almoco_alerta_na_batida_seguinte(self):
+        from .models import Jornada
+        from .services import vincular_jornada
+
+        jornada = Jornada.objects.create(nome='6h corrida', semana={'2': ['08:00', '', '', '', '', '14:00']})
+        vincular_jornada(self.pessoa.perfil, jornada, self.dia)
+        self.assertEqual(self.lembretes(12, 45), [])
+        self.assertEqual([item['id'] for item in self.lembretes(14, 0)], ['2026-11-25|sem_entrada'])
+
+    def test_consulta_da_pagina(self):
+        url = reverse('lembretes_ponto')
+        self.bater(RegistroPonto.ENTRADA, 9, 0)
+        self.assertEqual(self.client.get(url).status_code, 302)
+        self.client.force_login(self.pessoa)
+        with patch('django.utils.timezone.now', return_value=self.em(12, 45, 30)):
+            resposta = self.client.get(url)
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn('no-store', resposta['Cache-Control'])
+        dados = resposta.json()
+        self.assertTrue(dados['ativo'])
+        self.assertEqual([item['titulo'] for item in dados['lembretes']], ['Hora da saída almoço'])
+        self.assertEqual(dados['lembretes'][0]['destino'], reverse('painel'))
+        RegistroPonto.objects.filter(tipo=RegistroPonto.ENTRADA).delete()
+        with patch('django.utils.timezone.now', return_value=self.em(12, 45, 30)):
+            (alerta,) = self.client.get(url).json()['lembretes']
+        self.assertEqual(alerta['destino'], reverse('solicitar_criacao'))
+        self.assertEqual(self.client.post(url).status_code, 405)
+        self.funcao.lembretes_ponto = False
+        self.funcao.save()
+        self.assertEqual(self.client.get(url).json(), {'ativo': False, 'lembretes': []})
+
+    def test_telas_so_carregam_lembretes_para_quem_recebe(self):
+        self.client.force_login(self.pessoa)
+        resposta = self.client.get(reverse('painel'))
+        self.assertContains(resposta, 'data-lembretes-ponto')
+        self.assertContains(resposta, 'Ativar lembretes de ponto')
+        self.assertContains(resposta, 'data-lembretes-bloqueados')
+        self.assertContains(self.client.get(reverse('relatorio_ponto')), 'data-lembretes-ponto')
+        self.funcao.lembretes_ponto = False
+        self.funcao.save()
+        resposta = self.client.get(reverse('painel'))
+        self.assertNotContains(resposta, 'data-lembretes-ponto')
+        self.assertNotContains(resposta, 'Ativar lembretes de ponto')
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
 class FolgasBancoHorasTests(TestCase):
     def setUp(self):
         self.gestor = User.objects.create_user('gestora_folga', first_name='Ana', last_name='Souza')

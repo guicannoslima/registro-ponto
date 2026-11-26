@@ -203,3 +203,104 @@ document.addEventListener('DOMContentLoaded', () => {
         if (foto.complete && !foto.naturalWidth) usarGenerica();
     });
 });
+
+// Lembretes de ponto: com uma aba do sistema aberta, consulta o servidor e mostra a notificação da batida prevista.
+// O servidor decide pelo relógio dele o que vale agora; aqui só se evita repetir o mesmo aviso entre abas.
+document.addEventListener('DOMContentLoaded', () => {
+    const config = document.querySelector('[data-lembretes-ponto]');
+    if (!config || !('Notification' in window)) {
+        return;
+    }
+    const ativar = document.querySelector('[data-lembretes-ativar]');
+    const bloqueados = document.querySelector('[data-lembretes-bloqueados]');
+    const CHAVE = 'lembretes-ponto-mostrados';
+    const mostradosNaMemoria = new Set();
+    let temporizador = null;
+
+    const atualizarAvisos = () => {
+        if (ativar) ativar.hidden = Notification.permission !== 'default';
+        if (bloqueados) bloqueados.hidden = Notification.permission !== 'denied';
+    };
+
+    // Marca o aviso como mostrado e diz se ainda não tinha sido; guarda só os avisos do dia.
+    const marcarSeNovo = (id) => {
+        const dia = id.split('|')[0];
+        try {
+            const salvo = JSON.parse(localStorage.getItem(CHAVE) || '{}');
+            const ids = salvo.dia === dia ? salvo.ids : [];
+            if (ids.includes(id)) return false;
+            localStorage.setItem(CHAVE, JSON.stringify({ dia, ids: [...ids, id] }));
+            return true;
+        } catch {
+            if (mostradosNaMemoria.has(id)) return false;
+            mostradosNaMemoria.add(id);
+            return true;
+        }
+    };
+
+    const notificar = (lembrete) => {
+        try {
+            const notificacao = new Notification(lembrete.titulo, {
+                body: lembrete.corpo,
+                tag: lembrete.tag,
+                renotify: true,
+                icon: config.dataset.icone,
+                lang: 'pt-BR',
+            });
+            notificacao.addEventListener('click', () => {
+                window.focus();
+                notificacao.close();
+                window.location.href = lembrete.destino || config.dataset.destino;
+            });
+        } catch {
+            // Navegadores que só aceitam notificação por service worker (como o Chrome no Android) ficam sem aviso.
+        }
+    };
+
+    const mostrar = (lembretes) => {
+        lembretes.forEach((lembrete) => {
+            if (marcarSeNovo(lembrete.id)) notificar(lembrete);
+        });
+    };
+
+    const consultar = async () => {
+        if (Notification.permission !== 'granted') return;
+        try {
+            const resposta = await fetch(config.dataset.url, {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+                cache: 'no-store',
+            });
+            if (!resposta.ok || !resposta.headers.get('Content-Type')?.includes('application/json')) return;
+            const dados = await resposta.json();
+            if (!dados.ativo) {
+                clearInterval(temporizador);
+                return;
+            }
+            // Duas abas abertas consultam juntas: a trava faz uma de cada vez conferir o que já foi mostrado.
+            if (navigator.locks) {
+                await navigator.locks.request(CHAVE, () => mostrar(dados.lembretes));
+            } else {
+                mostrar(dados.lembretes);
+            }
+        } catch {
+            // Sem conexão ou sessão encerrada: tenta de novo na próxima consulta.
+        }
+    };
+
+    document.querySelector('[data-lembretes-permitir]')?.addEventListener('click', async () => {
+        await Notification.requestPermission();
+        atualizarAvisos();
+        consultar();
+    });
+    navigator.permissions?.query({ name: 'notifications' }).then((estado) => {
+        estado.addEventListener('change', () => {
+            atualizarAvisos();
+            consultar();
+        });
+    }).catch(() => {});
+
+    atualizarAvisos();
+    consultar();
+    temporizador = setInterval(consultar, Number(config.dataset.intervalo) * 1000);
+});

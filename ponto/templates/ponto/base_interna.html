@@ -1,5 +1,5 @@
 {%extends "ponto/base.html"%}
-{% load static %}
+{% load static ponto_filters %}
 
 {% block classe_main %}principal-interno{% endblock %}
 
@@ -11,6 +11,10 @@
     <button id="voltar-topo" class="voltar-topo" type="button" aria-label="Voltar ao topo" title="Voltar ao topo" hidden>
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 16V4M4 10l6-6 6 6"/></svg>
     </button>
+    {% if user.is_authenticated and modo != 'terminal' and user.perfil.funcao.lembretes_ponto %}
+        <span hidden data-lembretes-ponto data-url="{% url 'lembretes_ponto' %}" data-destino="{% url 'painel' %}"
+              data-icone="{% static 'ponto/logo.png' %}" data-intervalo="{% lembrete_consulta_segundos %}"></span>
+    {% endif %}
     <script src="{% static 'ponto/interno.js' %}" defer></script>
 {% endblock %}
 

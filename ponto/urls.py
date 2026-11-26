@@ -51,6 +51,7 @@ urlpatterns = [
     ),
     path('', views.painel, name='painel'),
     path('bater_ponto/', views.bater_ponto, name='bater_ponto'),
+    path('ponto/lembretes/', views.lembretes_ponto_pendentes, name='lembretes_ponto'),
     path('equipe/', views.equipe, name='equipe'),
     path('ponto/criar/', views.criar_ponto_manual, name = 'criar_ponto_manual'),
     path('folgas/', views.folgas, name='folgas'),

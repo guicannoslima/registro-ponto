@@ -3,6 +3,7 @@
 from collections import defaultdict, deque
 from datetime import date, datetime, time, timedelta
 from io import BytesIO
+from math import ceil
 from uuid import uuid4
 from zipfile import BadZipFile
 
@@ -26,6 +27,14 @@ from .constants import (
     HORARIO_DE_TRABALHO,
     INTERVALO_MINIMO_MINUTOS,
     JORNADA_DIARIA,
+    LEMBRETE_CORPO,
+    LEMBRETE_ETAPAS,
+    LEMBRETE_INTERVALO_ATRASO_MINUTOS,
+    LEMBRETE_SEM_ENTRADA_CORPO,
+    LEMBRETE_SEM_ENTRADA_TITULO,
+    LEMBRETE_TITULO_ANTES,
+    LEMBRETE_TITULO_ATRASO,
+    LEMBRETE_TITULO_NA_HORA,
     MESES,
     MOTIVO_COMPENSACAO_IMPORTADA,
     MOTIVO_FOLGA_IMPORTADA,
@@ -745,6 +754,90 @@ def funcoes_para_listagem():
     return Funcao.objects.annotate(
         pessoas=Count('perfil', filter=Q(perfil__user__is_active=True)),
     ).order_by('nome')
+
+
+def lembretes_ponto_ativos(usuario):
+    """A pessoa recebe lembretes quando a função dela tem a opção ligada, em qualquer papel."""
+    funcao = usuario.perfil.funcao
+    return bool(funcao and funcao.lembretes_ponto)
+
+
+def horarios_previstos(usuario, data, configuracao=None):
+    """Horário previsto de cada batida do dia ({tipo: time}); vazio quando não há expediente.
+
+    Quem tem jornada própria usa os horários dela; os demais, o HORARIO_DE_TRABALHO da regra anterior.
+    """
+    configuracao = configuracao or configuracao_jornada(usuario, data)
+    if not configuracao['carga']:
+        return {}
+    if configuracao['personalizado']:
+        horas = configuracao['horarios']
+    else:
+        horas = [hora for par in HORARIO_DE_TRABALHO for hora in par]
+    return {
+        tipo: time.fromisoformat(hora) for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, horas, strict=False) if hora
+    }
+
+
+def _minutos(quantidade):
+    return f'{quantidade} minuto' if quantidade == 1 else f'{quantidade} minutos'
+
+
+def lembretes_ponto(usuario, agora=None):
+    """Avisos que valem agora para as batidas previstas e ainda não feitas.
+
+    Cada etapa de LEMBRETE_ETAPAS vale até a seguinte (a última, por mais um intervalo de atraso), para que
+    a consulta periódica da página não perca nenhuma mesmo com a aba em segundo plano. O `id` identifica a
+    etapa, para a página não repetir o mesmo aviso; a `tag` identifica a batida, para cada aviso substituir
+    o anterior dela. A `acao` diz o que o clique abre: `registrar` (o Início) ou `ajuste` (Solicitar ajuste).
+
+    Sem a entrada, as batidas seguintes não têm lembrete, porque o registro gravaria a entrada no lugar
+    delas; a primeira delas dá um único alerta para pedir o ajuste de ponto.
+    """
+    if not lembretes_ponto_ativos(usuario):
+        return []
+    agora = timezone.localtime(agora or timezone.now())
+    hoje = agora.date()
+    registros = RegistroPonto.objects.filter(funcionario=usuario, data_hora__date=hoje, ativo=True)
+    feitas = set(registros.values_list('tipo', flat=True))
+    previstos = horarios_previstos(usuario, hoje)
+    sem_entrada = RegistroPonto.ENTRADA in previstos and RegistroPonto.ENTRADA not in feitas
+    depois_da_entrada = next((tipo for tipo in previstos if tipo != RegistroPonto.ENTRADA), None)
+    fins = (*LEMBRETE_ETAPAS[1:], LEMBRETE_ETAPAS[-1] + LEMBRETE_INTERVALO_ATRASO_MINUTOS)
+    lembretes = []
+    for tipo, hora in previstos.items():
+        if tipo in feitas:
+            continue
+        previsto = timezone.make_aware(datetime.combine(hoje, hora), agora.tzinfo)
+        segundos = (agora - previsto).total_seconds()
+        etapa = next((e for e, fim in zip(LEMBRETE_ETAPAS, fins, strict=True) if e * 60 <= segundos < fim * 60), None)
+        if etapa is None:
+            continue
+        if sem_entrada and tipo != RegistroPonto.ENTRADA:
+            if tipo == depois_da_entrada:
+                lembretes.append({
+                    'id': f'{hoje.isoformat()}|sem_entrada',
+                    'tag': f'lembrete-ponto-{hoje.isoformat()}-sem_entrada',
+                    'titulo': LEMBRETE_SEM_ENTRADA_TITULO,
+                    'corpo': LEMBRETE_SEM_ENTRADA_CORPO,
+                    'acao': 'ajuste',
+                })
+            continue
+        batida = ROTULOS_CURTOS[tipo]
+        if etapa < 0:
+            titulo = LEMBRETE_TITULO_ANTES.format(batida=batida, minutos=_minutos(ceil(-segundos / 60)))
+        elif etapa == 0:
+            titulo = LEMBRETE_TITULO_NA_HORA.format(batida=batida.lower())
+        else:
+            titulo = LEMBRETE_TITULO_ATRASO.format(batida=batida, minutos=_minutos(int(segundos // 60)))
+        lembretes.append({
+            'id': f'{hoje.isoformat()}|{tipo}|{etapa}',
+            'tag': f'lembrete-ponto-{hoje.isoformat()}-{tipo}',
+            'titulo': titulo,
+            'corpo': LEMBRETE_CORPO.format(hora=hora.strftime('%H:%M')),
+            'acao': 'registrar',
+        })
+    return lembretes
 
 
 def tipos_da_jornada(usuario, data):

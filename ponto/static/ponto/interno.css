@@ -1381,8 +1381,12 @@ body:has([data-camera][data-modo="terminal"]) > .principal-interno {
 .principal-interno .chamada__icone svg { width: 22px; height: 22px; }
 .principal-interno .chamada--folga { background: var(--sucesso-fundo); border-color: #b9dcc7; }
 .principal-interno .chamada--folga .chamada__icone { background: var(--sucesso); }
-.principal-interno .chamada--compensacao { background: var(--atencao-fundo); border-color: #f0d49c; }
-.principal-interno .chamada--compensacao .chamada__icone { background: var(--atencao); }
+.principal-interno .chamada--compensacao,
+.principal-interno .chamada--atencao { background: var(--atencao-fundo); border-color: #f0d49c; }
+.principal-interno .chamada--compensacao .chamada__icone,
+.principal-interno .chamada--atencao .chamada__icone { background: var(--atencao); }
+/* Avisos dos lembretes de ponto: o script mostra só o que vale para a permissão do navegador */
+.principal-interno .chamada[hidden] { display: none; }
 .principal-interno .chamada--dia .chamada__texto p { margin: 0; }
 .principal-interno .chamada--dia .chamada__texto p + p { margin-top: 4px; }
 .principal-interno .chamada--dia .selo { flex: none; }

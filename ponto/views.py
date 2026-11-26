@@ -19,6 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import get_template
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_http_methods, require_POST
 from xhtml2pdf import pisa
@@ -31,6 +32,7 @@ from .constants import (
     DIAS_DE_AJUSTE,
     EMPRESA_ENDERECO,
     EMPRESA_NOME,
+    LEMBRETE_ANTECEDENCIA_MINUTOS,
     TERMINAL_INATIVIDADE_MS,
     TERMINAL_MANUTENCAO_MS,
     TERMINAL_SESSAO_SEGUNDOS,
@@ -83,6 +85,8 @@ from .services import (
     importar_planilha_ponto,
     jornadas_para_listagem,
     lancar_folgas,
+    lembretes_ponto,
+    lembretes_ponto_ativos,
     linha_do_dia,
     obter_foto_perfil,
     pessoas_para_cadastro_facial,
@@ -173,6 +177,7 @@ def painel(request):
         'aviso': aviso_do_dia(request.user, hoje, configuracao),
         'aviso_ontem': aviso_do_dia(request.user, ontem),
         'tolerancia_minutos': int(TOLERANCIA_SALDO.total_seconds() // 60),
+        'lembrete_antecedencia': LEMBRETE_ANTECEDENCIA_MINUTOS,
         'hora_atual': timezone.localtime(agora),
         'ontem': ontem,
         'ontem_titulo': data_por_extenso(ontem),
@@ -199,6 +204,16 @@ def painel(request):
     contexto['aba_ativa'] = aba if aba in abas else abas[0]
 
     return render(request, 'ponto/painel.html', contexto)
+
+
+@login_required
+@never_cache
+@require_http_methods(['GET'])
+def lembretes_ponto_pendentes(request):
+    """Avisos de ponto que valem agora; a página consulta periodicamente e mostra no navegador."""
+    destinos = {'registrar': reverse('painel'), 'ajuste': reverse('solicitar_criacao')}
+    lembretes = [item | {'destino': destinos[item['acao']]} for item in lembretes_ponto(request.user)]
+    return JsonResponse({'ativo': lembretes_ponto_ativos(request.user), 'lembretes': lembretes})
 
 
 @login_required

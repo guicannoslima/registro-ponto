@@ -151,3 +151,19 @@ LEMBRETES_PONTO_AJUDA = (
     f'inclusive o café, na hora certa e, se a batida não for feita, a cada {LEMBRETE_INTERVALO_ATRASO_MINUTOS} '
     f'minutos até {LEMBRETE_ATRASO_MAXIMO_MINUTOS} minutos de atraso. Só funciona com o sistema aberto em uma aba.'
 )
+# A página consulta o servidor neste intervalo; o servidor decide pelo relógio dele
+LEMBRETE_CONSULTA_SEGUNDOS = 30
+# Etapas de cada batida, em minutos em relação ao horário previsto: antes, na hora e os atrasos
+LEMBRETE_ETAPAS = (
+    -LEMBRETE_ANTECEDENCIA_MINUTOS,
+    0,
+    *range(LEMBRETE_INTERVALO_ATRASO_MINUTOS, LEMBRETE_ATRASO_MAXIMO_MINUTOS + 1, LEMBRETE_INTERVALO_ATRASO_MINUTOS),
+)
+LEMBRETE_TITULO_ANTES = '{batida} em {minutos}'
+LEMBRETE_TITULO_NA_HORA = 'Hora da {batida}'
+LEMBRETE_TITULO_ATRASO = '{batida} atrasada há {minutos}'
+LEMBRETE_CORPO = 'Prevista para {hora}. Clique para registrar o ponto.'
+# Sem a entrada, o botão de registrar gravaria a entrada no lugar das demais batidas: em vez dos lembretes delas,
+# um único alerta na janela da primeira batida depois da entrada (normalmente a saída para o almoço)
+LEMBRETE_SEM_ENTRADA_TITULO = 'Entrada não registrada hoje'
+LEMBRETE_SEM_ENTRADA_CORPO = 'Sem a entrada, o ponto do dia fica incompleto. Clique para solicitar o ajuste de ponto.'

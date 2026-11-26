@@ -18,6 +18,28 @@
         </section>
     {% endif %}
 
+    {% if user.perfil.funcao.lembretes_ponto %}
+        <section class="chamada chamada--dia" aria-label="Lembretes de ponto" data-lembretes-ativar hidden>
+            <span class="chamada__icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </span>
+            <div class="chamada__texto">
+                <p><strong>Ative os lembretes de ponto</strong></p>
+                <p class="apoio">Sua função recebe avisos no navegador {{ lembrete_antecedencia }} minutos antes de cada batida, na hora certa e em caso de atraso.</p>
+            </div>
+            <button type="button" class="btn btn--secundario" data-lembretes-permitir>Ativar lembretes de ponto</button>
+        </section>
+        <section class="chamada chamada--dia chamada--atencao" aria-label="Lembretes de ponto bloqueados" data-lembretes-bloqueados hidden>
+            <span class="chamada__icone" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </span>
+            <div class="chamada__texto">
+                <p><strong>Os lembretes de ponto estão bloqueados neste navegador</strong></p>
+                <p class="apoio">Libere as notificações nas configurações do site, no cadeado ao lado do endereço, e recarregue a página.</p>
+            </div>
+        </section>
+    {% endif %}
+
     {% if aviso %}
         <section class="chamada chamada--dia chamada--{{ aviso.classe }}" aria-label="Aviso do dia">
             <span class="chamada__icone" aria-hidden="true">
