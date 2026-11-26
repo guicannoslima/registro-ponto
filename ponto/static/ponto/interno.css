@@ -1448,6 +1448,10 @@ body:has([data-camera][data-modo="terminal"]) > .principal-interno {
 .principal-interno .saldo-linha__valor { text-align: right; white-space: nowrap; }
 .principal-interno .negativo { color: var(--perigo); font-weight: 600; }
 
+/* Ação de excluir numa lista: discreta como Editar, em vermelho; o vermelho cheio fica no diálogo de confirmação */
+.principal-interno .btn--excluir { color: var(--perigo); }
+.principal-interno .btn--excluir:hover { border-color: var(--perigo); background: var(--perigo-fundo); color: var(--perigo); }
+
 /* ---------- tema escuro ----------
  * Prancha "Tema escuro" no Figcraft. Ligado só pelo botão do cabeçalho (data-tema="escuro" no <html>, salvo no
  * navegador) e só nas telas internas: as públicas não carregam este arquivo e o PDF não muda.
@@ -1497,6 +1501,8 @@ html[data-tema="escuro"] .principal-interno .btn:hover { background: #2589c4; co
 html[data-tema="escuro"] .principal-interno .btn--secundario { background: #1d2c3f; border-color: #3a5068; color: var(--acao); }
 html[data-tema="escuro"] .principal-interno .btn--secundario:hover { background: var(--acao-fundo); border-color: var(--acao); color: var(--acao-escura); }
 html[data-tema="escuro"] .principal-interno .btn--perigo { background: #c43d48; }
+html[data-tema="escuro"] .principal-interno .btn--secundario.btn--excluir { color: var(--perigo); }
+html[data-tema="escuro"] .principal-interno .btn--secundario.btn--excluir:hover { border-color: var(--perigo); background: var(--perigo-fundo); color: var(--perigo); }
 html[data-tema="escuro"] .principal-interno .btn--perigo:hover { background: #a8323c; }
 html[data-tema="escuro"] .principal-interno .chamada--folga .chamada__icone { background: #2e8b57; }
 html[data-tema="escuro"] .principal-interno .chamada--compensacao .chamada__icone,

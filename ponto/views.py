@@ -40,11 +40,12 @@ from .constants import (
     USUARIOS_POR_PAGINA,
 )
 from .email import BackendEmail
-from .exceptions import ErroBatida, ErroFacial, ErroImportacao, SemRosto
+from .exceptions import ErroBatida, ErroFacial, ErroImportacao, JornadaEmUso, SemRosto
 from .forms import (
     AnoFeriadosForm,
     CadastroForm,
     ConfiguracaoEmailForm,
+    ExcluirJornadaForm,
     FeriadoForm,
     FolgaForm,
     FotoPerfilForm,
@@ -80,7 +81,9 @@ from .services import (
     cancelar_folga,
     configuracao_jornada,
     efeito_da_folga,
+    efeitos_da_exclusao,
     estado_cadastro_facial,
+    excluir_jornada,
     funcoes_para_listagem,
     importar_planilha_ponto,
     jornadas_para_listagem,
@@ -945,6 +948,31 @@ def jornada_formulario(request, jornada_id=None):
         messages.success(request, 'Jornada salva. Vincule no cadastro do colaborador para aplicar os horários.')
         return redirect('jornadas')
     return render(request, 'ponto/jornada_formulario.html', {'form': form, 'jornada': jornada})
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def jornada_excluir(request, jornada_id):
+    """Jornada nunca usada: exclui pelo diálogo da lista. Em uso: tela com os efeitos e a jornada substituta."""
+    jornada = get_object_or_404(Jornada, pk=jornada_id)
+    efeitos = efeitos_da_exclusao(jornada)
+    if not efeitos['em_uso']:
+        if request.method == 'POST':
+            excluir_jornada(jornada)
+            messages.success(request, f'Jornada {jornada.nome} excluída.')
+        return redirect('jornadas')
+    form = ExcluirJornadaForm(request.POST if request.method == 'POST' else None, jornada=jornada)
+    if request.method == 'POST' and form.is_valid():
+        substituta = form.cleaned_data['substituta']
+        try:
+            trocadas = excluir_jornada(jornada, substituta)
+        except JornadaEmUso as exc:
+            form.add_error('substituta', str(exc))
+        else:
+            pessoas = f'{trocadas} pessoa passou' if trocadas == 1 else f'{trocadas} pessoas passaram'
+            messages.success(request, f'Jornada {jornada.nome} excluída. {pessoas} para {substituta.nome}.')
+            return redirect('jornadas')
+    return render(request, 'ponto/jornada_excluir.html', {'jornada': jornada, 'efeitos': efeitos, 'form': form})
 
 
 @administrador_required

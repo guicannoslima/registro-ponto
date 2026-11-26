@@ -1225,6 +1225,71 @@ class JornadasFeriadosTests(TestCase):
             self.assertEqual(self.client.get(reverse(nome)).status_code, 403)
             self.assertEqual(self.client.post(reverse(nome), {}).status_code, 403)
 
+    def test_jornada_nunca_vinculada_exclui_pelo_dialogo(self):
+        from .models import Jornada
+
+        nova = Jornada.objects.create(nome='Teste para excluir', semana={'0': ['08:00', '', '', '', '', '12:00']})
+        lista = self.client.get(reverse('jornadas'))
+        self.assertContains(lista, 'data-confirmar-titulo="Excluir jornada?"')
+        self.assertContains(lista, 'id="confirm-dialog"')
+        resposta = self.client.post(reverse('jornada_excluir', args=[nova.pk]), follow=True)
+        self.assertRedirects(resposta, reverse('jornadas'))
+        self.assertContains(resposta, 'Jornada Teste para excluir excluída.')
+        self.assertFalse(Jornada.objects.filter(pk=nova.pk).exists())
+
+    def test_jornada_em_uso_avisa_os_efeitos_e_exige_substituta(self):
+        from .models import Jornada
+
+        self.vincular(date(2026, 11, 2))
+        url = reverse('jornada_excluir', args=[self.jornada.pk])
+        self.assertContains(self.client.get(reverse('jornadas')), f'href="{url}"')
+        with patch('django.utils.timezone.now', return_value=timezone.make_aware(datetime(2026, 11, 26, 10))):
+            aviso = self.client.get(url)
+            self.assertContains(aviso, 'Esta jornada está em uso: 1 pessoa tem esta jornada hoje.')
+            self.assertContains(aviso, 'a partir de hoje, 26/11/2026')
+            self.assertContains(aviso, 'Excluir não pode ser desfeito')
+            self.assertNotContains(aviso, f'<option value="{self.jornada.pk}"')
+            for dados in ({}, {'ciente': 'on'}, {'substituta': self.jornada.pk, 'ciente': 'on'}):
+                with self.subTest(dados=dados):
+                    self.assertEqual(self.client.post(url, dados).status_code, 200)
+                    self.assertTrue(Jornada.objects.filter(pk=self.jornada.pk).exists())
+            substituta = Jornada.objects.get(nome='40h · Seg–sex · 09h')
+            sem_ciencia = self.client.post(url, {'substituta': substituta.pk})
+            self.assertContains(sem_ciencia, 'Confirme que a troca não pode ser desfeita.')
+            resposta = self.client.post(url, {'substituta': substituta.pk, 'ciente': 'on'}, follow=True)
+        self.assertRedirects(resposta, reverse('jornadas'))
+        self.assertContains(resposta, '1 pessoa passou para 40h · Seg–sex · 09h')
+        self.assertFalse(Jornada.objects.filter(pk=self.jornada.pk).exists())
+
+    def test_excluir_em_uso_preserva_o_passado_e_troca_hoje_e_agendados(self):
+        from .models import Jornada
+        from .services import configuracao_jornada, excluir_jornada, tipos_da_jornada, vincular_jornada
+
+        hoje = date(2026, 11, 26)
+        substituta = Jornada.objects.get(nome='40h · Seg–sex · 09h')
+        self.vincular(date(2026, 11, 2))
+        outra = User.objects.create_user('agendada')
+        vincular_jornada(outra.perfil, self.jornada, date(2026, 12, 1))
+        passado = date(2026, 11, 16)
+        antes = configuracao_jornada(self.pessoa, passado)
+
+        self.assertEqual(excluir_jornada(self.jornada, substituta, hoje=hoje), 1)
+        depois = configuracao_jornada(self.pessoa, passado)
+        for chave in ('carga', 'horarios', 'nome', 'personalizado'):
+            self.assertEqual(depois[chave], antes[chave])
+        self.assertEqual(depois['horarios'], ['08:00', '12:00', '13:00', '', '', '17:00'])
+        self.assertEqual(len(tipos_da_jornada(self.pessoa, passado)), 4)
+        self.assertEqual(configuracao_jornada(self.pessoa, hoje)['nome'], substituta.nome)
+        self.assertEqual(outra.perfil.jornadas.get().jornada, substituta)
+        self.assertEqual(outra.perfil.jornadas.get().inicio, date(2026, 12, 1))
+
+    def test_excluir_jornada_so_administrador(self):
+        url = reverse('jornada_excluir', args=[self.jornada.pk])
+        self.client.force_login(self.pessoa)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.assertEqual(self.client.post(url).status_code, 403)
+        self.assertEqual(self.client.post(reverse('jornada_excluir', args=[9999])).status_code, 403)
+
     def test_form_valida_ordem_intervalos_e_folgas(self):
         from .forms import JornadaForm
 

@@ -430,6 +430,25 @@ class FeriadoForm(forms.ModelForm):
         labels = {'dispensa_expediente': 'Dispensa expediente na empresa'}
 
 
+class ExcluirJornadaForm(forms.Form):
+    """Exclusão de jornada em uso: escolher a que substitui e confirmar que a troca não tem volta."""
+
+    substituta = forms.ModelChoiceField(
+        label='Jornada que substitui',
+        queryset=Jornada.objects.none(),
+        empty_label='Escolha a jornada',
+        error_messages={'required': 'Escolha a jornada que vai substituir esta.'},
+    )
+    ciente = forms.BooleanField(
+        label='Entendo que a troca não pode ser desfeita',
+        error_messages={'required': 'Confirme que a troca não pode ser desfeita.'},
+    )
+
+    def __init__(self, *args, jornada, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['substituta'].queryset = Jornada.objects.filter(ativa=True).exclude(pk=jornada.pk)
+
+
 class FuncaoForm(forms.ModelForm):
     class Meta:
         model = Funcao

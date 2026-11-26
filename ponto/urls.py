@@ -10,6 +10,7 @@ urlpatterns = [
     path('administracao/jornadas/', views.jornadas, name='jornadas'),
     path('administracao/jornadas/nova/', views.jornada_formulario, name='jornada_criar'),
     path('administracao/jornadas/<int:jornada_id>/', views.jornada_formulario, name='jornada_editar'),
+    path('administracao/jornadas/<int:jornada_id>/excluir/', views.jornada_excluir, name='jornada_excluir'),
     path('administracao/funcoes/', views.funcoes, name='funcoes'),
     path('administracao/funcoes/nova/', views.funcao_formulario, name='funcao_criar'),
     path('administracao/funcoes/<int:funcao_id>/', views.funcao_formulario, name='funcao_editar'),

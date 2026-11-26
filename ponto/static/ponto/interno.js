@@ -347,3 +347,18 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     atualizarBotao();
 });
+
+// Formulários com data-confirmar: pedem confirmação no diálogo da aplicação antes de enviar (ex.: excluir jornada).
+document.addEventListener('submit', async (evento) => {
+    const form = evento.target;
+    if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-confirmar') || form.dataset.confirmado) return;
+    evento.preventDefault();
+    const confirmado = await window.confirmDialog({
+        titulo: form.dataset.confirmarTitulo,
+        mensagem: form.dataset.confirmarMensagem,
+        confirmar: form.dataset.confirmarBotao,
+    });
+    if (!confirmado) return;
+    form.dataset.confirmado = 'true';
+    form.requestSubmit(evento.submitter);
+});

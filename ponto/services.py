@@ -47,7 +47,7 @@ from .constants import (
     ROTULOS_CURTOS,
     TOLERANCIA_SALDO,
 )
-from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial, ErroImportacao
+from .exceptions import CadastroFacialAusente, ErroBatida, ErroFacial, ErroImportacao, JornadaEmUso
 from .facial import extrair_vetor, identificar
 from .models import (
     CadastroFacial,
@@ -418,7 +418,8 @@ def configuracao_jornada(usuario, data, vinculos=None, feriados=None, folgas=Non
     else:
         folga = folgas.get(data)
 
-    personalizado = bool(vinculo and vinculo.jornada_id)
+    # A cópia dos horários vale mesmo depois de a jornada de origem ser excluída; sem cópia é a regra anterior.
+    personalizado = bool(vinculo and (vinculo.jornada_id or vinculo.semana))
     horarios = vinculo.semana.get(str(data.weekday()), []) if personalizado else []
     util = bool(horarios and horarios[0]) if personalizado else data.weekday() in DIAS_UTEIS
     # Fora dos dias úteis a carga é zero: o que for trabalhado conta como hora extra.
@@ -743,7 +744,8 @@ def vincular_jornada(perfil, jornada, inicio):
 
 
 def jornadas_para_listagem():
-    jornadas = list(Jornada.objects.all())
+    """Jornadas com a carga semanal e `em_uso`: se alguém já teve vínculo com ela (hoje ou no histórico)."""
+    jornadas = list(Jornada.objects.annotate(em_uso=Exists(VinculoJornada.objects.filter(jornada=OuterRef('pk')))))
     for jornada in jornadas:
         jornada.carga_semanal = sum((duracao_jornada(h) for h in jornada.semana.values()), timedelta())
     return jornadas
@@ -754,6 +756,40 @@ def funcoes_para_listagem():
     return Funcao.objects.annotate(
         pessoas=Count('perfil', filter=Q(perfil__user__is_active=True)),
     ).order_by('nome')
+
+
+def efeitos_da_exclusao(jornada, hoje=None):
+    """Quem a exclusão da jornada afeta: `atuais` (a usam hoje) e `agendados` (vínculos que começam depois)."""
+    hoje = hoje or timezone.localdate()
+    vinculos = VinculoJornada.objects.filter(jornada=jornada).select_related('perfil__user')
+    atuais = [
+        vinculo.perfil
+        for vinculo in vinculos.filter(inicio__lte=hoje)
+        if getattr(jornada_vigente(vinculo.perfil.user, hoje), 'pk', None) == vinculo.pk
+    ]
+    agendados = list(vinculos.filter(inicio__gt=hoje).order_by('inicio'))
+    return {'atuais': atuais, 'agendados': agendados, 'em_uso': vinculos.exists(), 'hoje': hoje}
+
+
+@transaction.atomic
+def excluir_jornada(jornada, substituta=None, hoje=None):
+    """Exclui a jornada. Se estiver em uso, quem a usa hoje e os vínculos agendados passam para a `substituta`.
+
+    Os vínculos antigos ficam com a cópia dos horários (e o nome) e deixam de apontar para a jornada, então os
+    dias anteriores continuam calculados como eram. Devolve quantas pessoas trocaram de jornada.
+    """
+    jornada = Jornada.objects.select_for_update().get(pk=jornada.pk)
+    efeitos = efeitos_da_exclusao(jornada, hoje)
+    if efeitos['em_uso']:
+        if substituta is None or substituta.pk == jornada.pk:
+            raise JornadaEmUso(f'A jornada {jornada.nome} está em uso. Escolha outra jornada para substituí-la.')
+        for perfil in efeitos['atuais']:
+            vincular_jornada(perfil, substituta, efeitos['hoje'])
+        for vinculo in efeitos['agendados']:
+            vincular_jornada(vinculo.perfil, substituta, vinculo.inicio)
+        VinculoJornada.objects.filter(jornada=jornada).update(jornada=None)
+    jornada.delete()
+    return len(efeitos['atuais'])
 
 
 def lembretes_ponto_ativos(usuario):
@@ -850,7 +886,7 @@ def lembretes_ponto(usuario, agora=None):
 
 def tipos_da_jornada(usuario, data):
     vinculo = jornada_vigente(usuario, data)
-    if not vinculo or not vinculo.jornada_id:
+    if not vinculo or not (vinculo.jornada_id or vinculo.semana):
         return RegistroPonto.ORDEM_TIPOS
     horarios = vinculo.semana.get(str(data.weekday())) or next(iter(vinculo.semana.values()), [])
     return [tipo for tipo, hora in zip(RegistroPonto.ORDEM_TIPOS, horarios, strict=True) if hora]

@@ -1,0 +1,24 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}Excluir jornada - Registro de Ponto{% endblock %}
+{% block conteudo %}<div class="pagina"><header class="titulo-pagina"><div class="titulo-pagina__texto"><h1>Excluir jornada</h1><p class="apoio">{{ jornada.nome }}</p></div></header>
+<section class="cartao-interno"><form method="post" class="campos" novalidate>{% csrf_token %}{% include 'ponto/_erros_formulario.html' %}
+<div class="aviso aviso--atencao" role="alert">
+    <p><strong>Esta jornada está em uso{% with total=efeitos.atuais|length %}{% if total %}: {% if total == 1 %}1 pessoa tem{% else %}{{ total }} pessoas têm{% endif %} esta jornada hoje{% endif %}{% endwith %}.</strong></p>
+    {% if efeitos.atuais %}<p>{% for perfil in efeitos.atuais %}{{ perfil.user.get_full_name|default:perfil.user.username }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+    <p>Excluir não pode ser desfeito e tem estes efeitos:</p>
+    <ul>
+        {% if efeitos.atuais %}<li>Quem usa esta jornada hoje passa para a jornada escolhida abaixo a partir de hoje, {{ efeitos.hoje|date:'d/m/Y' }}; o dia de hoje já é calculado por ela.</li>{% endif %}
+        {% if efeitos.agendados %}<li>{% if efeitos.agendados|length == 1 %}O vínculo agendado{% else %}Os {{ efeitos.agendados|length }} vínculos agendados{% endif %} com esta jornada ({% for vinculo in efeitos.agendados %}{{ vinculo.perfil.user.get_full_name|default:vinculo.perfil.user.username }} em {{ vinculo.inicio|date:'d/m/Y' }}{% if not forloop.last %}; {% endif %}{% endfor %}) passa{% if efeitos.agendados|length > 1 %}m{% endif %} para a jornada escolhida, na mesma data.</li>{% endif %}
+        <li>A jornada some da lista: não dá mais para copiar, vincular ou reaplicar os horários dela.</li>
+        <li>Os dias anteriores continuam com os horários antigos, que o histórico de cada pessoa guarda.</li>
+    </ul>
+</div>
+{% if form.fields.substituta.queryset.exists %}
+    {% include 'ponto/_campo.html' with campo=form.substituta %}
+    <div class="campo{% if form.ciente.errors %} campo--erro{% endif %}"><label class="opcao">{{ form.ciente }} {{ form.ciente.label }} (obrigatório)</label>{% if form.ciente.errors %}<ul class="errorlist">{% for erro in form.ciente.errors %}<li>{{ erro }}</li>{% endfor %}</ul>{% endif %}</div>
+    <div class="acoes"><button class="btn btn--perigo" type="submit">Excluir e trocar a jornada</button><a class="btn btn--secundario" href="{% url 'jornadas' %}">Voltar</a></div>
+{% else %}
+    <p>Não há outra jornada ativa para substituir esta. <a class="link" href="{% url 'jornada_criar' %}">Cadastre uma jornada</a> antes de excluir.</p>
+    <div class="acoes"><a class="btn btn--secundario" href="{% url 'jornadas' %}">Voltar</a></div>
+{% endif %}
+</form></section></div>{% endblock %}

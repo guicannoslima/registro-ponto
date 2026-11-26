@@ -23,3 +23,7 @@ class SemRosto(ErroFacial):
 
 class ErroImportacao(Exception):
     """A planilha de ponto não pode ser lida ou não corresponde a um colaborador."""
+
+
+class JornadaEmUso(Exception):
+    """A jornada já foi vinculada a alguém e não pode ser excluída, só inativada."""
