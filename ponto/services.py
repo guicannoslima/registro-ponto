@@ -29,9 +29,9 @@ from .constants import (
     JORNADA_DIARIA,
     LEMBRETE_CORPO,
     LEMBRETE_ETAPAS,
+    LEMBRETE_FALTANTE_CORPO,
+    LEMBRETE_FALTANTE_TITULO,
     LEMBRETE_INTERVALO_ATRASO_MINUTOS,
-    LEMBRETE_SEM_ENTRADA_CORPO,
-    LEMBRETE_SEM_ENTRADA_TITULO,
     LEMBRETE_TITULO_ANTES,
     LEMBRETE_TITULO_ATRASO,
     LEMBRETE_TITULO_NA_HORA,
@@ -783,16 +783,27 @@ def _minutos(quantidade):
     return f'{quantidade} minuto' if quantidade == 1 else f'{quantidade} minutos'
 
 
+def _etapa_do_lembrete(previsto, agora):
+    """A etapa de LEMBRETE_ETAPAS que vale agora para uma batida prevista, ou None fora da janela.
+
+    Cada etapa vale até a seguinte (a última, por mais um intervalo de atraso), para que a consulta periódica
+    da página não perca nenhuma mesmo com a aba em segundo plano.
+    """
+    segundos = (agora - previsto).total_seconds()
+    fins = (*LEMBRETE_ETAPAS[1:], LEMBRETE_ETAPAS[-1] + LEMBRETE_INTERVALO_ATRASO_MINUTOS)
+    return next((e for e, fim in zip(LEMBRETE_ETAPAS, fins, strict=True) if e * 60 <= segundos < fim * 60), None)
+
+
 def lembretes_ponto(usuario, agora=None):
-    """Avisos que valem agora para as batidas previstas e ainda não feitas.
+    """Avisos que valem agora para a pessoa, no máximo um por batida.
 
-    Cada etapa de LEMBRETE_ETAPAS vale até a seguinte (a última, por mais um intervalo de atraso), para que
-    a consulta periódica da página não perca nenhuma mesmo com a aba em segundo plano. O `id` identifica a
-    etapa, para a página não repetir o mesmo aviso; a `tag` identifica a batida, para cada aviso substituir
-    o anterior dela. A `acao` diz o que o clique abre: `registrar` (o Início) ou `ajuste` (Solicitar ajuste).
+    O registro segue a ordem das batidas, então só a próxima pendente tem lembretes (antes, na hora e de
+    atraso). As seguintes não têm: o botão gravaria a pendente no lugar delas. Quando chega a hora da batida
+    seguinte e a pendente não foi feita, sai um único alerta para pedir o ajuste de ponto, depois de acabarem
+    os avisos de atraso da pendente.
 
-    Sem a entrada, as batidas seguintes não têm lembrete, porque o registro gravaria a entrada no lugar
-    delas; a primeira delas dá um único alerta para pedir o ajuste de ponto.
+    O `id` identifica o aviso, para a página não repetir; a `tag` identifica a batida, para cada aviso
+    substituir o anterior dela. A `acao` diz o que o clique abre: `registrar` (Início) ou `ajuste`.
     """
     if not lembretes_ponto_ativos(usuario):
         return []
@@ -801,43 +812,40 @@ def lembretes_ponto(usuario, agora=None):
     registros = RegistroPonto.objects.filter(funcionario=usuario, data_hora__date=hoje, ativo=True)
     feitas = set(registros.values_list('tipo', flat=True))
     previstos = horarios_previstos(usuario, hoje)
-    sem_entrada = RegistroPonto.ENTRADA in previstos and RegistroPonto.ENTRADA not in feitas
-    depois_da_entrada = next((tipo for tipo in previstos if tipo != RegistroPonto.ENTRADA), None)
-    fins = (*LEMBRETE_ETAPAS[1:], LEMBRETE_ETAPAS[-1] + LEMBRETE_INTERVALO_ATRASO_MINUTOS)
-    lembretes = []
-    for tipo, hora in previstos.items():
-        if tipo in feitas:
-            continue
-        previsto = timezone.make_aware(datetime.combine(hoje, hora), agora.tzinfo)
-        segundos = (agora - previsto).total_seconds()
-        etapa = next((e for e, fim in zip(LEMBRETE_ETAPAS, fins, strict=True) if e * 60 <= segundos < fim * 60), None)
-        if etapa is None:
-            continue
-        if sem_entrada and tipo != RegistroPonto.ENTRADA:
-            if tipo == depois_da_entrada:
-                lembretes.append({
-                    'id': f'{hoje.isoformat()}|sem_entrada',
-                    'tag': f'lembrete-ponto-{hoje.isoformat()}-sem_entrada',
-                    'titulo': LEMBRETE_SEM_ENTRADA_TITULO,
-                    'corpo': LEMBRETE_SEM_ENTRADA_CORPO,
-                    'acao': 'ajuste',
-                })
-            continue
-        batida = ROTULOS_CURTOS[tipo]
+    pendentes = [tipo for tipo in previstos if tipo not in feitas]
+    if not pendentes:
+        return []
+
+    def instante(tipo):
+        return timezone.make_aware(datetime.combine(hoje, previstos[tipo]), agora.tzinfo)
+
+    proxima, seguinte = pendentes[0], next(iter(pendentes[1:]), None)
+    etapa = _etapa_do_lembrete(instante(proxima), agora)
+    if etapa is not None:
+        batida = ROTULOS_CURTOS[proxima]
+        segundos = (agora - instante(proxima)).total_seconds()
         if etapa < 0:
             titulo = LEMBRETE_TITULO_ANTES.format(batida=batida, minutos=_minutos(ceil(-segundos / 60)))
         elif etapa == 0:
             titulo = LEMBRETE_TITULO_NA_HORA.format(batida=batida.lower())
         else:
             titulo = LEMBRETE_TITULO_ATRASO.format(batida=batida, minutos=_minutos(int(segundos // 60)))
-        lembretes.append({
-            'id': f'{hoje.isoformat()}|{tipo}|{etapa}',
-            'tag': f'lembrete-ponto-{hoje.isoformat()}-{tipo}',
+        return [{
+            'id': f'{hoje.isoformat()}|{proxima}|{etapa}',
+            'tag': f'lembrete-ponto-{hoje.isoformat()}-{proxima}',
             'titulo': titulo,
-            'corpo': LEMBRETE_CORPO.format(hora=hora.strftime('%H:%M')),
+            'corpo': LEMBRETE_CORPO.format(hora=previstos[proxima].strftime('%H:%M')),
             'acao': 'registrar',
-        })
-    return lembretes
+        }]
+    if seguinte and _etapa_do_lembrete(instante(seguinte), agora) is not None:
+        return [{
+            'id': f'{hoje.isoformat()}|sem_{proxima}',
+            'tag': f'lembrete-ponto-{hoje.isoformat()}-sem_{proxima}',
+            'titulo': LEMBRETE_FALTANTE_TITULO.format(batida=ROTULOS_CURTOS[proxima]),
+            'corpo': LEMBRETE_FALTANTE_CORPO,
+            'acao': 'ajuste',
+        }]
+    return []
 
 
 def tipos_da_jornada(usuario, data):

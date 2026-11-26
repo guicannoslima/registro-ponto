@@ -163,7 +163,7 @@ LEMBRETE_TITULO_ANTES = '{batida} em {minutos}'
 LEMBRETE_TITULO_NA_HORA = 'Hora da {batida}'
 LEMBRETE_TITULO_ATRASO = '{batida} atrasada há {minutos}'
 LEMBRETE_CORPO = 'Prevista para {hora}. Clique para registrar o ponto.'
-# Sem a entrada, o botão de registrar gravaria a entrada no lugar das demais batidas: em vez dos lembretes delas,
-# um único alerta na janela da primeira batida depois da entrada (normalmente a saída para o almoço)
-LEMBRETE_SEM_ENTRADA_TITULO = 'Entrada não registrada hoje'
-LEMBRETE_SEM_ENTRADA_CORPO = 'Sem a entrada, o ponto do dia fica incompleto. Clique para solicitar o ajuste de ponto.'
+# O registro segue a ordem das batidas: se uma não foi feita, o botão a gravaria no lugar das seguintes. Por isso só
+# a próxima batida pendente tem lembretes; as seguintes não têm, e a primeira delas dá um único alerta de ajuste
+LEMBRETE_FALTANTE_TITULO = '{batida} não registrada hoje'
+LEMBRETE_FALTANTE_CORPO = 'Sem essa batida, o ponto do dia fica incompleto. Clique para solicitar o ajuste de ponto.'

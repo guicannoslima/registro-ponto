@@ -1533,14 +1533,32 @@ class LembretesPontoTests(TestCase):
             ids.update(item['id'] for item in self.lembretes(instante.hour, instante.minute))
         self.assertEqual(len(ids), 7)
 
-    def test_batida_feita_nao_gera_aviso_e_cafe_sobreposto_gera_dois(self):
+    def test_batida_feita_nao_gera_aviso_e_batida_inativa_conta_como_nao_feita(self):
         self.bater(RegistroPonto.ENTRADA, 9, 0)
         self.bater(RegistroPonto.SAIDA_ALMOCO, 12, 44)
         self.assertEqual(self.lembretes(12, 47), [])
         self.bater(RegistroPonto.VOLTA_ALMOCO, 13, 56, ativo=False)
-        self.assertEqual(len(self.lembretes(14, 1)), 1)
-        titulos = [item['titulo'] for item in self.lembretes(16, 26)]
-        self.assertEqual(titulos, ['Saída café atrasada há 11 minutos', 'Volta café em 4 minutos'])
+        self.assertEqual([item['titulo'] for item in self.lembretes(14, 1)], ['Hora da volta almoço'])
+
+    def test_sem_volta_do_almoco_as_seguintes_nao_avisam(self):
+        self.bater(RegistroPonto.ENTRADA, 9, 0)
+        self.bater(RegistroPonto.SAIDA_ALMOCO, 12, 45)
+        self.assertEqual([item['titulo'] for item in self.lembretes(14, 0)], ['Hora da volta almoço'])
+        for instante in ((16, 10), (16, 20), (16, 26)):
+            (alerta,) = self.lembretes(*instante)
+            self.assertEqual(alerta['id'], '2026-11-25|sem_volta_almoco')
+            self.assertEqual(alerta['titulo'], 'Volta almoço não registrada hoje')
+            self.assertEqual(alerta['acao'], 'ajuste')
+        for instante in ((16, 28), (16, 30), (17, 55), (18, 0)):
+            self.assertEqual(self.lembretes(*instante), [])
+
+    def test_cafe_atrasado_e_o_alerta_so_depois_dos_avisos_de_atraso(self):
+        self.bater(RegistroPonto.ENTRADA, 9, 0)
+        self.bater(RegistroPonto.SAIDA_ALMOCO, 12, 45)
+        self.bater(RegistroPonto.VOLTA_ALMOCO, 14, 0)
+        self.assertEqual([item['titulo'] for item in self.lembretes(16, 26)], ['Saída café atrasada há 11 minutos'])
+        self.assertEqual([item['titulo'] for item in self.lembretes(16, 27)], ['Saída café não registrada hoje'])
+        self.assertEqual(self.lembretes(17, 55), [])
 
     def test_funcao_desligada_ou_sem_funcao_nao_recebe(self):
         self.funcao.lembretes_ponto = False
