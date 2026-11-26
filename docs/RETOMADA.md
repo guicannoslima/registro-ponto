@@ -66,11 +66,11 @@ O gestor precisa cadastrar os rostos reais antes do uso. Não há prova de vida
 | Relatório | **Gerar relatório** mostra o cartão ponto em PDF num iframe; **Baixar PDF** baixa o arquivo |
 | PDF | Cartão ponto no modelo de mercado, uma página por pessoa ([Uso](USO.md#relatório-de-banco-de-horas)) |
 | Perfil | Todo usuário ganha perfil por signal ([decisão](DECISOES.md#perfil-criado-por-signal--18112026)) |
-| Testes | 136 testes em `ponto/tests.py`; em 25/11, 135 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
+| Testes | 142 testes em `ponto/tests.py`; em 25/11, 141 aprovados no container e só a falha conhecida da foto de perfil ([Testes](TESTES.md)) |
 | Folgas e banco de horas | Gestão › Folgas, banco de horas desde a primeira batida com adicional de domingo, tela por mês de origem e saldo no cartão ponto ([Uso](USO.md#folgas-e-banco-de-horas)) |
 | Planilha retroativa | Importação de `.xlsx` de banco de horas; o administrador acha o colaborador pelo CPF e o gestor escolhe o colaborador |
 | Instalação | Instalação e reexecução verificadas em Ubuntu 24.04 no Docker; falta VM completa e certificado real ([teste](TESTES.md#instalação-em-ubuntu-2404-no-docker--19112026)) |
-| Administração | Menu com Usuários e Envio de e-mails; cadastro/edição de contas, vínculo de equipe e SMTP |
+| Administração | Menu com Usuários, Funções, Jornadas, Feriados e Envio de e-mails; cadastro/edição de contas, vínculo de equipe, lembretes por função e SMTP |
 | Reconhecimento facial | Verificação da pessoa logada, cadastro supervisionado e terminal restrito à equipe; pranchas na página **Câmera** do Figcraft |
 | Capacidade | Indicação de 4 vCPU / 4 GB para pico de 50 pessoas; 1.200 POSTs sem falhas, imagem e recursos de teste descartados ([Carga de 50](CARGA_50_COLABORADORES.md)) |
 
@@ -87,6 +87,27 @@ e volta do café só registram que ele foi feito e não entram na conta. A carga
 (`JORNADA_DIARIA`) está certa; o `HORARIO_DE_TRABALHO` impresso no cartão continua mostrando
 o café entre 16:15 e 16:30 só como referência. Conferido no container: o mesmo dia dá 7h45
 batendo ou não o café, e o painel conta o tempo de café em andamento. Não mexer.
+
+## Lembretes de ponto — em andamento (25/11/2026)
+
+Plano aprovado pelo usuário, sem reabrir as decisões:
+
+- **Avisos só com uma aba do sistema aberta** (Web Push fica para depois, se precisar). Para cada
+  batida prevista na jornada, inclusive o café: 5 min antes, na hora e, sem batida, a cada 2 min
+  até 10 min de atraso (no máximo 7 por batida). Sem aviso para batida já feita (inclusive pelo
+  terminal), feriado, folga ou dia sem expediente. Jornada própria usa os horários dela.
+- O servidor decide pelo relógio dele; a página consulta a cada 30 s. Sem repetição entre abas
+  (`localStorage`); cada aviso substitui o anterior da mesma batida (`tag`, `renotify`). O clique
+  abre a tela de bater ponto. O terminal compartilhado não dispara avisos.
+- Recebe quem tem função com **Enviar lembretes de ponto** ligado, em qualquer papel. Quem pode
+  receber e ainda não permitiu vê no Início o botão **Ativar lembretes de ponto**; com a
+  permissão bloqueada, vê como liberar no navegador.
+
+Feito: pranchas na página **Lembretes de ponto** do Figcraft (prévias em
+`design/previas/lembretes-de-ponto/`) e a tela **Administração → Funções** com o campo
+`Funcao.lembretes_ponto` (migração `0015`, aplicada no banco local `registro_ponto_db`), seis
+testes em `FuncoesTests`. Os tempos dos avisos ficam em `ponto/constants.py`
+(`LEMBRETE_*`). Próximo: os avisos no navegador, com testes, e a conferência das telas.
 
 ## Pendências conhecidas
 

@@ -129,6 +129,7 @@ empresa e o horário impresso ficam em `ponto/constants.py`.
 | `/equipe/` | Batidas do dia da equipe | Gestor e Administrador |
 | `/ponto/criar/` | Lançamento manual de ponto | Gestor e Administrador |
 | `/ponto/excluir/<id>/` | Exclusão de ponto com motivo | Gestor e Administrador |
+| `/administracao/funcoes/` | Funções e lembretes de ponto | Administrador |
 | `/admin/` | Painel administrativo do Django | Superusuário |
 
 ## Registro por reconhecimento facial
@@ -209,7 +210,7 @@ apaga esse vetor do banco ativo; backups seguem a rotina de retenção da implan
 **Meu ponto** reúne registro por câmera, solicitação de ajuste, relatório e, por último, **Meu perfil**.
 **Gestão**, disponível para gestores e administradores, reúne equipe, lançamento manual,
 solicitações pendentes, histórico e cadastro facial. **Administração** reúne **Usuários**,
-**Envio de e-mails** e **Abrir terminal compartilhado** para administradores; para gestores,
+**Funções**, **Jornadas**, **Feriados**, **Envio de e-mails** e **Abrir terminal compartilhado** para administradores; para gestores,
 mostra apenas a abertura do terminal. **Cadastrar usuário** fica na página **Usuários**.
 
 O clique em outro grupo fecha o anterior; clique fora ou `Escape` fecha o submenu.
@@ -232,6 +233,17 @@ Registro de Ponto; não transforma a conta em superusuário do Django.
 
 O cadastro público na tela de login continua disponível e cria apenas colaboradores;
 os vínculos e permissões podem ser ajustados pelo administrador na nova tela.
+
+### Funções e lembretes de ponto
+
+**Implementado em 25/11/2026.** Em **Administração → Funções**, o administrador cadastra e
+edita as funções usadas no cadastro de usuários. A lista mostra o nome, quantas pessoas
+ativas têm a função e se os **lembretes de ponto** estão ligados. Não há exclusão por enquanto.
+
+A opção **Enviar lembretes de ponto** vale para todas as pessoas da função, em qualquer papel,
+porque o perfil aponta para a função. Ela começa desligada em todas as funções. Quem não tem
+função não recebe lembretes. Os avisos no navegador são a próxima etapa e ainda não estão
+ativos; a regra combinada está no [ponto de retomada](RETOMADA.md).
 
 ### Configurar o envio de e-mails
 
