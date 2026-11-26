@@ -1389,6 +1389,75 @@ class JornadasFeriadosTests(TestCase):
 
 
 @override_settings(STORAGES=STORAGES_DE_TESTE)
+class FuncoesTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user('admin_funcoes')
+        self.admin.perfil.papel = Perfil.PAPEL_ADMIN
+        self.admin.perfil.save()
+        self.funcao = Funcao.objects.create(nome='Atendente')
+        for nome, ativo in (('ana_f', True), ('bia_f', True), ('caio_f', False)):
+            pessoa = User.objects.create_user(nome, is_active=ativo)
+            pessoa.perfil.funcao = self.funcao
+            pessoa.perfil.save()
+        self.client.force_login(self.admin)
+
+    def test_telas_restritas_ao_administrador(self):
+        nomes = (('funcoes', []), ('funcao_criar', []), ('funcao_editar', [self.funcao.pk]))
+        for nome, args in nomes:
+            self.assertEqual(self.client.get(reverse(nome, args=args)).status_code, 200)
+        for papel in (Perfil.PAPEL_GESTOR, Perfil.PAPEL_FUNCIONARIO):
+            outro = User.objects.create_user(f'sem_acesso_{papel}')
+            outro.perfil.papel = papel
+            outro.perfil.save()
+            self.client.force_login(outro)
+            self.assertNotContains(self.client.get(reverse('painel')), reverse('funcoes'))
+            for nome, args in nomes:
+                self.assertEqual(self.client.get(reverse(nome, args=args)).status_code, 403)
+                self.assertEqual(self.client.post(reverse(nome, args=args), {'nome': 'X'}).status_code, 403)
+        self.assertFalse(Funcao.objects.filter(nome='X').exists())
+
+    def test_lista_conta_pessoas_ativas_e_mostra_lembretes(self):
+        Funcao.objects.create(nome='Gerente', lembretes_ponto=True)
+        resposta = self.client.get(reverse('funcoes'))
+        funcoes = {f.nome: f for f in resposta.context['funcoes']}
+        self.assertEqual(funcoes['Atendente'].pessoas, 2)
+        self.assertEqual(funcoes['Gerente'].pessoas, 0)
+        self.assertEqual([f.nome for f in resposta.context['funcoes']], sorted(funcoes))
+        self.assertContains(resposta, 'Ligado')
+        self.assertContains(resposta, 'Desligado')
+        self.assertContains(self.client.get(reverse('painel')), reverse('funcoes'))
+
+    def test_cadastra_funcao_com_lembretes_desligados_por_padrao(self):
+        resposta = self.client.post(reverse('funcao_criar'), {'nome': '  Escrevente   Substituto '})
+        self.assertRedirects(resposta, reverse('funcoes'))
+        funcao = Funcao.objects.get(nome='Escrevente Substituto')
+        self.assertFalse(funcao.lembretes_ponto)
+        self.client.post(reverse('funcao_criar'), {'nome': 'Plantonista', 'lembretes_ponto': 'on'})
+        self.assertTrue(Funcao.objects.get(nome='Plantonista').lembretes_ponto)
+
+    def test_nome_repetido_ignora_maiusculas(self):
+        resposta = self.client.post(reverse('funcao_criar'), {'nome': 'ATENDENTE'})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, 'Já existe uma função com esse nome.')
+        self.assertEqual(Funcao.objects.filter(nome__iexact='atendente').count(), 1)
+        resposta = self.client.post(reverse('funcao_editar', args=[self.funcao.pk]), {'nome': 'atendente'})
+        self.assertRedirects(resposta, reverse('funcoes'))
+
+    def test_editar_vale_para_todas_as_pessoas_da_funcao(self):
+        resposta = self.client.get(reverse('funcao_editar', args=[self.funcao.pk]))
+        self.assertContains(resposta, 'A alteração vale para as 2 pessoas com esta função.')
+        resposta = self.client.post(
+            reverse('funcao_editar', args=[self.funcao.pk]), {'nome': 'Atendente', 'lembretes_ponto': 'on'}
+        )
+        self.assertRedirects(resposta, reverse('funcoes'))
+        pessoas = Perfil.objects.filter(funcao__lembretes_ponto=True)
+        self.assertEqual(set(pessoas.values_list('user__username', flat=True)), {'ana_f', 'bia_f', 'caio_f'})
+
+    def test_funcao_inexistente_responde_404(self):
+        self.assertEqual(self.client.get(reverse('funcao_editar', args=[9999])).status_code, 404)
+
+
+@override_settings(STORAGES=STORAGES_DE_TESTE)
 class FolgasBancoHorasTests(TestCase):
     def setUp(self):
         self.gestor = User.objects.create_user('gestora_folga', first_name='Ana', last_name='Souza')

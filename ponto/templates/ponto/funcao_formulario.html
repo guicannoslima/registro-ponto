@@ -1,0 +1,7 @@
+{% extends 'ponto/base_interna.html' %}
+{% block title %}Função - Registro de Ponto{% endblock %}
+{% block conteudo %}<div class="pagina"><header class="titulo-pagina"><div class="titulo-pagina__texto"><h1>{% if funcao %}Editar{% else %}Cadastrar{% endif %} função</h1><p class="apoio">Nome da função e envio de lembretes de ponto.</p></div></header>
+<section class="cartao-interno"><form method="post" class="campos" novalidate>{% csrf_token %}{% include 'ponto/_erros_formulario.html' %}{% include 'ponto/_campo.html' with campo=form.nome %}
+<div><label class="opcao">{{ form.lembretes_ponto }} <strong>{{ form.lembretes_ponto.label }}</strong></label><p class="apoio opcao-ajuda" id="{{ form.lembretes_ponto.auto_id }}_ajuda">{{ form.lembretes_ponto.help_text }}</p></div>
+{% if funcao %}<div class="aviso aviso--info">{% if funcao.pessoas %}A alteração vale para {% if funcao.pessoas == 1 %}a pessoa{% else %}as {{ funcao.pessoas }} pessoas{% endif %} com esta função.{% else %}Nenhuma pessoa ativa tem esta função no momento.{% endif %}</div>{% endif %}
+<div class="acoes"><button class="btn" type="submit">Salvar função</button><a class="btn btn--secundario" href="{% url 'funcoes' %}">Voltar</a></div></form></section></div>{% endblock %}

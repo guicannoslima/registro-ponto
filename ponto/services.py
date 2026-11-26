@@ -9,7 +9,7 @@ from zipfile import BadZipFile
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import Exists, OuterRef
+from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 from openpyxl import load_workbook
 from openpyxl.utils.exceptions import InvalidFileException
@@ -44,6 +44,7 @@ from .models import (
     CadastroFacial,
     Feriado,
     Folga,
+    Funcao,
     HistoricoAlteracaoPonto,
     Jornada,
     Perfil,
@@ -737,6 +738,13 @@ def jornadas_para_listagem():
     for jornada in jornadas:
         jornada.carga_semanal = sum((duracao_jornada(h) for h in jornada.semana.values()), timedelta())
     return jornadas
+
+
+def funcoes_para_listagem():
+    """Funções em ordem alfabética, com `pessoas` = quantas contas ativas usam cada uma."""
+    return Funcao.objects.annotate(
+        pessoas=Count('perfil', filter=Q(perfil__user__is_active=True)),
+    ).order_by('nome')
 
 
 def tipos_da_jornada(usuario, data):

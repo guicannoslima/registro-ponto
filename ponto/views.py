@@ -46,6 +46,7 @@ from .forms import (
     FeriadoForm,
     FolgaForm,
     FotoPerfilForm,
+    FuncaoForm,
     HistoricoFiltroForm,
     ImportarPlanilhaForm,
     JornadaForm,
@@ -78,6 +79,7 @@ from .services import (
     configuracao_jornada,
     efeito_da_folga,
     estado_cadastro_facial,
+    funcoes_para_listagem,
     importar_planilha_ponto,
     jornadas_para_listagem,
     lancar_folgas,
@@ -928,6 +930,24 @@ def jornada_formulario(request, jornada_id=None):
         messages.success(request, 'Jornada salva. Vincule no cadastro do colaborador para aplicar os horários.')
         return redirect('jornadas')
     return render(request, 'ponto/jornada_formulario.html', {'form': form, 'jornada': jornada})
+
+
+@administrador_required
+@require_http_methods(['GET'])
+def funcoes(request):
+    return render(request, 'ponto/funcoes.html', {'funcoes': funcoes_para_listagem()})
+
+
+@administrador_required
+@require_http_methods(['GET', 'POST'])
+def funcao_formulario(request, funcao_id=None):
+    funcao = get_object_or_404(funcoes_para_listagem(), pk=funcao_id) if funcao_id else None
+    form = FuncaoForm(request.POST if request.method == 'POST' else None, instance=funcao)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, 'Função salva.')
+        return redirect('funcoes')
+    return render(request, 'ponto/funcao_formulario.html', {'form': form, 'funcao': funcao})
 
 
 @administrador_required

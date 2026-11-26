@@ -139,3 +139,15 @@ MOTIVO_FOLGA_IMPORTADA = 'Folga negociada'
 MOTIVOS_FOLGA_IMPORTADA_POR_DATA = {date(2026, 10, 9): 'Day-Off'}
 # Dia com os horários em 00:00 vira folga de compensação
 MOTIVO_COMPENSACAO_IMPORTADA = 'Compensação do banco de horas'
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Lembretes de ponto no navegador
+# ---------------------------------------------------------------------------------------------------------------------
+LEMBRETE_ANTECEDENCIA_MINUTOS = 5
+LEMBRETE_INTERVALO_ATRASO_MINUTOS = 2
+LEMBRETE_ATRASO_MAXIMO_MINUTOS = 10
+LEMBRETES_PONTO_AJUDA = (
+    f'Avisa no navegador {LEMBRETE_ANTECEDENCIA_MINUTOS} minutos antes de cada batida prevista na jornada, '
+    f'inclusive o café, na hora certa e, se a batida não for feita, a cada {LEMBRETE_INTERVALO_ATRASO_MINUTOS} '
+    f'minutos até {LEMBRETE_ATRASO_MAXIMO_MINUTOS} minutos de atraso. Só funciona com o sistema aberto em uma aba.'
+)

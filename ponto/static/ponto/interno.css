@@ -476,6 +476,12 @@
     accent-color: var(--acao);
 }
 
+/* Explicação logo abaixo de uma caixa de opção, alinhada ao texto do rótulo */
+.principal-interno .opcao-ajuda {
+    margin: 0 0 0 32px;
+    font-size: 14px;
+}
+
 /* ---------- resumo de uma batida ---------- */
 
 .resumo {

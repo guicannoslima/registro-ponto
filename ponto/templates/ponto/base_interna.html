@@ -51,6 +51,7 @@
                             <div class="menu-grupo__itens">
                                 {% if user.perfil.papel == 'admin' %}
                                     <a href="{% url 'usuarios' %}">Usuários</a>
+                                    <a href="{% url 'funcoes' %}">Funções</a>
                                     <a href="{% url 'jornadas' %}">Jornadas</a>
                                     <a href="{% url 'feriados' %}">Feriados</a>
                                     <a href="{% url 'configurar_email' %}">Envio de e-mails</a>

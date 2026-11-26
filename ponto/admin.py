@@ -27,4 +27,4 @@ class SolicitacaoAjustePontoAdmin(admin.ModelAdmin):
 
 @admin.register(Funcao)
 class FuncaoAdmin(admin.ModelAdmin):
-    list_display = ('nome',)
+    list_display = ('nome', 'lembretes_ponto')

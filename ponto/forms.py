@@ -6,7 +6,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES, PLANILHA_MAX_BYTES
+from .constants import ESCOLHA_DE_BATIDA, FOTO_PERFIL_MAX_BYTES, LEMBRETES_PONTO_AJUDA, PLANILHA_MAX_BYTES
 from .email import cifrar_senha
 from .models import (
     ConfiguracaoEmail,
@@ -428,6 +428,22 @@ class FeriadoForm(forms.ModelForm):
         fields = ['data', 'nome', 'dispensa_expediente']
         widgets = {'data': forms.DateInput(attrs={'type': 'date'}, format='%Y-%m-%d')}
         labels = {'dispensa_expediente': 'Dispensa expediente na empresa'}
+
+
+class FuncaoForm(forms.ModelForm):
+    class Meta:
+        model = Funcao
+        fields = ['nome', 'lembretes_ponto']
+        labels = {'nome': 'Nome da função', 'lembretes_ponto': 'Enviar lembretes de ponto'}
+        help_texts = {'lembretes_ponto': LEMBRETES_PONTO_AJUDA}
+        widgets = {'lembretes_ponto': forms.CheckboxInput(attrs={'aria-describedby': 'id_lembretes_ponto_ajuda'})}
+
+    def clean_nome(self):
+        nome = ' '.join(self.cleaned_data['nome'].split())
+        repetida = Funcao.objects.filter(nome__iexact=nome).exclude(pk=self.instance.pk)
+        if repetida.exists():
+            raise forms.ValidationError('Já existe uma função com esse nome.')
+        return nome
 
 
 class AnoFeriadosForm(forms.Form):
